@@ -1,0 +1,63 @@
+{
+  "name": "idenplane-angular",
+  "version": "1.0.2",
+  "description": "Angular SDK for Idenplane Identity and Access Management Server",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
+  },
+  "peerDependencies": {
+    "@angular/common": ">=17.0.0",
+    "@angular/core": ">=17.0.0",
+    "@angular/router": ">=17.0.0",
+    "idenplane-sdk": ">=1.0.0",
+    "rxjs": ">=7.0.0"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "prepublishOnly": "npm run build"
+  },
+  "devDependencies": {
+    "@angular/common": "^22.0.1",
+    "@angular/core": "^22.0.1",
+    "@angular/router": "^22.0.1",
+    "idenplane-sdk": "file:../idenplane-js",
+    "rxjs": "^7.8.0",
+    "typescript": "^5.7.0",
+    "vitest": "^4.0.18",
+    "zone.js": "^0.15.0"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "keywords": [
+    "idenplane",
+    "oauth2",
+    "oidc",
+    "angular",
+    "authentication",
+    "interceptor",
+    "guard"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/idenplane/idenplane.git",
+    "directory": "packages/idenplane-angular"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "module": "./dist/index.js"
+}

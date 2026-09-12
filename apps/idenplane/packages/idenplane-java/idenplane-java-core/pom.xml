@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.idenplane</groupId>
+        <artifactId>idenplane-java</artifactId>
+        <version>1.1.0</version>
+    </parent>
+
+    <artifactId>idenplane-java-core</artifactId>
+    <packaging>jar</packaging>
+
+    <name>Idenplane Java SDK - Core</name>
+    <description>Core module of the Idenplane Java SDK providing token validation and user management API</description>
+
+    <!-- Overrides Maven's default child-URL inheritance, which would otherwise append this
+         module's artifactId onto the parent's repo-root url/scm.url (e.g.
+         .../idenplane/idenplane-java-core) — not a real path, since this module actually lives
+         at packages/idenplane-java/idenplane-java-core in the monorepo. connection and
+         developerConnection are left inherited as-is: it's the same git repo either way. -->
+    <url>https://github.com/idenplane/idenplane/tree/main/packages/idenplane-java/idenplane-java-core</url>
+    <scm>
+        <connection>scm:git:https://github.com/idenplane/idenplane.git</connection>
+        <developerConnection>scm:git:ssh://git@github.com/idenplane/idenplane.git</developerConnection>
+        <url>https://github.com/idenplane/idenplane/tree/main/packages/idenplane-java/idenplane-java-core</url>
+    </scm>
+
+    <dependencies>
+        <!-- HTTP Client -->
+        <dependency>
+            <groupId>org.apache.httpcomponents.client5</groupId>
+            <artifactId>httpclient5</artifactId>
+        </dependency>
+
+        <!-- JSON Processing -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+
+        <!-- JWT Validation -->
+        <dependency>
+            <groupId>com.nimbusds</groupId>
+            <artifactId>nimbus-jose-jwt</artifactId>
+        </dependency>
+
+        <!-- Testing -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+            </plugin>
+
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+
+    <profiles>
+        <!-- Everything Maven Central publishing needs: sources + javadoc jars, GPG signing,
+             and the Central Portal upload. Deliberately NOT part of the default build — plain
+             `mvn verify` (what CI runs on every PR) must stay fast and must not require a GPG
+             key. Only publish-java.yml activates this profile (`-Pcentral-publish`), and nothing
+             in this change invokes that workflow. -->
+        <profile>
+            <id>central-publish</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-source-plugin</artifactId>
+                    </plugin>
+
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-javadoc-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>attach-javadocs</id>
+                                <goals>
+                                    <goal>jar</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-gpg-plugin</artifactId>
+                    </plugin>
+
+                    <!-- Rewrites the deployed POM to be self-contained (no <parent>, every
+                         inherited field inlined) — see the pluginManagement entry in the parent
+                         pom.xml for why Central Portal's validator needs this. Scoped to this
+                         profile only, like the other publish-only plugins above: plain `mvn
+                         verify` (what CI runs on every PR) doesn't need a flattened pom. -->
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>flatten-maven-plugin</artifactId>
+                    </plugin>
+
+                    <plugin>
+                        <groupId>io.github.mavenplugins</groupId>
+                        <artifactId>central-publishing-maven-plugin</artifactId>
+                        <!-- Declared explicitly rather than relying on inheriting this from
+                             pluginManagement. Note: `mvn help:describe -Dcmd=deploy -Pcentral-publish`
+                             reports `deploy` as still bound to the stock maven-deploy-plugin even
+                             with this — that's help:describe not simulating a profile-injected
+                             extension correctly, not a real problem. groupId must match the
+                             parent pluginManagement entry exactly (Maven resolves plugin config
+                             by groupId+artifactId) — see that entry for why it's
+                             io.github.mavenplugins and not org.sonatype.central. -->
+                        <extensions>true</extensions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+
+</project>

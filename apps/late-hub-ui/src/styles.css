@@ -1,0 +1,288 @@
+:root {
+  --navy: #1f3864;
+  --blue-header: #2e75b6;
+  --row-white: #ffffff;
+  --row-banded: #ebf3fb;
+  --subtotal-fill: #bdd7ee;
+  --grand-total-fill: #c00000;
+  --fine-fill: #ffc7ce;
+  --fine-text: #9c0006;
+  --no-fine-fill: #ffeb9c;
+  --no-fine-text: #9c6500;
+  --border: #d0d7de;
+  --tab-inactive: #dfe7f0;
+  --tab-hover: #cfdbe8;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: Calibri, 'Segoe UI', Arial, sans-serif;
+  color: #1a1a1a;
+  background: #f3f5f7;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+/* ---- Title bar ---- */
+.title-bar {
+  background: var(--navy);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  flex-shrink: 0;
+}
+
+.title-bar h1 {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0;
+  letter-spacing: 0.02em;
+}
+
+.title-bar .actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn {
+  background: var(--blue-header);
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn:hover {
+  filter: brightness(1.1);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+/* ---- Sheet content area ---- */
+.sheet-area {
+  flex: 1;
+  overflow: auto;
+  background: #fff;
+}
+
+.status-message {
+  padding: 40px;
+  text-align: center;
+  color: #667;
+  font-size: 14px;
+}
+
+table.sheet-table {
+  /* border-collapse breaks `position: sticky` on <th> in most browsers - use separate
+     borders (each cell draws only its own right/bottom edge) to get the same grid look. */
+  border-collapse: separate;
+  border-spacing: 0;
+  width: 100%;
+  font-size: 13px;
+}
+
+table.sheet-table th,
+table.sheet-table td {
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  padding: 5px 10px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+table.sheet-table th:first-child,
+table.sheet-table td:first-child {
+  border-left: 1px solid var(--border);
+}
+
+table.sheet-table thead th {
+  border-top: 1px solid var(--border);
+}
+
+table.sheet-table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--blue-header);
+  color: #fff;
+  font-weight: 700;
+  text-align: center;
+  z-index: 1;
+}
+
+table.sheet-table tbody tr.row-white td {
+  background: var(--row-white);
+}
+
+table.sheet-table tbody tr.row-banded td {
+  background: var(--row-banded);
+}
+
+table.sheet-table td.col-note {
+  white-space: normal;
+  min-width: 220px;
+}
+
+table.sheet-table td.col-fine {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+table.sheet-table tr.has-fine td.col-fine {
+  background: var(--fine-fill);
+  color: var(--fine-text);
+  font-weight: 600;
+}
+
+table.sheet-table tr.no-fine td.col-fine {
+  background: var(--no-fine-fill);
+  color: var(--no-fine-text);
+}
+
+table.sheet-table tr.subtotal-row td {
+  background: var(--subtotal-fill);
+  color: var(--navy);
+  font-weight: 700;
+}
+
+table.sheet-table tr.grand-total-row td {
+  background: var(--grand-total-fill);
+  color: #fff;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+/* ---- Sheet tabs (bottom, Excel-style) ---- */
+.tab-bar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  background: #e3e8ee;
+  border-top: 1px solid var(--border);
+  padding: 6px 10px 0;
+  overflow-x: auto;
+}
+
+.tab {
+  background: var(--tab-inactive);
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+  padding: 8px 16px;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+  color: #33475b;
+}
+
+.tab:hover {
+  background: var(--tab-hover);
+}
+
+.tab.active {
+  background: #fff;
+  color: var(--navy);
+  font-weight: 700;
+  position: relative;
+  top: 1px;
+}
+
+.tab.tab-add {
+  color: var(--navy);
+  font-weight: 700;
+  background: transparent;
+  border-color: transparent;
+}
+
+.tab.tab-add:hover {
+  background: var(--tab-hover);
+}
+
+/* ---- Upload modal ---- */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+
+.modal {
+  background: #fff;
+  border-radius: 8px;
+  width: 440px;
+  max-width: 90vw;
+  padding: 24px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+
+.modal h2 {
+  margin: 0 0 16px;
+  font-size: 16px;
+  color: var(--navy);
+}
+
+.field {
+  margin-bottom: 14px;
+}
+
+.field label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 4px;
+  color: #33475b;
+}
+
+.field input[type='file'] {
+  width: 100%;
+  font-size: 13px;
+}
+
+.modal .btn-secondary {
+  background: transparent;
+  color: #33475b;
+  border: 1px solid var(--border);
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.error-text {
+  color: var(--grand-total-fill);
+  font-size: 13px;
+  margin-top: 10px;
+}

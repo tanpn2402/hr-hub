@@ -1,0 +1,286 @@
+{{#if success}}
+<div class="auth-success">{{success}}</div>
+{{/if}}
+
+{{#if error}}
+<div class="auth-error">{{error}}</div>
+{{/if}}
+
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 0.5rem;">
+  <h2 class="auth-subtitle" style="margin: 0;">{{msg "accountTitle"}}</h2>
+  <a href="/realms/{{realmName}}/account/logout" style="color: #6b7280; font-size: 0.85rem; text-decoration: none; padding: 0.4rem 0.85rem; border: 1px solid #d1d5db; border-radius: 6px; white-space: nowrap;">{{msg "accountSignOut"}}</a>
+</div>
+
+<div style="margin-bottom: 1.5rem; text-align: center;">
+  <span style="font-weight: 600; color: #1a1a2e;">{{username}}</span>
+  {{#if email}}
+  <span style="color: #6b7280; font-size: 0.85rem;"> &middot; {{email}}</span>
+  {{#if emailVerified}}
+  <span style="color: #166534; font-size: 0.75rem; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 4px; padding: 0.1rem 0.4rem; margin-left: 0.25rem;">{{msg "accountVerified"}}</span>
+  {{else}}
+  <span style="color: #92400e; font-size: 0.75rem; background: #fffbeb; border: 1px solid #fde68a; border-radius: 4px; padding: 0.1rem 0.4rem; margin-left: 0.25rem;">{{msg "accountUnverified"}}</span>
+  {{/if}}
+  {{/if}}
+</div>
+
+<div style="border-top: 1px solid #e5e7eb; padding-top: 1.25rem; margin-top: 0.5rem;">
+  <h3 style="font-size: 0.95rem; font-weight: 600; color: #374151; margin-bottom: 1rem;">{{msg "accountProfile"}}</h3>
+  <form method="POST" action="/realms/{{realmName}}/account/profile" class="auth-form">
+    <input type="hidden" name="_csrf" value="{{csrfToken}}">
+    <div class="form-group">
+      <label for="firstName">{{msg "accountFirstName"}}</label>
+      <input type="text" id="firstName" name="firstName" value="{{firstName}}" autocomplete="given-name">
+    </div>
+
+    <div class="form-group">
+      <label for="lastName">{{msg "accountLastName"}}</label>
+      <input type="text" id="lastName" name="lastName" value="{{lastName}}" autocomplete="family-name">
+    </div>
+
+    <button type="submit" class="btn-primary">{{msg "accountUpdateProfile"}}</button>
+  </form>
+</div>
+
+<div style="border-top: 1px solid #e5e7eb; padding-top: 1.25rem; margin-top: 1.5rem;">
+  <h3 style="font-size: 0.95rem; font-weight: 600; color: #374151; margin-bottom: 1rem;">{{msg "accountChangePassword"}}</h3>
+  <form method="POST" action="/realms/{{realmName}}/account/password" class="auth-form">
+    <input type="hidden" name="_csrf" value="{{csrfToken}}">
+    <div class="form-group">
+      <label for="currentPassword">{{msg "accountCurrentPassword"}}</label>
+      <input type="password" id="currentPassword" name="currentPassword" required autocomplete="current-password">
+    </div>
+
+    <div class="form-group">
+      <label for="newPassword">{{msg "accountNewPassword"}}</label>
+      <input type="password" id="newPassword" name="newPassword" required minlength="8" autocomplete="new-password">
+    </div>
+
+    <div class="form-group">
+      <label for="confirmPassword">{{msg "accountConfirmNewPassword"}}</label>
+      <input type="password" id="confirmPassword" name="confirmPassword" required minlength="8" autocomplete="new-password">
+    </div>
+
+    <button type="submit" class="btn-primary">{{msg "accountChangePasswordSubmit"}}</button>
+  </form>
+</div>
+
+<div style="border-top: 1px solid #e5e7eb; padding-top: 1.25rem; margin-top: 1.5rem;">
+  <h3 style="font-size: 0.95rem; font-weight: 600; color: #374151; margin-bottom: 1rem;">{{msg "accountTwoFactor"}}</h3>
+
+  {{#if mfaEnabled}}
+  <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 0.75rem; margin-bottom: 1rem;">
+    <span style="color: #166534; font-weight: 500;">{{msg "accountMfaEnabled"}}</span>
+    <span style="color: #6b7280; font-size: 0.85rem;"> &mdash; {{msg "accountMfaEnabledDesc"}}</span>
+  </div>
+
+  <form method="POST" action="/realms/{{realmName}}/account/totp-disable" class="auth-form">
+    <input type="hidden" name="_csrf" value="{{csrfToken}}">
+    <div class="form-group">
+      <label for="disablePassword">{{msg "accountCurrentPassword"}}</label>
+      <input type="password" id="disablePassword" name="currentPassword" required autocomplete="current-password">
+    </div>
+    <button type="submit" class="btn-primary" style="background: #dc2626;"
+      data-confirm-msg="{{msg "accountMfaDisableConfirm"}}">
+      {{msg "accountMfaDisable"}}
+    </button>
+  </form>
+  {{else}}
+  <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 6px; padding: 0.75rem; margin-bottom: 1rem;">
+    <span style="color: #92400e; font-weight: 500;">{{msg "accountMfaNotEnabled"}}</span>
+    <span style="color: #6b7280; font-size: 0.85rem;"> &mdash; {{msg "accountMfaNotEnabledDesc"}}</span>
+  </div>
+
+  <a href="/realms/{{realmName}}/account/totp-setup" class="btn-primary" style="display: inline-block; text-align: center; text-decoration: none;">
+    {{msg "accountMfaSetup"}}
+  </a>
+  {{/if}}
+</div>
+
+{{#if webAuthnEnabled}}
+<div style="border-top: 1px solid #e5e7eb; padding-top: 1.25rem; margin-top: 1.5rem;" id="passkeys-section">
+  <h3 style="font-size: 0.95rem; font-weight: 600; color: #374151; margin-bottom: 0.5rem;">Passkeys (Passwordless)</h3>
+  <p style="color: #6b7280; font-size: 0.85rem; margin-bottom: 1rem;">Passkeys let you sign in using your device's biometrics (fingerprint, face, or PIN) without a password.</p>
+
+  <div id="passkeys-list" style="margin-bottom: 1rem;">
+    {{#if webAuthnCredentials}}
+      {{#each webAuthnCredentials}}
+      <div style="display: flex; align-items: center; justify-content: space-between; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; padding: 0.75rem 1rem; margin-bottom: 0.5rem;">
+        <div>
+          <div style="font-weight: 500; color: #111827;">
+            {{#if this.friendlyName}}{{this.friendlyName}}{{else}}Passkey{{/if}}
+            {{#if this.backedUp}}<span style="font-size: 0.7rem; color: #166534; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 3px; padding: 0.1rem 0.3rem; margin-left: 0.4rem;">Synced</span>{{/if}}
+          </div>
+          <div style="font-size: 0.8rem; color: #6b7280; margin-top: 0.2rem;">
+            Added {{this.createdAt}}
+            {{#if this.lastUsedAt}} &middot; Last used {{this.lastUsedAt}}{{/if}}
+          </div>
+        </div>
+        <button
+          type="button"
+          data-credential-id="{{this.id}}"
+          class="remove-passkey-btn"
+          style="background: none; border: 1px solid #fca5a5; color: #dc2626; border-radius: 4px; padding: 0.3rem 0.75rem; cursor: pointer; font-size: 0.85rem;"
+        >Remove</button>
+      </div>
+      {{/each}}
+    {{else}}
+      <p style="color: #6b7280; font-size: 0.875rem; font-style: italic;">No passkeys registered yet.</p>
+    {{/if}}
+  </div>
+
+  <div id="passkey-status" style="margin-bottom: 0.75rem; display: none;"></div>
+
+  <button type="button" id="register-passkey-btn" class="btn-primary" style="display: inline-flex; align-items: center; gap: 0.4rem;">
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    Add a passkey
+  </button>
+
+  <div id="passkey-name-form" style="display: none; margin-top: 1rem;">
+    <div class="form-group">
+      <label for="passkey-name">Passkey name (optional)</label>
+      <input type="text" id="passkey-name" placeholder="e.g. MacBook Touch ID, iPhone Face ID" style="margin-bottom: 0.5rem;">
+    </div>
+    <button type="button" id="confirm-register-passkey-btn" class="btn-primary">Register passkey</button>
+    <button type="button" id="cancel-register-passkey-btn" style="background: none; border: 1px solid #d1d5db; color: #374151; border-radius: 6px; padding: 0.6rem 1.25rem; margin-left: 0.5rem; cursor: pointer;">Cancel</button>
+  </div>
+</div>
+
+<script nonce="{{scriptNonce}}">
+(function() {
+  const realmName = '{{realmName}}';
+
+  // Attach confirm dialog to MFA disable submit buttons
+  document.querySelectorAll('button[data-confirm-msg]').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      if (!confirm(btn.getAttribute('data-confirm-msg'))) { e.preventDefault(); }
+    });
+  });
+
+  // Attach remove-passkey handlers
+  document.querySelectorAll('.remove-passkey-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() { removePasskey(btn.getAttribute('data-credential-id')); });
+  });
+
+  function showStatus(msg, isError) {
+    const el = document.getElementById('passkey-status');
+    el.style.display = 'block';
+    el.style.background = isError ? '#fef2f2' : '#f0fdf4';
+    el.style.border = '1px solid ' + (isError ? '#fca5a5' : '#bbf7d0');
+    el.style.color = isError ? '#dc2626' : '#166534';
+    el.style.borderRadius = '6px';
+    el.style.padding = '0.6rem 1rem';
+    el.textContent = msg;
+  }
+
+  // Show name form when "Add passkey" clicked
+  document.getElementById('register-passkey-btn').addEventListener('click', function() {
+    document.getElementById('passkey-name-form').style.display = 'block';
+    this.style.display = 'none';
+  });
+
+  document.getElementById('cancel-register-passkey-btn').addEventListener('click', function() {
+    document.getElementById('passkey-name-form').style.display = 'none';
+    document.getElementById('register-passkey-btn').style.display = 'inline-flex';
+    document.getElementById('passkey-status').style.display = 'none';
+  });
+
+  document.getElementById('confirm-register-passkey-btn').addEventListener('click', async function() {
+    const friendlyName = document.getElementById('passkey-name').value.trim();
+    const btn = this;
+    btn.disabled = true;
+    btn.textContent = 'Waiting for device...';
+
+    try {
+      // Get options from server
+      const optRes = await fetch('/realms/' + realmName + '/webauthn/register/options', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ friendlyName }),
+        credentials: 'same-origin',
+      });
+      if (!optRes.ok) throw new Error((await optRes.json()).message || 'Failed to get registration options');
+      const options = await optRes.json();
+
+      // Convert base64url strings to ArrayBuffers as required by WebAuthn API
+      options.user.id = base64urlToBuffer(options.user.id);
+      options.challenge = base64urlToBuffer(options.challenge);
+      if (options.excludeCredentials) {
+        options.excludeCredentials = options.excludeCredentials.map(function(c) {
+          return Object.assign({}, c, { id: base64urlToBuffer(c.id) });
+        });
+      }
+
+      // Create credential via browser API
+      const credential = await navigator.credentials.create({ publicKey: options });
+      if (!credential) throw new Error('Passkey creation was cancelled');
+
+      // Encode response for server
+      const response = encodeCredential(credential);
+
+      // Send to server for verification
+      const verifyRes = await fetch('/realms/' + realmName + '/webauthn/register/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ response, friendlyName: friendlyName || undefined }),
+        credentials: 'same-origin',
+      });
+      if (!verifyRes.ok) throw new Error((await verifyRes.json()).message || 'Verification failed');
+
+      showStatus('Passkey registered successfully! Reloading...', false);
+      setTimeout(function() { window.location.reload(); }, 1200);
+    } catch (err) {
+      showStatus('Error: ' + (err.message || 'Registration failed'), true);
+      btn.disabled = false;
+      btn.textContent = 'Register passkey';
+    }
+  });
+
+  async function removePasskey(credentialId) {
+    if (!confirm('Remove this passkey? You will no longer be able to use it to sign in.')) return;
+    try {
+      const res = await fetch('/realms/' + realmName + '/account/webauthn/credentials/' + credentialId, {
+        method: 'DELETE',
+        credentials: 'same-origin',
+      });
+      if (!res.ok) throw new Error('Failed to remove passkey');
+      window.location.reload();
+    } catch (err) {
+      showStatus('Error removing passkey: ' + err.message, true);
+    }
+  }
+
+  // Helpers
+  function base64urlToBuffer(base64url) {
+    if (base64url instanceof ArrayBuffer) return base64url;
+    const b64 = base64url.replace(/-/g, '+').replace(/_/g, '/');
+    const bin = atob(b64);
+    const buf = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+    return buf.buffer;
+  }
+
+  function bufferToBase64url(buffer) {
+    const bytes = new Uint8Array(buffer);
+    let str = '';
+    for (let i = 0; i < bytes.length; i++) str += String.fromCharCode(bytes[i]);
+    return btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+  }
+
+  function encodeCredential(credential) {
+    const response = credential.response;
+    const obj = {
+      id: credential.id,
+      rawId: bufferToBase64url(credential.rawId),
+      type: credential.type,
+      response: {
+        clientDataJSON: bufferToBase64url(response.clientDataJSON),
+        attestationObject: bufferToBase64url(response.attestationObject),
+      },
+    };
+    if (response.getTransports) obj.response.transports = response.getTransports();
+    if (credential.authenticatorAttachment) obj.authenticatorAttachment = credential.authenticatorAttachment;
+    return obj;
+  }
+})();
+</script>
+{{/if}}

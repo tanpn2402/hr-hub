@@ -1,0 +1,55 @@
+{
+  "name": "idenplane-mcp",
+  "version": "0.1.0",
+  "description": "MCP server for Idenplane IAM — manage identities in natural language",
+  "type": "module",
+  "bin": {
+    "idenplane-mcp": "dist/index.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test tests/integration.mjs",
+    "test:smoke": "node --test tests/smoke.mjs tests/path-traversal.mjs",
+    "test:all": "node --test tests/smoke.mjs tests/path-traversal.mjs tests/integration.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.15.0",
+    "zod": "^3.25.67"
+  },
+  "devDependencies": {
+    "tsup": "^8.4.0",
+    "typescript": "^5.7.0",
+    "@types/node": "^22.10.7",
+    "@idenplane/http-internal": "file:../idenplane-http-internal"
+  },
+  "overrides": {
+    "esbuild": "^0.28.1",
+    "@hono/node-server": "^2.0.5"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "idenplane",
+    "mcp",
+    "iam",
+    "identity",
+    "oauth2",
+    "oidc",
+    "model-context-protocol"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/idenplane/idenplane.git",
+    "directory": "packages/idenplane-mcp"
+  }
+}

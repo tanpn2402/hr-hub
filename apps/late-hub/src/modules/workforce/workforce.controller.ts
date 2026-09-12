@@ -20,6 +20,23 @@ export class WorkforceController {
     return this.workforceService.importExcelFiles(files);
   }
 
+  @Get('reports')
+  listReports() {
+    return this.workforceService.listMonthlyReports();
+  }
+
+  @Get('reports/:month')
+  getReport(@Param('month') month: string) {
+    return this.workforceService.getMonthlyReport(month);
+  }
+
+  @Get('reports/:month/export')
+  @Header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+  async exportReport(@Param('month') month: string): Promise<StreamableFile> {
+    const { buffer, fileName } = await this.workforceService.exportMonthlyReport(month);
+    return new StreamableFile(buffer, { disposition: `attachment; filename="${fileName}"` });
+  }
+
   @Get('export/:batchId')
   @Header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
   async exportBatch(@Param('batchId') batchId: string): Promise<StreamableFile> {

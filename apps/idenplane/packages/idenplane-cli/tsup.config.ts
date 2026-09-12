@@ -1,0 +1,28 @@
+import { defineConfig } from 'tsup';
+
+export default defineConfig([
+  {
+    entry: ['src/index.ts'],
+    format: ['esm'],
+    dts: true,
+    clean: true,
+    target: 'node18',
+    // @idenplane/http-internal is an unpublished, monorepo-local package —
+    // inline it into the bundle rather than leaving a require/import that
+    // wouldn't resolve for a real npm install of idenplane-cli.
+    noExternal: ['@idenplane/http-internal'],
+    banner: {
+      js: '#!/usr/bin/env node',
+    },
+  },
+  {
+    entry: ['tests/*.test.ts'],
+    outDir: 'dist/tests',
+    format: ['esm'],
+    dts: false,
+    clean: false,
+    target: 'node18',
+    sourcemap: true,
+    noExternal: ['@idenplane/http-internal'],
+  },
+]);

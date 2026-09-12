@@ -1,0 +1,491 @@
+---
+id: docker
+title: Docker Compose Deployment
+sidebar_position: 1
+description: Deploy Idenplane using Docker Compose for production and development environments.
+---
+
+# Docker Compose Deployment
+
+Idenplane provides production-ready Docker Compose configurations for easy deployment. This guide covers both production and development setups.
+
+---
+
+## Quick Start
+
+The fastest way to deploy Idenplane with Docker Compose:
+
+```bash
+# Download the production compose file
+curl -o docker-compose.yml https://raw.githubusercontent.com/idenplane/idenplane/main/docker-compose.yml
+
+# Download the environment template
+curl -o .env https://raw.githubusercontent.com/idenplane/idenplane/main/.env.example
+
+# Edit .env and set your secrets
+nano .env
+
+# Start the stack
+docker compose up -d
+```
+
+---
+
+## Production Deployment
+
+The production configuration uses a pre-built Docker image and includes PostgreSQL for data persistence.
+
+### Configuration
+
+Create a `.env` file with your production settings:
+
+```bash
+# Required: Generate secure secrets
+ADMIN_API_KEY=your-secure-api-key-here
+
+# Optional: Customize defaults
+ADMIN_USER=admin
+ADMIN_PASSWORD=change-me-in-production
+BASE_URL=https://auth.yourdomain.com
+THROTTLE_TTL=60000
+THROTTLE_LIMIT=100
+```
+
+:::warning
+Always generate secure secrets for production. Never use default or placeholder values:
+
+```bash
+# Generate a secure API key
+openssl rand -hex 32
+```
+:::
+
+### docker-compose.yml
+
+```yaml
+services:
+  # Redis is optional. Uncomment the `redis` service and the REDIS_URL env var
+  # on the `app` service to enable the Redis cache/session layer.
+  # redis:
+  #   image: redis:7-alpine
+  #   command: ["redis-server", "--save", "", "--appendonly", "no"]
+  #   ports:
+  #     - "6379:6379"
+  #   healthcheck:
+  #     test: ["CMD", "redis-cli", "ping"]
+  #     interval: 5s
+  #     timeout: 3s
+  #     retries: 5
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: idenplane
+      POSTGRES_PASSWORD: idenplane
+      POSTGRES_DB: idenplane
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U idenplane"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  app:
+    image: islamawad/idenplane:latest
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://idenplane:idenplane@db:5432/idenplane
+      PORT: "3000"
+      NODE_ENV: production
+      ADMIN_API_KEY: ${ADMIN_API_KEY:-change-me-in-production}
+      ADMIN_USER: ${ADMIN_USER:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin}
+      THROTTLE_TTL: ${THROTTLE_TTL:-60000}
+      THROTTLE_LIMIT: ${THROTTLE_LIMIT:-100}
+      BASE_URL: ${BASE_URL:-http://localhost:3000}
+      # Uncomment to enable Redis cache (requires the redis service above):
+      # REDIS_URL: redis://redis:6379
+      # SESSION_STORE: ${SESSION_STORE:-database}
+    depends_on:
+      db:
+        condition: service_healthy
+      # Uncomment when enabling redis:
+      # redis:
+      #   condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+```
+
+### Starting the Stack
+
+```bash
+# Pull the latest image and start
+docker compose pull
+docker compose up -d
+
+# Check status
+docker compose ps
+
+# View logs
+docker compose logs -f app
+```
+
+### Verifying the Deployment
+
+| Endpoint | Description |
+|----------|-------------|
+| http://localhost:3000/health/live | Liveness check |
+| http://localhost:3000/health/ready | Readiness check |
+| http://localhost:3000/console | Admin Console |
+| http://localhost:3000/api | Swagger API Docs |
+
+---
+
+## Production with TLS (Traefik + Redis)
+
+The example above expects you to put your own TLS-terminating reverse proxy in front of it. If you'd rather have a complete, ready-to-run stack — automatic Let's Encrypt certificates via [Traefik](https://traefik.io/), plus Redis for the cache/session layer — use [`docker-compose.production.yml`](https://github.com/idenplane/idenplane/blob/dev/docker-compose.production.yml) from the repo root instead.
+
+This requires a real domain name already pointed at the host, since Traefik's ACME TLS challenge must be reachable on port 443 from the public internet.
+
+```bash
+DOMAIN=auth.example.com \
+ACME_EMAIL=you@example.com \
+POSTGRES_PASSWORD=$(openssl rand -hex 16) \
+ADMIN_API_KEY=$(openssl rand -hex 32) \
+ADMIN_PASSWORD=$(openssl rand -hex 16) \
+WEBHOOK_SECRET_KEY=$(openssl rand -hex 32) \
+WEBHOOK_ENCRYPTION_SALT=$(openssl rand -hex 16) \
+docker compose -f docker-compose.production.yml up -d
+```
+
+What it sets up beyond the basic production example:
+
+- **Traefik** terminates TLS on `:443` (redirecting `:80` to it) and requests/renews a Let's Encrypt certificate for `$DOMAIN` automatically — no manual certbot steps.
+- **Redis** is enabled out of the box (`REDIS_URL`, `SESSION_STORE=redis` are already set on the `app` service — you don't need to uncomment anything).
+- `db` and `redis` have no published ports — only the `app` and `traefik` containers can reach them, reducing the attack surface versus the basic example's `127.0.0.1:5432` binding.
+- `TRUSTED_PROXIES=*` is set on `app` since Traefik is the only thing that can reach it directly within the compose network — safe here, but don't copy this value into a setup where the app is also directly reachable from elsewhere.
+
+---
+
+## Production with TLS (Nginx + Redis)
+
+Prefer Nginx over Traefik? [`docker-compose.nginx.yml`](https://github.com/idenplane/idenplane/blob/dev/docker-compose.nginx.yml) sets up the same stack — Postgres, Redis, automatic Let's Encrypt TLS — using [nginx-proxy](https://github.com/nginx-proxy/nginx-proxy) and its [acme-companion](https://github.com/nginx-proxy/acme-companion) instead. They watch the Docker socket and generate Nginx's vhost config and certificates automatically from labels on the `app` service — there's no Nginx config file to hand-write or certbot cron job to set up.
+
+This also requires a real domain name already pointed at the host, since the ACME HTTP-01 challenge must be reachable on port 80 from the public internet.
+
+```bash
+DOMAIN=auth.example.com \
+ACME_EMAIL=you@example.com \
+POSTGRES_PASSWORD=$(openssl rand -hex 16) \
+ADMIN_API_KEY=$(openssl rand -hex 32) \
+ADMIN_PASSWORD=$(openssl rand -hex 16) \
+WEBHOOK_SECRET_KEY=$(openssl rand -hex 32) \
+WEBHOOK_ENCRYPTION_SALT=$(openssl rand -hex 16) \
+docker compose -f docker-compose.nginx.yml up -d
+```
+
+What it sets up, same as the Traefik version above:
+
+- **nginx-proxy** terminates TLS on `:443` and reverse-proxies to `app` based on the `VIRTUAL_HOST`/`VIRTUAL_PORT` labels set on it — no vhost file to write by hand.
+- **acme-companion** requests and renews the Let's Encrypt certificate for `$DOMAIN` automatically, triggered by the `LETSENCRYPT_HOST` label.
+- **Redis** is enabled out of the box, same as the Traefik template.
+- `db` and `redis` have no published ports; `TRUSTED_PROXIES=*` is set on `app` for the same reason as the Traefik version — nginx-proxy is the only thing that can reach it directly within the compose network.
+
+---
+
+## Development Deployment
+
+The development configuration builds from source, enabling hot-reload for active development.
+
+### docker-compose.dev.yml
+
+```yaml
+services:
+  # ── Redis (optional) ──────────────────────────────────────────────────────
+  # Uncomment to enable the Redis cache/session layer.
+  # redis:
+  #   image: redis:7-alpine
+  #   command: ["redis-server", "--save", "", "--appendonly", "no"]
+  #   ports:
+  #     - "6379:6379"
+  #   healthcheck:
+  #     test: ["CMD", "redis-cli", "ping"]
+  #     interval: 5s
+  #     timeout: 3s
+  #     retries: 5
+
+  # ── PostgreSQL (default / recommended for production) ─────────────────────
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: idenplane
+      POSTGRES_PASSWORD: idenplane
+      POSTGRES_DB: idenplane
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U idenplane"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ── MySQL 8 (alternative — uncomment and comment-out the postgres service) ─
+  # Before switching: run ./scripts/use-mysql.sh to activate the MySQL schema.
+  # mysql:
+  #   image: mysql:8.0
+  #   environment:
+  #     MYSQL_ROOT_PASSWORD: idenplane
+  #     MYSQL_DATABASE: idenplane
+  #     MYSQL_USER: idenplane
+  #     MYSQL_PASSWORD: idenplane
+  #   command: >
+  #     --character-set-server=utf8mb4
+  #     --collation-server=utf8mb4_unicode_ci
+  #   ports:
+  #     - "3306:3306"
+  #   volumes:
+  #     - mysqldata:/var/lib/mysql
+  #   healthcheck:
+  #     test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "idenplane", "-pidenplane"]
+  #     interval: 5s
+  #     timeout: 3s
+  #     retries: 10
+
+  # ── SQLite (development only — no database service required) ──────────────
+  # SQLite requires no Docker service.  Simply set:
+  #   DATABASE_URL=file:./dev.db
+  # in your .env file and run: ./scripts/use-sqlite.sh
+  # Then: npx prisma migrate dev --name init
+
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      # PostgreSQL (default):
+      DATABASE_URL: postgresql://idenplane:idenplane@db:5432/idenplane
+      # MySQL — uncomment when using the mysql service above:
+      # DATABASE_URL: mysql://idenplane:idenplane@mysql:3306/idenplane
+      # SQLite — not recommended inside Docker; use host-mode dev instead:
+      # DATABASE_URL: file:./dev.db
+      PORT: "3000"
+      NODE_ENV: development
+      ADMIN_API_KEY: ${ADMIN_API_KEY:-change-me-in-production}
+      ADMIN_USER: ${ADMIN_USER:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin}
+      THROTTLE_TTL: ${THROTTLE_TTL:-60000}
+      THROTTLE_LIMIT: ${THROTTLE_LIMIT:-100}
+      BASE_URL: ${BASE_URL:-http://localhost:3000}
+      # Uncomment to enable Redis cache (requires the redis service above):
+      # REDIS_URL: redis://redis:6379
+      # SESSION_STORE: ${SESSION_STORE:-database}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  # mysqldata:  # uncomment when using the MySQL service
+```
+
+### Starting Development Stack
+
+```bash
+# Use the dev compose file
+docker compose -f docker-compose.dev.yml up -d
+
+# View logs
+docker compose -f docker-compose.dev.yml logs -f
+```
+
+---
+
+## Database Options
+
+### PostgreSQL (Recommended)
+
+PostgreSQL is the recommended database for production deployments:
+
+```yaml
+db:
+  image: postgres:16-alpine
+  environment:
+    POSTGRES_USER: idenplane
+    POSTGRES_PASSWORD: idenplane
+    POSTGRES_DB: idenplane
+```
+
+### MySQL 8
+
+To use MySQL instead:
+
+1. Run the MySQL schema activation script:
+   ```bash
+   ./scripts/use-mysql.sh
+   ```
+
+2. Uncomment the MySQL service and comment out PostgreSQL in your compose file
+
+3. Update the DATABASE_URL:
+   ```
+   DATABASE_URL: mysql://idenplane:idenplane@mysql:3306/idenplane
+   ```
+
+:::note
+MySQL support requires running `./scripts/use-mysql.sh` to activate the MySQL schema before deployment.
+:::
+
+### SQLite (Development Only)
+
+SQLite requires no Docker service. For host-mode development:
+
+1. Set the database URL in your `.env`:
+   ```
+   DATABASE_URL=file:./dev.db
+   ```
+
+2. Run the SQLite schema activation script:
+   ```bash
+   ./scripts/use-sqlite.sh
+   ```
+
+3. Run migrations:
+   ```bash
+   npx prisma migrate dev --name init
+   ```
+
+:::warning
+SQLite is intended for development and CI only. It does not support concurrent connections in production.
+:::
+
+---
+
+## Optional: Redis Cache
+
+Redis is optional and can be enabled for session caching:
+
+1. Uncomment the Redis service in your compose file
+
+2. Uncomment the REDIS_URL and SESSION_STORE environment variables:
+   ```yaml
+   REDIS_URL: redis://redis:6379
+   SESSION_STORE: ${SESSION_STORE:-database}
+   ```
+
+3. Uncomment the Redis health check dependency:
+   ```yaml
+   depends_on:
+     db:
+       condition: service_healthy
+     redis:
+       condition: service_healthy
+   ```
+
+---
+
+## Common Tasks
+
+### Updating Idenplane
+
+```bash
+# Pull the latest image
+docker compose pull
+
+# Restart with new image
+docker compose up -d
+```
+
+### Backing Up Data
+
+```bash
+# Backup PostgreSQL data
+docker compose exec db pg_dump -U idenplane idenplane > backup.sql
+
+# Restore from backup
+docker compose exec -T db psql -U idenplane idenplane < backup.sql
+```
+
+### Viewing Logs
+
+```bash
+# All services
+docker compose logs -f
+
+# Specific service
+docker compose logs -f app
+docker compose logs -f db
+```
+
+### Stopping the Stack
+
+```bash
+# Stop services (preserves data)
+docker compose stop
+
+# Stop and remove containers
+docker compose down
+
+# Stop and remove volumes (deletes data!)
+docker compose down -v
+```
+
+---
+
+## Troubleshooting
+
+### Container Won't Start
+
+1. Check logs: `docker compose logs app`
+2. Verify DATABASE_URL is correct
+3. Ensure database is healthy before app starts
+
+### Database Connection Errors
+
+1. Verify PostgreSQL is running: `docker compose ps db`
+2. Check health status: `docker compose exec db pg_isready -U idenplane`
+3. Inspect connection string in `.env`
+
+### Permission Denied Errors
+
+If you see permission errors on volumes:
+
+```bash
+# Reset volume permissions
+docker compose down
+docker volume rm $(docker volume ls -q | grep idenplane)
+docker compose up -d
+```
+
+---
+
+## Next Steps
+
+<div style={{display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem', marginTop: '2rem'}}>
+
+[**Kubernetes**](/deployment/kubernetes)
+Deploy Idenplane on Kubernetes with Helm charts
+
+[**Environment Variables**](/configuration/environment-variables)
+Complete list of all configuration options
+
+[**Configuration**](/getting-started/configuration)
+Detailed configuration guide
+
+</div>
+
+---
+
+<p align="center">
+  <a href="https://idenplane.com">idenplane.com</a> &middot;
+  <a href="https://github.com/idenplane/idenplane">GitHub</a> &middot;
+  <a href="https://discord.gg/idenplane">Discord</a>
+</p>

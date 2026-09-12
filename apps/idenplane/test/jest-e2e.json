@@ -1,0 +1,36 @@
+{
+  "moduleFileExtensions": ["js", "json", "ts"],
+  "rootDir": ".",
+  "testEnvironment": "node",
+  "testRegex": ".e2e-spec.ts$",
+  "transform": {
+    "^.+\\.(t|j)s$": [
+      "ts-jest",
+      {
+        "tsconfig": {
+          "module": "commonjs",
+          "moduleResolution": "node",
+          "ignoreDeprecations": "6.0",
+          "resolvePackageJsonExports": false,
+          "esModuleInterop": true,
+          "allowSyntheticDefaultImports": true,
+          "emitDecoratorMetadata": true,
+          "experimentalDecorators": true,
+          "target": "ES2023",
+          "skipLibCheck": true,
+          "strictNullChecks": true
+        }
+      }
+    ]
+  },
+  "testTimeout": 30000,
+  "maxWorkers": 1,
+  "setupFiles": ["<rootDir>/e2e-env.ts"],
+  "moduleNameMapper": {
+    "^(\\.{1,2}/.*)\\.js$": "$1"
+  },
+  "transformIgnorePatterns": [
+    "^(?!.*node_modules/(jose|sanitize-html/node_modules)/).*node_modules/.*$"
+  ],
+  "globalSetup": "./global-setup.ts"
+}

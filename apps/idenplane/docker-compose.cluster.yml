@@ -1,0 +1,59 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: idenplane
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      POSTGRES_DB: idenplane
+    ports:
+      - '5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U idenplane']
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  app1:
+    build: .
+    ports:
+      - '3001:3000'
+    environment:
+      DATABASE_URL: postgresql://idenplane:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@db:5432/idenplane
+      BASE_URL: http://localhost:8081
+      NODE_ENV: production
+      ADMIN_USER: ${ADMIN_USER:-admin}
+      ADMIN_API_KEY: ${ADMIN_API_KEY:?Set ADMIN_API_KEY}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Set ADMIN_PASSWORD}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  app2:
+    build: .
+    ports:
+      - '3002:3000'
+    environment:
+      DATABASE_URL: postgresql://idenplane:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@db:5432/idenplane
+      BASE_URL: http://localhost:8081
+      NODE_ENV: production
+      ADMIN_USER: ${ADMIN_USER:-admin}
+      ADMIN_API_KEY: ${ADMIN_API_KEY:?Set ADMIN_API_KEY}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Set ADMIN_PASSWORD}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - '8081:80'
+    volumes:
+      - ./nginx-cluster.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - app1
+      - app2
+
+volumes:
+  pgdata:

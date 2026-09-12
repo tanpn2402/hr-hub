@@ -7,6 +7,8 @@ import * as XLSX from 'xlsx';
 import { buildLateFineReportWorkbook } from './exporters/late-fine-report.exporter';
 import { LateFineCalculatorService } from './late-fine-calculator.service';
 import { LateFineReport } from './models/late-fine-report.model';
+import { MonthlyReport, MonthlyReportSummary } from './models/monthly-report.model';
+import { MonthlyReportsRepository } from './monthly-reports.repository';
 import { parseAttendanceWorkbook } from './parsers/attendance-workbook.parser';
 import { parseLeaveWorkbook } from './parsers/leave-workbook.parser';
 
@@ -32,6 +34,7 @@ export interface WorkforceImportResult {
   savedTo: string;
   imported: WorkforceFileSummary[];
   lateFineReport: LateFineReport;
+  month: string | null;
   message: string;
 }
 
@@ -47,6 +50,7 @@ export class WorkforceService {
   constructor(
     private readonly config: ConfigService,
     private readonly lateFineCalculator: LateFineCalculatorService,
+    private readonly monthlyReports: MonthlyReportsRepository,
   ) {}
 
   async importExcelFiles(files: Express.Multer.File[]): Promise<WorkforceImportResult> {
@@ -68,14 +72,37 @@ export class WorkforceService {
     }
 
     const lateFineReport = this.calculateReport(parsed);
+    const derived = deriveMonthAndLabel(lateFineReport);
+    if (derived) {
+      await this.monthlyReports.save(derived.month, derived.label, batchId, lateFineReport);
+    }
 
     return {
       batchId,
       savedTo: batchDirectory,
       imported: parsed.map((item) => item.summary),
       lateFineReport,
+      month: derived?.month ?? null,
       message: 'Check-in/checkout and leave Excel files saved and analyzed successfully.',
     };
+  }
+
+  listMonthlyReports(): Promise<MonthlyReportSummary[]> {
+    return this.monthlyReports.list();
+  }
+
+  async getMonthlyReport(month: string): Promise<MonthlyReport> {
+    const report = await this.monthlyReports.get(month);
+    if (!report) {
+      throw new NotFoundException(`No report found for month "${month}"`);
+    }
+    return report;
+  }
+
+  async exportMonthlyReport(month: string): Promise<{ buffer: Buffer; fileName: string }> {
+    const report = await this.getMonthlyReport(month);
+    const buffer = await buildLateFineReportWorkbook(report);
+    return { buffer, fileName: `BCC_ditre_${month}.xlsx` };
   }
 
   /** Re-reads a previously imported batch from disk and exports its late-fine report as an .xlsx file. */
@@ -165,4 +192,14 @@ export class WorkforceService {
       .replace('T', '-')
       .replace(/\.\d{3}Z$/, '');
   }
+}
+
+/** Derives the ISO yyyy-MM month key and a Vietnamese sheet-style label (e.g. "Báo cáo đi trễ T8.2026") from a report's first row. */
+function deriveMonthAndLabel(report: LateFineReport): { month: string; label: string } | null {
+  const firstRow = report.rows[0];
+  if (!firstRow) return null;
+
+  const month = firstRow.date.slice(0, 7);
+  const [year, monthNum] = month.split('-');
+  return { month, label: `Báo cáo đi trễ T${Number(monthNum)}.${year}` };
 }

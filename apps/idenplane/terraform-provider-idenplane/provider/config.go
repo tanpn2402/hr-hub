@@ -1,0 +1,135 @@
+// Package provider implements the Terraform provider for Idenplane
+package provider
+
+import (
+	"context"
+	"os"
+	"time"
+
+	"github.com/hashicorp/terraform-plugin-framework/datasource"
+	"github.com/hashicorp/terraform-plugin-framework/function"
+	"github.com/hashicorp/terraform-plugin-framework/provider"
+	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
+	"github.com/idenplane/terraform-provider-idenplane/client"
+)
+
+// Ensure the implementation satisfies the expected interfaces
+var (
+	_ provider.Provider = &IdenplaneProvider{}
+)
+
+// IdenplaneProvider satisfies the terraform-plugin-framework provider interface
+type IdenplaneProvider struct {
+	// version is set during build via ldflags
+	version string
+
+	// httpClient is the Idenplane API HTTP client (nil until Configure is called)
+	httpClient *client.HTTPClient
+}
+
+// ProviderConfigModel represents the provider configuration model
+// This is used to parse the provider configuration from Terraform
+type ProviderConfigModel struct {
+	URL    types.String `tfsdk:"url" doc:"Idenplane Admin API URL"`
+	APIKey types.String `tfsdk:"api_key" doc:"Idenplane Admin API key"`
+}
+
+// New creates a new provider instance
+func New() provider.Provider {
+	return &IdenplaneProvider{
+		version: os.Getenv("IDENPLANE_PROVIDER_VERSION"),
+	}
+}
+
+// Metadata returns the provider metadata (name and version)
+func (p *IdenplaneProvider) Metadata(ctx context.Context, req provider.MetadataRequest, resp *provider.MetadataResponse) {
+	resp.TypeName = "idenplane"
+	resp.Version = p.version
+}
+
+// Schema returns the provider schema (configuration options)
+func (p *IdenplaneProvider) Schema(ctx context.Context, req provider.SchemaRequest, resp *provider.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		MarkdownDescription: "Terraform provider for Idenplane Identity and Access Management. " +
+			"Manages realms, clients, roles, groups, users, identity providers, authentication flows, and organizations.",
+
+		Attributes: map[string]schema.Attribute{
+			"url": schema.StringAttribute{
+				MarkdownDescription: "Idenplane Admin API URL (e.g., https://idenplane.example.com)",
+				Required:            true,
+			},
+			"api_key": schema.StringAttribute{
+				MarkdownDescription: "Idenplane Admin API key",
+				Required:            true,
+				Sensitive:           true,
+			},
+		},
+	}
+}
+
+// Configure is called by Terraform to configure the provider
+func (p *IdenplaneProvider) Configure(ctx context.Context, req provider.ConfigureRequest, resp *provider.ConfigureResponse) {
+	tflog.Debug(ctx, "Configuring Idenplane provider")
+
+	// Retrieve provider config from terraform configuration
+	var config ProviderConfigModel
+	resp.Diagnostics.Append(req.Config.Get(ctx, &config)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Create the Idenplane HTTP client
+	httpClient := client.NewHTTPClient(client.HTTPClientConfig{
+		ServerURL: config.URL.ValueString(),
+		APIKey:    config.APIKey.ValueString(),
+		Timeout:   30 * time.Second,
+	})
+
+	p.httpClient = httpClient
+
+	// Resources and data sources receive the client through these fields; the
+	// framework passes whatever is set here to every Configure call they make.
+	resp.DataSourceData = httpClient
+	resp.ResourceData = httpClient
+
+	tflog.Debug(ctx, "Idenplane provider configured successfully")
+}
+
+// Resources returns a slice of resource implementations
+func (p *IdenplaneProvider) Resources(ctx context.Context) []func() resource.Resource {
+	return []func() resource.Resource{
+		NewRealmResource,
+		NewClientResource,
+		NewRoleResource,
+		NewGroupResource,
+		NewUserResource,
+		NewIdentityProviderResource,
+		NewAuthFlowResource,
+		NewUserFederationResource,
+	}
+}
+
+// DataSources returns a slice of data source implementations
+func (p *IdenplaneProvider) DataSources(ctx context.Context) []func() datasource.DataSource {
+	return []func() datasource.DataSource{
+		NewRealmDataSource,
+		NewClientDataSource,
+		NewRoleDataSource,
+		NewGroupDataSource,
+		NewUserDataSource,
+		NewIdentityProviderDataSource,
+		NewAuthFlowDataSource,
+		NewOrganizationDataSource,
+		NewUserFederationDataSource,
+	}
+}
+
+// Functions returns a slice of function implementations
+func (p *IdenplaneProvider) Functions(ctx context.Context) []func() function.Function {
+	return []func() function.Function{
+		// Functions will be added in future phases
+	}
+}

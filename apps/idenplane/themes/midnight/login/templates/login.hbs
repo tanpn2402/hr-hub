@@ -1,0 +1,54 @@
+{{#if info}}
+<div class="auth-success">{{info}}</div>
+{{/if}}
+
+{{#if error}}
+<div class="auth-error">{{error}}</div>
+{{/if}}
+
+<form method="POST" action="/realms/{{realmName}}/login" class="auth-form">
+  <div class="form-group">
+    <label for="username">{{msg "loginUsername"}}</label>
+    <input type="text" id="username" name="username" value="{{login_hint}}" required autocomplete="username" autofocus placeholder="{{msg "loginUsername"}}">
+  </div>
+
+  <div class="form-group">
+    <label for="password">{{msg "loginPassword"}}</label>
+    <input type="password" id="password" name="password" required autocomplete="current-password" placeholder="{{msg "loginPassword"}}">
+  </div>
+
+  <div class="auth-row">
+    <div class="form-checkbox">
+      <input type="checkbox" id="rememberMe" name="rememberMe" value="true">
+      <label for="rememberMe">{{msg "loginRememberMe"}}</label>
+    </div>
+    <a href="/realms/{{realmName}}/forgot-password" style="font-size: 0.8rem;">{{msg "loginForgotPassword"}}</a>
+  </div>
+
+  <input type="hidden" name="_csrf" value="{{csrfToken}}">
+  <input type="hidden" name="client_id" value="{{client_id}}">
+  <input type="hidden" name="redirect_uri" value="{{redirect_uri}}">
+  <input type="hidden" name="response_type" value="{{response_type}}">
+  <input type="hidden" name="scope" value="{{scope}}">
+  <input type="hidden" name="state" value="{{state}}">
+  <input type="hidden" name="nonce" value="{{nonce}}">
+  <input type="hidden" name="code_challenge" value="{{code_challenge}}">
+  <input type="hidden" name="code_challenge_method" value="{{code_challenge_method}}">
+
+  <button type="submit" class="btn-primary">{{msg "loginSignIn"}}</button>
+</form>
+
+{{#if identityProviders.length}}
+<div class="auth-divider" style="margin-top: 1rem;"><span>or</span></div>
+<div style="display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.75rem;">
+  {{#each identityProviders}}
+  <a href="{{this.loginUrl}}" class="btn-secondary">Sign in with {{this.displayName}}</a>
+  {{/each}}
+</div>
+{{/if}}
+
+{{#if registrationAllowed}}
+<div class="auth-footer-link">
+  <a href="{{registerUrl}}">{{msg "loginNoAccount"}}</a>
+</div>
+{{/if}}

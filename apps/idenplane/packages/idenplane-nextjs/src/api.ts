@@ -1,0 +1,171 @@
+/**
+ * API route helpers for Next.js (both Pages Router and App Router).
+ *
+ * @example
+ * ```typescript
+ * // pages/api/profile.ts  (Pages Router)
+ * import { withAuth } from '@idenplane/nextjs/api';
+ *
+ * export default withAuth(
+ *   { serverUrl: 'https://auth.example.com', realm: 'my-realm' },
+ *   (req, res) => {
+ *     res.json({ user: req.authUser });
+ *   },
+ * );
+ * ```
+ *
+ * @example
+ * ```typescript
+ * // app/api/profile/route.ts  (App Router)
+ * import { withAuthHandler } from '@idenplane/nextjs/api';
+ *
+ * export const GET = withAuthHandler(
+ *   { serverUrl: 'https://auth.example.com', realm: 'my-realm' },
+ *   (req, user) => Response.json({ user }),
+ * );
+ * ```
+ */
+
+import type { TokenPayload } from './server.js';
+import { assertSecureServerUrl } from './internal/url-validation.js';
+
+// ── Shared types ─────────────────────────────────────────────────
+
+export interface ApiAuthConfig {
+  /** Idenplane server base URL */
+  serverUrl: string;
+  /** Realm name */
+  realm: string;
+  /** Required realm roles (user must have ALL of them) */
+  requiredRoles?: string[];
+  /**
+   * Allow `serverUrl` to use `http://` for a non-loopback host (default: false).
+   * See {@link assertSecureServerUrl}.
+   */
+  allowInsecureHttp?: boolean;
+}
+
+// ── Pages Router ─────────────────────────────────────────────────
+
+export interface AuthenticatedNextApiRequest {
+  headers: Record<string, string | string[] | undefined>;
+  method?: string;
+  body?: unknown;
+  query?: Record<string, string | string[]>;
+  /** The verified token payload — set by `withAuth` */
+  authUser: TokenPayload;
+}
+
+export interface NextApiResponse {
+  status(code: number): NextApiResponse;
+  json(body: unknown): void;
+  end(): void;
+}
+
+export type AuthenticatedHandler = (
+  req: AuthenticatedNextApiRequest,
+  res: NextApiResponse,
+) => void | Promise<void>;
+
+export type NextApiHandler = (
+  req: AuthenticatedNextApiRequest,
+  res: NextApiResponse,
+) => void | Promise<void>;
+
+/**
+ * Load the auth helpers from idenplane-sdk/server dynamically. Deferred to
+ * call time (rather than a static import) so this module doesn't force
+ * `jose` into a caller's bundle unless a request is actually handled.
+ */
+async function loadAuthHelpers() {
+  return import('idenplane-sdk/server');
+}
+
+/**
+ * Wrap a Next.js Pages Router API handler with Idenplane token validation.
+ * Responds with 401 if no token or invalid, 403 if roles are insufficient.
+ */
+export function withAuth(
+  config: ApiAuthConfig,
+  handler: AuthenticatedHandler,
+): NextApiHandler {
+  assertSecureServerUrl(config.serverUrl, config.allowInsecureHttp);
+
+  return async (req, res) => {
+    const { extractBearerToken, verifyToken, hasRealmRoles } = await loadAuthHelpers();
+    const token = extractBearerToken(req.headers['authorization'] ?? req.headers['Authorization']);
+
+    if (!token) {
+      return res.status(401).json({ error: 'unauthorized', message: 'Missing Bearer token' });
+    }
+
+    let payload: TokenPayload;
+    try {
+      payload = (await verifyToken(token, {
+        issuerUrl: config.serverUrl,
+        realm: config.realm,
+      })) as TokenPayload;
+    } catch {
+      return res.status(401).json({ error: 'unauthorized', message: 'Invalid or expired token' });
+    }
+
+    if (config.requiredRoles?.length && !hasRealmRoles(payload, config.requiredRoles)) {
+      return res.status(403).json({ error: 'forbidden', message: 'Insufficient roles' });
+    }
+
+    req.authUser = payload;
+    return handler(req, res);
+  };
+}
+
+// ── App Router (Route Handlers) ───────────────────────────────────
+
+export type AppRouterHandler = (
+  req: Request,
+  user: TokenPayload,
+) => Response | Promise<Response>;
+
+/**
+ * Wrap a Next.js App Router Route Handler with Idenplane token validation.
+ * Returns a standard `Response` with 401/403 on failure.
+ */
+export function withAuthHandler(
+  config: ApiAuthConfig,
+  handler: AppRouterHandler,
+): (req: Request) => Promise<Response> {
+  assertSecureServerUrl(config.serverUrl, config.allowInsecureHttp);
+
+  return async (req: Request) => {
+    const { extractBearerToken, verifyToken, hasRealmRoles } = await loadAuthHelpers();
+    const token = extractBearerToken(req.headers.get('authorization'));
+
+    if (!token) {
+      return Response.json(
+        { error: 'unauthorized', message: 'Missing Bearer token' },
+        { status: 401 },
+      );
+    }
+
+    let payload: TokenPayload;
+    try {
+      payload = (await verifyToken(token, {
+        issuerUrl: config.serverUrl,
+        realm: config.realm,
+      })) as TokenPayload;
+    } catch {
+      return Response.json(
+        { error: 'unauthorized', message: 'Invalid or expired token' },
+        { status: 401 },
+      );
+    }
+
+    if (config.requiredRoles?.length && !hasRealmRoles(payload, config.requiredRoles)) {
+      return Response.json(
+        { error: 'forbidden', message: 'Insufficient roles' },
+        { status: 403 },
+      );
+    }
+
+    return handler(req, payload);
+  };
+}

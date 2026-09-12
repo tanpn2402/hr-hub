@@ -1,0 +1,128 @@
+name: PR Hygiene
+
+## Baseline checks that every PR must pass:
+##  - No accidental secret in the diff
+##  - No changes to workflow files from a contributor PR (must be merged deliberately)
+##  - No env / credentials files leaked
+##  - Bot / auto-generated PRs (marked with the `autonomous` label) are bounded in size
+
+on:
+  pull_request:
+    branches: [main]
+
+# Re-pushing to a PR supersedes the previous diff, so only the latest push
+# needs checking.
+concurrency:
+  group: pr-hygiene-${{ github.ref }}
+  cancel-in-progress: true
+
+# Minimal default token permissions; the job only reads the diff.
+permissions:
+  contents: read
+
+jobs:
+  hygiene:
+    name: PR hygiene
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Forbid sensitive path changes in contributor PRs
+        run: |
+          set -e
+          CHANGED=$(git diff --name-only origin/main...HEAD)
+          echo "$CHANGED"
+          # Block real env / secret / credential files, but allow committed
+          # templates such as .env.example / .env.sample (they carry no secrets).
+          OFFENDING=$(echo "$CHANGED" \
+            | grep -E '(^|/)\.env([._-][^/]*)?$|(^|/)secrets/|(^|/)credentials/' \
+            | grep -vE '\.(example|sample|template|dist)$' || true)
+          if [ -n "$OFFENDING" ]; then
+            echo "::error::PR touches env / secrets / credentials files:"
+            echo "$OFFENDING"
+            exit 1
+          fi
+
+      - name: Scan diff for inline secrets
+        run: |
+          set -e
+          # Scan only ADDED lines (skip context, the +++ header and @@ hunk
+          # headers) so a match must be introduced by this PR, and skip committed
+          # templates whose placeholders (e.g. REPLACE_ME...) are not real secrets.
+          # Excludes matches whose value is a bare UPPER_SNAKE_CASE identifier, e.g.
+          # naming an env var for actions/setup-java to read a real secret from
+          # later rather than the secret value itself — real leaked tokens/keys are
+          # never pure-uppercase with no lowercase or mixed-case characters. Matched
+          # without anchoring to end-of-line, since trailing punctuation (closing
+          # backtick/paren, a comment continuing past it) shouldn't defeat this.
+          #
+          # Also excludes values that say in themselves that they are throwaway —
+          # `...-do-not-use-in-production`, `demo`, `example`, and friends. The
+          # runnable examples need working credentials in their compose files, and
+          # #1495 failed on examples/forward-auth-traefik's. This filters on the
+          # VALUE, deliberately, not on the path: excluding examples/ wholesale
+          # would hide a genuine leak committed there, which is exactly the kind
+          # of place one gets committed.
+          HITS=$(git diff origin/main...HEAD \
+              -- . ':(exclude)*.example' ':(exclude)*.sample' ':(exclude)*.template' ':(exclude)*.dist' \
+            | grep -E '^\+[^+]' \
+            | grep -iE '(api[_-]?key|secret|password|token|bearer)[^A-Za-z]*[:=][^A-Za-z]*[A-Za-z0-9_-]{20,}' \
+            | grep -vE '[:=][[:space:]]*"?[A-Z][A-Z0-9_]{19,}("?([^a-zA-Z]|$))' \
+            | grep -vE '(^|[^a-zA-Z])(demo|example|sample|dummy|placeholder|do-not-use-in-production|change-in-production|quickstart-dev)([^a-zA-Z]|$)' || true)
+          if [ -n "$HITS" ]; then
+            echo "::error::Possible secret leaked in diff:"
+            echo "$HITS"
+            exit 1
+          fi
+
+          # Second detector, for the shape the first one structurally cannot see.
+          #
+          # The pattern above requires a ':' or '=' immediately before the value.
+          # In an Authorization header the value follows the SCHEME and a space —
+          # `Authorization: Bearer <token>` — so the token itself never sits after
+          # a delimiter, and no amount of tuning that pattern reaches it. The
+          # `bearer` keyword has been in it since the beginning, which suggests
+          # header-form secrets were always meant to be covered; the delimiter
+          # requirement just prevented it from ever matching one. (#1509)
+          #
+          # Kept as its own grep rather than widened into the first: accepting
+          # whitespace as a delimiter there was measured against six months of
+          # this repo's history and added 24 false positives — ordinary code like
+          # `if (bearerToken && !isTokenExpiredLocally(bearerToken))`, SQL
+          # `CREATE USER ... WITH PASSWORD`, and Go env-var defaults. This
+          # narrower form matched ZERO false positives across the entire history.
+          #
+          # The '...' exclusion keeps documentation quiet: every truncated example
+          # in docs/ writes the token elided, and a real leak never is.
+          HEADER_HITS=$(git diff origin/main...HEAD \
+              -- . ':(exclude)*.example' ':(exclude)*.sample' ':(exclude)*.template' ':(exclude)*.dist' \
+            | grep -E '^\+[^+]' \
+            | grep -E '[Aa]uthorization[^A-Za-z]*:[^A-Za-z]*(Bearer|Basic|Token)[[:space:]]+[A-Za-z0-9_.=-]{20,}' \
+            | grep -vE '\.\.\.' || true)
+          if [ -n "$HEADER_HITS" ]; then
+            echo "::error::Possible secret leaked in an Authorization header:"
+            echo "$HEADER_HITS"
+            exit 1
+          fi
+
+      - name: Size limits for automated PRs
+        run: |
+          set -e
+          LABELS='${{ toJson(github.event.pull_request.labels.*.name) }}'
+          if echo "$LABELS" | grep -q '"autonomous"'; then
+            FILES=$(git diff --name-only origin/main...HEAD | wc -l)
+            LINES=$(git diff --shortstat origin/main...HEAD | awk '{print $4 + $6}')
+            echo "Automated PR — files=$FILES lines=${LINES:-0}"
+            if [ "$FILES" -gt 15 ]; then
+              echo "::error::Automated PR exceeds 15 files; split required"
+              exit 1
+            fi
+            if [ "${LINES:-0}" -gt 300 ]; then
+              echo "::error::Automated PR exceeds 300 lines; split required"
+              exit 1
+            fi
+          else
+            echo "Manual PR — size limits skipped"
+          fi

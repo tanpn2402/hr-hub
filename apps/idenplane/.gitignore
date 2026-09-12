@@ -1,0 +1,87 @@
+# Dependencies
+node_modules
+admin-ui/node_modules
+
+# Build output
+dist
+admin-ui/dist
+
+# Environment
+.env
+
+# Generated
+/generated/prisma
+
+# Local databases & backup files (should never be tracked)
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+*.bak
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Coverage
+coverage
+
+# Docker volumes
+pgdata
+
+# AI / agent tooling
+.claude
+.agent/
+.agent-stop
+.opencode/
+.auto-claude/
+.auto-claude-security.json
+.auto-claude-status
+.claude_settings.json
+.worktrees/
+GEMINI.md
+*.local.md
+.github/ISSUE_TEMPLATE/auto-task.md
+
+# Local scratch scripts / index files
+project_index.json
+check-git.sh
+commit.sh
+verify-ts.sh
+
+# Alternative package manager lockfiles (this project uses npm)
+pnpm-lock.yaml
+yarn.lock
+bun.lockb
+
+# Secrets / generated logs
+.security-key
+logs/security/
+
+# never commit npm auth tokens
+.npmrc
+
+# TypeScript incremental build cache
+*.tsbuildinfo
+
+# Playwright MCP scratch
+.playwright-mcp/
+
+# Local redesign verification screenshots
+admin-ui/.redesign-screens/
+
+# Database backups written by the upgrade flow (BACKUP_DIR, default ./backups).
+# These are full production dumps — they must never be committed.
+backups/
+
+# Helm pulls these in with `helm dependency build`; they are not ours to commit.
+helm/*/charts/
+helm/*/Chart.lock

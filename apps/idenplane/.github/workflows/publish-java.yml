@@ -1,0 +1,86 @@
+name: Publish idenplane-java
+
+on:
+  push:
+    tags: ['java-v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-java-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Build, sign & publish idenplane-java-core
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/idenplane-java
+    steps:
+      - uses: actions/checkout@v7
+
+      # server-username/server-password take the NAME of an env var (populated in the
+      # "Publish" step below), not the secret itself — actions/setup-java has no
+      # "-env-var"-suffixed variant of these inputs. An earlier version of this workflow
+      # used server-username-env-var/server-password-env-var, which don't exist: the
+      # action silently ignored them (a warning, not a failure) and fell back to its
+      # GitHub Packages default of GITHUB_ACTOR/GITHUB_TOKEN. That sent our own GitHub
+      # username and the literal unresolved string "${env.GITHUB_TOKEN}" to Central
+      # Portal as credentials — a real Maven Central token was never actually sent,
+      # which is why every plugin swap and token regeneration during that investigation
+      # kept hitting an identical 401 (confirmed by Sonatype support reading their
+      # server-side logs).
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+          server-id: central
+          server-username: MAVEN_CENTRAL_USERNAME
+          server-password: MAVEN_CENTRAL_PASSWORD
+          gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
+
+      - name: Verify tag matches idenplane-java-core's project version
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          set -e
+          TAG_VERSION="${GITHUB_REF_NAME#java-v}"
+          PKG_VERSION=$(./mvnw -q -pl idenplane-java-core help:evaluate -Dexpression=project.version -DforceStdout)
+          if [ "${TAG_VERSION}" != "${PKG_VERSION}" ]; then
+            echo "::error::Tag version (${TAG_VERSION}) does not match idenplane-java-core's project.version (${PKG_VERSION})"
+            exit 1
+          fi
+
+      - name: Build & test (whole reactor)
+        run: ./mvnw -B verify
+
+      # workflow_dispatch skips the tag/version-match check above, so this is the only thing
+      # standing between a manual dispatch and deploying whatever version happens to be in the
+      # pom right now. It matters because SNAPSHOT and release versions behave differently here:
+      # a release version uploads as a reviewable "validated" Central Portal deployment
+      # (autoPublish=false in idenplane-java-core/pom.xml — actually making it public is a
+      # separate step in the Portal UI), but a SNAPSHOT version deploys directly to the public
+      # snapshots repository with no such pending/review stage at all. The project is still on
+      # 1.0.0-SNAPSHOT (see #1326), so without this guard a dispatch today would publish
+      # immediately rather than landing as reversible.
+      - name: Refuse to publish a SNAPSHOT version
+        run: |
+          set -e
+          PKG_VERSION=$(./mvnw -q -pl idenplane-java-core help:evaluate -Dexpression=project.version -DforceStdout)
+          if echo "${PKG_VERSION}" | grep -q SNAPSHOT; then
+            echo "::error::Refusing to publish SNAPSHOT version ${PKG_VERSION} — bump to a real release version first."
+            exit 1
+          fi
+
+      - name: Publish idenplane-java-core to Maven Central
+        run: ./mvnw -B -pl idenplane-java-core deploy -Pcentral-publish -DskipTests
+        env:
+          MAVEN_CENTRAL_USERNAME: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          MAVEN_CENTRAL_PASSWORD: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+          # maven-gpg-plugin's own agent-less/batch passphrase lookup (MGPG-105/MGPG-108) reads
+          # this exact env var name natively — deliberately not routed through settings.xml's
+          # gpg.passphrase property, which Sonatype's own docs warn against relying on in CI.
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}

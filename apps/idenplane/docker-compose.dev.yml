@@ -1,0 +1,92 @@
+services:
+  # ── Redis (optional) ──────────────────────────────────────────────────────
+  # Uncomment to enable the Redis cache/session layer.
+  # redis:
+  #   image: redis:7-alpine
+  #   command: ["redis-server", "--save", "", "--appendonly", "no"]
+  #   ports:
+  #     - "6379:6379"
+  #   healthcheck:
+  #     test: ["CMD", "redis-cli", "ping"]
+  #     interval: 5s
+  #     timeout: 3s
+  #     retries: 5
+
+  # ── PostgreSQL (default / recommended for production) ─────────────────────
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: idenplane
+      POSTGRES_PASSWORD: idenplane
+      POSTGRES_DB: idenplane
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U idenplane"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ── MySQL 8 (alternative — uncomment and comment-out the postgres service) ─
+  # Before switching: run ./scripts/use-mysql.sh to activate the MySQL schema.
+  # mysql:
+  #   image: mysql:8.0
+  #   environment:
+  #     MYSQL_ROOT_PASSWORD: idenplane
+  #     MYSQL_DATABASE: idenplane
+  #     MYSQL_USER: idenplane
+  #     MYSQL_PASSWORD: idenplane
+  #   command: >
+  #     --character-set-server=utf8mb4
+  #     --collation-server=utf8mb4_unicode_ci
+  #   ports:
+  #     - "3306:3306"
+  #   volumes:
+  #     - mysqldata:/var/lib/mysql
+  #   healthcheck:
+  #     test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "idenplane", "-pidenplane"]
+  #     interval: 5s
+  #     timeout: 3s
+  #     retries: 10
+
+  # ── SQLite (development only — no database service required) ──────────────
+  # SQLite requires no Docker service.  Simply set:
+  #   DATABASE_URL=file:./dev.db
+  # in your .env file and run: ./scripts/use-sqlite.sh
+  # Then: npx prisma migrate dev --name init
+
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      # PostgreSQL (default):
+      DATABASE_URL: postgresql://idenplane:idenplane@db:5432/idenplane
+      # MySQL — uncomment when using the mysql service above:
+      # DATABASE_URL: mysql://idenplane:idenplane@mysql:3306/idenplane
+      # SQLite — not recommended inside Docker; use host-mode dev instead:
+      # DATABASE_URL: file:./dev.db
+      PORT: "3000"
+      NODE_ENV: development
+      ADMIN_API_KEY: ${ADMIN_API_KEY:-change-me-in-production}
+      ADMIN_USER: ${ADMIN_USER}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      THROTTLE_TTL: ${THROTTLE_TTL:-60000}
+      THROTTLE_LIMIT: ${THROTTLE_LIMIT:-100}
+      BASE_URL: ${BASE_URL:-http://localhost:3000}
+      # Uncomment to enable Redis cache (requires the redis service above):
+      # REDIS_URL: redis://redis:6379
+      # SESSION_STORE: ${SESSION_STORE:-database}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  # mysqldata:  # uncomment when using the MySQL service

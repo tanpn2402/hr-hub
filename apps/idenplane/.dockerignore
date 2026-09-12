@@ -1,0 +1,15 @@
+node_modules
+dist
+.env
+.env.local
+.env.production
+.env.*.local
+.env.development
+.env.test
+.env.staging
+.env.production.local
+.git
+.claude
+coverage
+*.md
+test

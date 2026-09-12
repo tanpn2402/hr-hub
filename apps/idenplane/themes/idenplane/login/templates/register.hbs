@@ -1,0 +1,112 @@
+{{#if info}}
+<div class="auth-success">{{info}}</div>
+{{/if}}
+
+{{#if error}}
+<div class="auth-error">{{error}}</div>
+{{/if}}
+
+<form method="POST" action="/realms/{{realmName}}/register" class="auth-form">
+  <input type="hidden" name="_csrf" value="{{csrfToken}}">
+  <input type="hidden" name="client_id" value="{{client_id}}">
+  <input type="hidden" name="redirect_uri" value="{{redirect_uri}}">
+  <input type="hidden" name="response_type" value="{{response_type}}">
+  <input type="hidden" name="scope" value="{{scope}}">
+  <input type="hidden" name="state" value="{{state}}">
+  <input type="hidden" name="nonce" value="{{nonce}}">
+  <input type="hidden" name="code_challenge" value="{{code_challenge}}">
+  <input type="hidden" name="code_challenge_method" value="{{code_challenge_method}}">
+
+  <div class="form-group">
+    <label for="username">{{msg "registerUsername"}}</label>
+    <input type="text" id="username" name="username" required autocomplete="username" autofocus value="{{username}}">
+  </div>
+
+  <div class="form-group">
+    <label for="email">{{msg "registerEmail"}}</label>
+    <input type="email" id="email" name="email" required autocomplete="email" value="{{email}}">
+  </div>
+
+  <div class="form-group">
+    <label for="firstName">{{msg "registerFirstName"}}</label>
+    <input type="text" id="firstName" name="firstName" autocomplete="given-name" value="{{firstName}}">
+  </div>
+
+  <div class="form-group">
+    <label for="lastName">{{msg "registerLastName"}}</label>
+    <input type="text" id="lastName" name="lastName" autocomplete="family-name" value="{{lastName}}">
+  </div>
+
+  <div class="form-group">
+    <label for="password">{{msg "registerPassword"}}</label>
+    <input type="password" id="password" name="password" required autocomplete="new-password" minlength="{{passwordMinLength}}">
+    {{#if passwordHint}}
+    <small style="color: #6b7280; margin-top: 0.25rem; display: block;">{{passwordHint}}</small>
+    {{/if}}
+  </div>
+
+  <div class="form-group">
+    <label for="confirmPassword">{{msg "registerConfirmPassword"}}</label>
+    <input type="password" id="confirmPassword" name="confirmPassword" required autocomplete="new-password">
+  </div>
+
+  {{#if customAttributes}}
+  {{#each customAttributes}}
+  <div class="form-group">
+    <label for="attr_{{name}}">{{displayName}}{{#if required}} <span style="color: #ef4444;" aria-label="required">*</span>{{/if}}</label>
+
+    {{#if_eq type "boolean"}}
+    <select id="attr_{{name}}" name="attr_{{name}}"{{#if required}} required{{/if}}>
+      <option value="">-- Select --</option>
+      <option value="true"{{#if_eq value "true"}} selected{{/if_eq}}>Yes</option>
+      <option value="false"{{#if_eq value "false"}} selected{{/if_eq}}>No</option>
+    </select>
+    {{else}}
+    {{#if_eq type "select"}}
+    <select id="attr_{{name}}" name="attr_{{name}}"{{#if required}} required{{/if}}>
+      <option value="">-- Select --</option>
+      {{#each options}}
+      <option value="{{this}}"{{#if_eq ../value this}} selected{{/if_eq}}>{{this}}</option>
+      {{/each}}
+    </select>
+    {{else}}
+    {{#if_eq type "multi-select"}}
+    <select id="attr_{{name}}" name="attr_{{name}}" multiple{{#if required}} required{{/if}}>
+      {{#each options}}
+      <option value="{{this}}">{{this}}</option>
+      {{/each}}
+    </select>
+    {{else}}
+    {{#if_eq type "number"}}
+    <input type="number" id="attr_{{name}}" name="attr_{{name}}"{{#if required}} required{{/if}} value="{{value}}">
+    {{else}}
+    <input type="text" id="attr_{{name}}" name="attr_{{name}}"{{#if required}} required{{/if}} value="{{value}}">
+    {{/if_eq}}
+    {{/if_eq}}
+    {{/if_eq}}
+    {{/if_eq}}
+  </div>
+  {{/each}}
+  {{/if}}
+
+  {{#if termsOfServiceUrl}}
+  <div class="form-group" style="display: flex; align-items: flex-start; gap: 0.5rem;">
+    <input type="checkbox" id="terms_accepted" name="terms_accepted" value="1" required style="margin-top: 0.2rem; flex-shrink: 0;">
+    <label for="terms_accepted" style="font-weight: normal; margin: 0;">
+      I agree to the <a href="{{termsOfServiceUrl}}" target="_blank" rel="noopener noreferrer" style="color: var(--primary-color);">Terms of Service</a>
+    </label>
+  </div>
+  {{/if}}
+
+  {{#if registrationApprovalRequired}}
+  <div style="background: #fef3c7; border: 1px solid #f59e0b; border-radius: 0.375rem; padding: 0.75rem; margin-bottom: 1rem; font-size: 0.875rem; color: #92400e;">
+    Note: Your account will require administrator approval before you can sign in.
+  </div>
+  {{/if}}
+
+  <button type="submit" class="btn-primary">{{msg "registerCreateAccount"}}</button>
+</form>
+
+<div style="text-align: center; margin-top: 1rem;">
+  <a href="/realms/{{realmName}}/login?client_id={{client_id}}&redirect_uri={{redirect_uri}}&response_type={{response_type}}&scope={{scope}}&state={{state}}&nonce={{nonce}}&code_challenge={{code_challenge}}&code_challenge_method={{code_challenge_method}}" style="color: var(--primary-color); text-decoration: none; font-size: 0.85rem;">{{msg "registerSignInPrompt"}}</a>
+</div>

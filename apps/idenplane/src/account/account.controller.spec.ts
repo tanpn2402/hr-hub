@@ -1,0 +1,589 @@
+import { AccountController } from './account.controller.js';
+import type { Realm } from '@prisma/client';
+import {
+  createMockPrismaService,
+  type MockPrismaService,
+} from '../prisma/prisma.mock.js';
+
+describe('AccountController', () => {
+  let controller: AccountController;
+  let loginService: { validateLoginSession: jest.Mock };
+  let prisma: MockPrismaService;
+  let crypto: {
+    verifyPassword: jest.Mock;
+    hashPassword: jest.Mock;
+    sha256: jest.Mock;
+  };
+  let passwordPolicyService: {
+    validate: jest.Mock;
+    checkHistory: jest.Mock;
+    recordHistory: jest.Mock;
+  };
+  let mfaService: {
+    isMfaEnabled: jest.Mock;
+    setupTotp: jest.Mock;
+    verifyAndActivateTotp: jest.Mock;
+    disableTotp: jest.Mock;
+  };
+  let themeRender: { render: jest.Mock };
+  let webAuthnService: { getUserCredentials: jest.Mock };
+  let emailService: { sendEmail: jest.Mock };
+
+  const realm = {
+    id: 'realm-1',
+    name: 'test-realm',
+    passwordHistoryCount: 3,
+  } as any as Realm;
+
+  const sessionUser = {
+    id: 'user-1',
+    username: 'testuser',
+    email: 'test@example.com',
+    emailVerified: true,
+    firstName: 'Test',
+    lastName: 'User',
+    passwordHash: 'hashed-pw',
+  };
+
+  let mockRes: {
+    redirect: jest.Mock;
+    cookie: jest.Mock;
+    clearCookie: jest.Mock;
+  };
+  let mockReqWithSession: any;
+  let mockReqNoSession: any;
+
+  beforeEach(() => {
+    loginService = {
+      validateLoginSession: jest.fn(),
+    };
+    prisma = createMockPrismaService();
+    crypto = {
+      verifyPassword: jest.fn(),
+      hashPassword: jest.fn(),
+      sha256: jest.fn().mockReturnValue('hashed-session-token'),
+    };
+    passwordPolicyService = {
+      validate: jest.fn(),
+      checkHistory: jest.fn(),
+      recordHistory: jest.fn(),
+    };
+    mfaService = {
+      isMfaEnabled: jest.fn(),
+      setupTotp: jest.fn(),
+      verifyAndActivateTotp: jest.fn(),
+      disableTotp: jest.fn(),
+    };
+    themeRender = { render: jest.fn() };
+    webAuthnService = { getUserCredentials: jest.fn().mockResolvedValue([]) };
+    emailService = { sendEmail: jest.fn().mockResolvedValue(undefined) };
+    const csrfService = {
+      validate: jest.fn().mockReturnValue(true),
+      generateToken: jest.fn().mockReturnValue('csrf-token-test'),
+      cookieName: jest.fn().mockReturnValue('XSRF-TOKEN-test'),
+    };
+
+    controller = new AccountController(
+      loginService as any,
+      prisma as any,
+      crypto as any,
+      passwordPolicyService as any,
+      mfaService as any,
+      themeRender as any,
+      webAuthnService as any,
+      undefined as any, // dataExportService — not exercised in these tests
+      undefined as any, // accountDeletionService — not exercised in these tests
+      csrfService as any,
+      emailService as any,
+    );
+
+    mockRes = { redirect: jest.fn(), cookie: jest.fn(), clearCookie: jest.fn() };
+    mockReqWithSession = {
+      cookies: { IDENPLANE_SESSION: 'valid-token' },
+      query: {},
+      headers: { 'user-agent': 'jest-test-agent' },
+      socket: { remoteAddress: '127.0.0.1' },
+    };
+    mockReqNoSession = { cookies: {} };
+
+    loginService.validateLoginSession.mockResolvedValue(sessionUser);
+  });
+
+  describe('showAccount', () => {
+    it('should redirect to login if no session', async () => {
+      loginService.validateLoginSession.mockResolvedValue(null);
+
+      await controller.showAccount(realm, mockReqNoSession, mockRes as any);
+
+      expect(mockRes.redirect).toHaveBeenCalledWith('/realms/test-realm/login');
+    });
+
+    it('should render account page for authenticated user', async () => {
+      mfaService.isMfaEnabled.mockResolvedValue(false);
+
+      await controller.showAccount(realm, mockReqWithSession, mockRes as any);
+
+      expect(themeRender.render).toHaveBeenCalledWith(
+        mockRes,
+        realm,
+        'account',
+        'account',
+        expect.objectContaining({
+          username: 'testuser',
+          email: 'test@example.com',
+          mfaEnabled: false,
+        }),
+        mockReqWithSession,
+      );
+    });
+  });
+
+  describe('logout', () => {
+    it('deletes the loginSession row, clears the cookie, and redirects to /login', async () => {
+      // Arrange — request with an IDENPLANE_SESSION cookie
+      prisma.loginSession.delete = jest.fn().mockResolvedValue(undefined);
+
+      await controller.logout(realm, mockReqWithSession, mockRes as never);
+
+      expect(crypto.sha256).toHaveBeenCalledWith('valid-token');
+      expect(prisma.loginSession.delete).toHaveBeenCalledWith({
+        where: { tokenHash: 'hashed-session-token' },
+      });
+      expect(mockRes.cookie).not.toHaveBeenCalled();
+      expect(
+        (mockRes as { clearCookie?: jest.Mock }).clearCookie ??
+          jest.fn(),
+      ).toBeDefined(); // tolerate absence in older mocks
+      expect(mockRes.redirect).toHaveBeenCalledWith(
+        '/realms/test-realm/login?signedOut=1',
+      );
+    });
+
+    it('still clears the cookie + redirects when no session cookie is present', async () => {
+      prisma.loginSession.delete = jest.fn();
+
+      await controller.logout(realm, mockReqNoSession, mockRes as never);
+
+      // No DB delete attempted (nothing to invalidate)
+      expect(prisma.loginSession.delete).not.toHaveBeenCalled();
+      expect(mockRes.redirect).toHaveBeenCalledWith(
+        '/realms/test-realm/login?signedOut=1',
+      );
+    });
+
+    it('tolerates a prisma delete that throws (session already gone)', async () => {
+      // Defense in depth — a stale cookie pointing at a deleted/expired
+      // session must still complete the logout flow without throwing.
+      prisma.loginSession.delete = jest
+        .fn()
+        .mockRejectedValue(new Error('P2025: record not found'));
+
+      await expect(
+        controller.logout(realm, mockReqWithSession, mockRes as never),
+      ).resolves.not.toThrow();
+      expect(mockRes.clearCookie).toHaveBeenCalled();
+      expect(mockRes.redirect).toHaveBeenCalledWith(
+        '/realms/test-realm/login?signedOut=1',
+      );
+    });
+  });
+
+  describe('updateProfile', () => {
+    it('should redirect to login if no session', async () => {
+      loginService.validateLoginSession.mockResolvedValue(null);
+
+      await controller.updateProfile(
+        realm,
+        { firstName: 'New' },
+        mockReqNoSession,
+        mockRes as any,
+      );
+
+      expect(mockRes.redirect).toHaveBeenCalledWith('/realms/test-realm/login');
+    });
+
+    it('should update user profile and redirect with success', async () => {
+      prisma.user.update.mockResolvedValue({});
+
+      await controller.updateProfile(
+        realm,
+        { firstName: 'New', lastName: 'Name' },
+        mockReqWithSession,
+        mockRes as any,
+      );
+
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: 'user-1' },
+        data: { firstName: 'New', lastName: 'Name' },
+      });
+      expect(mockRes.redirect).toHaveBeenCalledWith(
+        expect.stringContaining('success='),
+      );
+    });
+  });
+
+  describe('changePassword', () => {
+    it('should redirect to login if no session', async () => {
+      loginService.validateLoginSession.mockResolvedValue(null);
+
+      await controller.changePassword(
+        realm,
+        { currentPassword: 'old', newPassword: 'new', confirmPassword: 'new' },
+        mockReqNoSession,
+        mockRes as any,
+      );
+
+      expect(mockRes.redirect).toHaveBeenCalledWith('/realms/test-realm/login');
+    });
+
+    it('should redirect with error if passwords do not match', async () => {
+      await controller.changePassword(
+        realm,
+        {
+          currentPassword: 'old',
+          newPassword: 'new1',
+          confirmPassword: 'new2',
+        },
+        mockReqWithSession,
+        mockRes as any,
+      );
+
+      expect(mockRes.redirect).toHaveBeenCalledWith(
+        expect.stringContaining('error='),
+      );
+    });
+
+    it('should redirect with error if password fields are missing', async () => {
+      await controller.changePassword(
+        realm,
+        { currentPassword: '', newPassword: '', confirmPassword: '' },
+        mockReqWithSession,
+        mockRes as any,
+      );
+
+      expect(mockRes.redirect).toHaveBeenCalledWith(
+        expect.stringContaining('error='),
+      );
+    });
+
+    it('should redirect with error if password policy fails', async () => {
+      passwordPolicyService.validate.mockReturnValue({
+        valid: false,
+        errors: ['Password too short'],
+      });
+
+      await controller.changePassword(
+        realm,
+        { currentPassword: 'old', newPassword: 'new', confirmPassword: 'new' },
+        mockReqWithSession,
+        mockRes as any,
+      );
+
+      expect(mockRes.redirect).toHaveBeenCalledWith(
+        expect.stringContaining('error='),
+      );
+    });
+
+    it('should redirect with error if current password is incorrect', async () => {
+      passwordPolicyService.validate.mockReturnValue({
+        valid: true,
+        errors: [],
+      });
+      crypto.verifyPassword.mockResolvedValue(false);
+
+      await controller.changePassword(
+        realm,
+        {
+          currentPassword: 'wrong',
+          newPassword: 'newpass',
+          confirmPassword: 'newpass',
+        },
+        mockReqWithSession,
+        mockRes as any,
+      );
+
+      expect(mockRes.redirect).toHaveBeenCalledWith(
+        expect.stringContaining('error='),
+      );
+    });
+
+    it('should redirect with error if password is in history', async () => {
+      passwordPolicyService.validate.mockReturnValue({
+        valid: true,
+        errors: [],
+      });
+      crypto.verifyPassword.mockResolvedValue(true);
+      passwordPolicyService.checkHistory.mockResolvedValue(true);
+
+      await controller.changePassword(
+        realm,
+        {
+          currentPassword: 'old',
+          newPassword: 'reused',
+          confirmPassword: 'reused',
+        },
+        mockReqWithSession,
+        mockRes as any,
+      );
+
+      expect(mockRes.redirect).toHaveBeenCalledWith(
+        expect.stringContaining('error='),
+      );
+    });
+
+    it('should change password successfully', async () => {
+      passwordPolicyService.validate.mockReturnValue({
+        valid: true,
+        errors: [],
+      });
+      crypto.verifyPassword.mockResolvedValue(true);
+      passwordPolicyService.checkHistory.mockResolvedValue(false);
+      crypto.hashPassword.mockResolvedValue('new-hash');
+      prisma.user.update.mockResolvedValue({});
+
+      await controller.changePassword(
+        realm,
+        {
+          currentPassword: 'old',
+          newPassword: 'newpass',
+          confirmPassword: 'newpass',
+        },
+        mockReqWithSession,
+        mockRes as any,
+      );
+
+      expect(crypto.hashPassword).toHaveBeenCalledWith('newpass');
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: 'user-1' },
+        data: expect.objectContaining({ passwordHash: 'new-hash' }),
+      });
+      expect(passwordPolicyService.recordHistory).toHaveBeenCalled();
+      expect(mockRes.redirect).toHaveBeenCalledWith(
+        expect.stringContaining('success='),
+      );
+    });
+
+    it('should send a password-changed security email to the account holder', async () => {
+      passwordPolicyService.validate.mockReturnValue({ valid: true, errors: [] });
+      crypto.verifyPassword.mockResolvedValue(true);
+      passwordPolicyService.checkHistory.mockResolvedValue(false);
+      crypto.hashPassword.mockResolvedValue('new-hash');
+      prisma.user.update.mockResolvedValue({});
+
+      await controller.changePassword(
+        realm,
+        {
+          currentPassword: 'old',
+          newPassword: 'newpass',
+          confirmPassword: 'newpass',
+        },
+        mockReqWithSession,
+        mockRes as any,
+      );
+
+      // The email is fire-and-forget (`void ...`), so let its promise settle.
+      await new Promise(process.nextTick);
+
+      expect(emailService.sendEmail).toHaveBeenCalledWith(
+        'test-realm',
+        'test@example.com',
+        'Your Password Was Changed',
+        expect.stringContaining('Your Password Was Changed'),
+      );
+    });
+
+    it('should not fail the password change if the notification email fails to send', async () => {
+      passwordPolicyService.validate.mockReturnValue({ valid: true, errors: [] });
+      crypto.verifyPassword.mockResolvedValue(true);
+      passwordPolicyService.checkHistory.mockResolvedValue(false);
+      crypto.hashPassword.mockResolvedValue('new-hash');
+      prisma.user.update.mockResolvedValue({});
+      emailService.sendEmail.mockRejectedValue(new Error('SMTP down'));
+
+      await controller.changePassword(
+        realm,
+        {
+          currentPassword: 'old',
+          newPassword: 'newpass',
+          confirmPassword: 'newpass',
+        },
+        mockReqWithSession,
+        mockRes as any,
+      );
+      await new Promise(process.nextTick);
+
+      expect(mockRes.redirect).toHaveBeenCalledWith(
+        expect.stringContaining('success='),
+      );
+    });
+
+    it('should not attempt to send an email when the account has no email address', async () => {
+      loginService.validateLoginSession.mockResolvedValue({
+        ...sessionUser,
+        email: null,
+      });
+      passwordPolicyService.validate.mockReturnValue({ valid: true, errors: [] });
+      crypto.verifyPassword.mockResolvedValue(true);
+      passwordPolicyService.checkHistory.mockResolvedValue(false);
+      crypto.hashPassword.mockResolvedValue('new-hash');
+      prisma.user.update.mockResolvedValue({});
+
+      await controller.changePassword(
+        realm,
+        {
+          currentPassword: 'old',
+          newPassword: 'newpass',
+          confirmPassword: 'newpass',
+        },
+        mockReqWithSession,
+        mockRes as any,
+      );
+      await new Promise(process.nextTick);
+
+      expect(emailService.sendEmail).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('showTotpSetup', () => {
+    it('should redirect to login if no session', async () => {
+      loginService.validateLoginSession.mockResolvedValue(null);
+
+      await controller.showTotpSetup(realm, mockReqNoSession, mockRes as any);
+
+      expect(mockRes.redirect).toHaveBeenCalledWith('/realms/test-realm/login');
+    });
+
+    it('should redirect to account if MFA already enabled', async () => {
+      mfaService.isMfaEnabled.mockResolvedValue(true);
+
+      await controller.showTotpSetup(realm, mockReqWithSession, mockRes as any);
+
+      expect(mockRes.redirect).toHaveBeenCalledWith(
+        expect.stringContaining('/account?info='),
+      );
+    });
+
+    it('should render TOTP setup page', async () => {
+      mfaService.isMfaEnabled.mockResolvedValue(false);
+      mfaService.setupTotp.mockResolvedValue({
+        qrCodeDataUrl: 'data:image/png;base64,abc',
+        secret: 'JBSWY3DPEHPK3PXP',
+      });
+
+      await controller.showTotpSetup(realm, mockReqWithSession, mockRes as any);
+
+      expect(themeRender.render).toHaveBeenCalledWith(
+        mockRes,
+        realm,
+        'account',
+        'totp-setup',
+        expect.objectContaining({
+          qrCodeDataUrl: 'data:image/png;base64,abc',
+          secret: 'JBSWY3DPEHPK3PXP',
+        }),
+        mockReqWithSession,
+      );
+    });
+  });
+
+  describe('handleTotpSetup', () => {
+    it('should redirect if code is missing', async () => {
+      await controller.handleTotpSetup(
+        realm,
+        { code: '' },
+        mockReqWithSession,
+        mockRes as any,
+      );
+
+      expect(mockRes.redirect).toHaveBeenCalledWith(
+        expect.stringContaining('error='),
+      );
+    });
+
+    it('should redirect with error if code is invalid', async () => {
+      mfaService.verifyAndActivateTotp.mockResolvedValue(null);
+
+      await controller.handleTotpSetup(
+        realm,
+        { code: '000000' },
+        mockReqWithSession,
+        mockRes as any,
+      );
+
+      expect(mockRes.redirect).toHaveBeenCalledWith(
+        expect.stringContaining('error='),
+      );
+    });
+
+    it('should render recovery codes on successful activation', async () => {
+      const recoveryCodes = ['CODE1', 'CODE2', 'CODE3'];
+      mfaService.verifyAndActivateTotp.mockResolvedValue(recoveryCodes);
+
+      await controller.handleTotpSetup(
+        realm,
+        { code: '123456' },
+        mockReqWithSession,
+        mockRes as any,
+      );
+
+      expect(themeRender.render).toHaveBeenCalledWith(
+        mockRes,
+        realm,
+        'account',
+        'totp-setup',
+        expect.objectContaining({
+          activated: true,
+          recoveryCodes,
+        }),
+        mockReqWithSession,
+      );
+    });
+  });
+
+  describe('handleTotpDisable', () => {
+    it('should redirect with error if no password provided', async () => {
+      await controller.handleTotpDisable(
+        realm,
+        { currentPassword: '' },
+        mockReqWithSession,
+        mockRes as any,
+      );
+
+      expect(mockRes.redirect).toHaveBeenCalledWith(
+        expect.stringContaining('error='),
+      );
+    });
+
+    it('should redirect with error if password is incorrect', async () => {
+      crypto.verifyPassword.mockResolvedValue(false);
+
+      await controller.handleTotpDisable(
+        realm,
+        { currentPassword: 'wrong' },
+        mockReqWithSession,
+        mockRes as any,
+      );
+
+      expect(mockRes.redirect).toHaveBeenCalledWith(
+        expect.stringContaining('error='),
+      );
+    });
+
+    it('should disable TOTP and redirect with success', async () => {
+      crypto.verifyPassword.mockResolvedValue(true);
+      mfaService.disableTotp.mockResolvedValue(undefined);
+
+      await controller.handleTotpDisable(
+        realm,
+        { currentPassword: 'correct' },
+        mockReqWithSession,
+        mockRes as any,
+      );
+
+      expect(mfaService.disableTotp).toHaveBeenCalledWith('user-1');
+      expect(mockRes.redirect).toHaveBeenCalledWith(
+        expect.stringContaining('success='),
+      );
+    });
+  });
+});

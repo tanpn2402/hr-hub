@@ -1,0 +1,68 @@
+services:
+  # Redis is optional. Uncomment the `redis` service and the REDIS_URL env var
+  # on the `app` service to enable the Redis cache/session layer.
+  # redis:
+  #   image: redis:7-alpine
+  #   command: ["redis-server", "--save", "", "--appendonly", "no"]
+  #   ports:
+  #     - "6379:6379"
+  #   healthcheck:
+  #     test: ["CMD", "redis-cli", "ping"]
+  #     interval: 5s
+  #     timeout: 3s
+  #     retries: 5
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: idenplane
+      POSTGRES_PASSWORD: idenplane
+      POSTGRES_DB: idenplane
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U idenplane"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  app:
+    image: islamawad/idenplane:latest
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://idenplane:idenplane@db:5432/idenplane
+      PORT: "3000"
+      NODE_ENV: production
+      ADMIN_API_KEY: ${ADMIN_API_KEY:?Set ADMIN_API_KEY}
+      ADMIN_USER: ${ADMIN_USER}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      # Required: the server hard-exits in production when these are unset, so
+      # fail fast here with a clear message instead of an opaque restart loop.
+      WEBHOOK_SECRET_KEY: ${WEBHOOK_SECRET_KEY:?Set WEBHOOK_SECRET_KEY (openssl rand -hex 32)}
+      WEBHOOK_ENCRYPTION_SALT: ${WEBHOOK_ENCRYPTION_SALT:?Set WEBHOOK_ENCRYPTION_SALT (openssl rand -hex 16)}
+      THROTTLE_TTL: ${THROTTLE_TTL:-60000}
+      THROTTLE_LIMIT: ${THROTTLE_LIMIT:-100}
+      BASE_URL: ${BASE_URL:-http://localhost:3000}
+      # Where the upgrade flow writes pre-migration backups. Points at the
+      # `backups` volume below so a dump survives the container being replaced —
+      # a backup on the container filesystem is not a backup.
+      BACKUP_DIR: /var/lib/idenplane/backups
+      # Uncomment to enable Redis cache (requires the redis service above):
+      # REDIS_URL: redis://redis:6379
+      # SESSION_STORE: ${SESSION_STORE:-database}
+    volumes:
+      - backups:/var/lib/idenplane/backups
+    depends_on:
+      db:
+        condition: service_healthy
+      # Uncomment when enabling redis:
+      # redis:
+      #   condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  backups:

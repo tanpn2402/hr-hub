@@ -1,0 +1,441 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.idenplane</groupId>
+    <artifactId>idenplane-java</artifactId>
+    <version>1.1.0</version>
+    <packaging>pom</packaging>
+
+    <name>Idenplane Java SDK</name>
+    <description>Java SDK for the Idenplane Identity and Access Management Server</description>
+    <url>https://github.com/idenplane/idenplane</url>
+
+    <!-- Client SDK license, distinct from the AGPL-3.0-only server this SDK talks to —
+         matches the convention already used for the Android/npm SDK packages, since forcing
+         AGPL's copyleft onto every downstream consumer of a client library would make it
+         unusable in most commercial contexts. Required by Maven Central for POM validation. -->
+    <licenses>
+        <license>
+            <name>MIT License</name>
+            <url>https://opensource.org/licenses/MIT</url>
+        </license>
+    </licenses>
+
+    <developers>
+        <developer>
+            <name>Idenplane</name>
+            <url>https://github.com/idenplane</url>
+        </developer>
+    </developers>
+
+    <scm>
+        <url>https://github.com/idenplane/idenplane</url>
+        <connection>scm:git:https://github.com/idenplane/idenplane.git</connection>
+        <developerConnection>scm:git:ssh://git@github.com/idenplane/idenplane.git</developerConnection>
+    </scm>
+
+    <modules>
+        <module>idenplane-java-core</module>
+        <module>idenplane-java-reactive</module>
+        <module>idenplane-java-spring</module>
+        <module>idenplane-java-jakarta</module>
+        <!-- A runnable demo, not a library — never published (publish-java.yml only ever
+             targets idenplane-java-core). -->
+        <module>idenplane-java-spring-sample</module>
+    </modules>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <maven.compiler.source>17</maven.compiler.source>
+        <maven.compiler.target>17</maven.compiler.target>
+        <java.version>17</java.version>
+        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- Idenplane Core Module -->
+            <dependency>
+                <groupId>com.idenplane</groupId>
+                <artifactId>idenplane-java-core</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <!-- Idenplane Reactive Module -->
+            <dependency>
+                <groupId>com.idenplane</groupId>
+                <artifactId>idenplane-java-reactive</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <!-- Idenplane Spring Module -->
+            <dependency>
+                <groupId>com.idenplane</groupId>
+                <artifactId>idenplane-java-spring</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <!-- Idenplane Jakarta Module -->
+            <dependency>
+                <groupId>com.idenplane</groupId>
+                <artifactId>idenplane-java-jakarta</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <!-- HTTP Client. Bumped from 5.3 — Spring Boot 3.5.x's HttpClientAutoConfiguration
+                 unconditionally tries to build an Apache HttpClient5-based
+                 ClientHttpRequestFactoryBuilder bean whenever httpclient5 is on the classpath
+                 (regardless of whether the app actually uses RestTemplate/RestClient), and 5.3
+                 predates TlsSocketStrategy, breaking application context startup for any Spring
+                 Boot app depending on this SDK — found via idenplane-java-spring-sample's own
+                 context failing to start, not a hypothetical. -->
+            <dependency>
+                <groupId>org.apache.httpcomponents.client5</groupId>
+                <artifactId>httpclient5</artifactId>
+                <version>5.6.4</version>
+            </dependency>
+
+            <!-- httpclient5's own pom.xml doesn't hardcode a httpcore5 version — it delegates
+                 to httpclient5-parent's ${httpcore.version} property (5.4.3 for httpclient5
+                 5.6.3). Without pinning this explicitly, it resolves to whatever version wins
+                 dependency mediation elsewhere (here, an older 5.3.4 via Spring Boot's own BOM),
+                 which is missing APIs httpclient5 5.6.3 actually calls at runtime
+                 (NoSuchMethodError on MessageSupport.parseHeaders). -->
+            <dependency>
+                <groupId>org.apache.httpcomponents.core5</groupId>
+                <artifactId>httpcore5</artifactId>
+                <version>5.4.3</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.httpcomponents.core5</groupId>
+                <artifactId>httpcore5-h2</artifactId>
+                <version>5.4.3</version>
+            </dependency>
+
+            <!-- JSON Processing -->
+            <dependency>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-databind</artifactId>
+                <version>2.22.2</version>
+            </dependency>
+
+            <!-- JWT -->
+            <dependency>
+                <groupId>com.nimbusds</groupId>
+                <artifactId>nimbus-jose-jwt</artifactId>
+                <version>10.9.1</version>
+            </dependency>
+
+            <!-- Reactive -->
+            <dependency>
+                <groupId>io.projectreactor</groupId>
+                <artifactId>reactor-core</artifactId>
+                <version>3.8.7</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.projectreactor</groupId>
+                <artifactId>reactor-test</artifactId>
+                <version>3.8.7</version>
+                <scope>test</scope>
+            </dependency>
+
+            <!-- Spring Security — bumped from 6.2.2 to 6.5.7 to address two
+                 critical advisories on spring-security-web (HTTP headers not
+                 written under some conditions, authorization bypass of static
+                 resources in WebFlux apps) and a high on spring-security-core.
+                 See: https://spring.io/security -->
+            <dependency>
+                <groupId>org.springframework.security</groupId>
+                <artifactId>spring-security-core</artifactId>
+                <version>7.1.1</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.springframework.security</groupId>
+                <artifactId>spring-security-web</artifactId>
+                <version>7.1.1</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.springframework.security</groupId>
+                <artifactId>spring-security-oauth2-jose</artifactId>
+                <version>7.1.1</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.springframework.security</groupId>
+                <artifactId>spring-security-oauth2-resource-server</artifactId>
+                <version>7.1.1</version>
+            </dependency>
+
+            <!-- Not a direct dependency of any module here: it arrives in the sample through
+                 the spring-boot-dependencies BOM that module imports. Pinned anyway, and this
+                 is load-bearing — while it was unpinned, Dependabot's spring-security group
+                 moved the four artifacts above and left this one wherever the Boot BOM put it.
+                 The result (#1464) was spring-security-config 6.5.2 against
+                 spring-security-web 7.x, and since 7 removed
+                 HandlerMappingIntrospectorRequestTransformer from -web, the old config module
+                 looked for a class that no longer existed and NO ApplicationContext started
+                 at all. Same trap as the jackson comment in the sample's own pom: pin the
+                 whole family, or the half you did not pin drifts.
+                 Keep this version identical to its four siblings. -->
+            <dependency>
+                <groupId>org.springframework.security</groupId>
+                <artifactId>spring-security-config</artifactId>
+                <version>7.1.1</version>
+            </dependency>
+
+            <!-- Spring Boot Auto-configuration -->
+            <dependency>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-autoconfigure</artifactId>
+                <version>4.1.1</version>
+            </dependency>
+
+            <!-- Test support for exercising @AutoConfiguration classes via
+                 ApplicationContextRunner, without a full Spring Boot app -->
+            <dependency>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-test</artifactId>
+                <version>4.1.1</version>
+                <scope>test</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-test-autoconfigure</artifactId>
+                <version>4.1.1</version>
+                <scope>test</scope>
+            </dependency>
+
+            <!-- Spring Boot Configuration Processor -->
+            <dependency>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-configuration-processor</artifactId>
+                <version>4.1.1</version>
+            </dependency>
+
+            <!-- Jakarta EE -->
+            <dependency>
+                <groupId>jakarta.ws.rs</groupId>
+                <artifactId>jakarta.ws.rs-api</artifactId>
+                <version>4.0.0</version>
+            </dependency>
+
+            <dependency>
+                <groupId>jakarta.servlet</groupId>
+                <artifactId>jakarta.servlet-api</artifactId>
+                <version>6.1.0</version>
+            </dependency>
+
+            <!-- Testing -->
+            <dependency>
+                <groupId>org.junit.jupiter</groupId>
+                <artifactId>junit-jupiter</artifactId>
+                <version>6.1.3</version>
+                <scope>test</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>org.mockito</groupId>
+                <artifactId>mockito-core</artifactId>
+                <version>5.23.0</version>
+                <scope>test</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>org.assertj</groupId>
+                <artifactId>assertj-core</artifactId>
+                <version>3.27.7</version>
+                <scope>test</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <version>3.15.0</version>
+                    <configuration>
+                        <source>17</source>
+                        <target>17</target>
+                    </configuration>
+                </plugin>
+
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <version>3.5.6</version>
+                </plugin>
+
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-javadoc-plugin</artifactId>
+                    <version>3.12.0</version>
+                    <configuration>
+                        <source>17</source>
+                        <quiet>true</quiet>
+                    </configuration>
+                </plugin>
+
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-source-plugin</artifactId>
+                    <version>3.4.0</version>
+                    <executions>
+                        <execution>
+                            <id>attach-sources</id>
+                            <goals>
+                                <goal>jar</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                </plugin>
+
+                <!-- Real Maven Central publishing via the Central Portal (the old OSSRH Nexus
+                     host is retired). Declared here in pluginManagement only — not every module
+                     activates these, only idenplane-java-core does today, since it's the only
+                     module with real source to publish. Credentials and the GPG key are never
+                     hardcoded: central-publishing-maven-plugin reads settings.xml server
+                     credentials (populated from env vars by actions/setup-java in CI), and
+                     maven-gpg-plugin reads the MAVEN_GPG_PASSPHRASE env var directly (the
+                     modern, non-interactive way — see MGPG-105/MGPG-108). Running `mvn verify`
+                     locally with no such setup fails safely at the signing step with no GPG key
+                     available; it does not silently publish or fall back to anything. -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-gpg-plugin</artifactId>
+                    <version>3.2.8</version>
+                    <configuration>
+                        <!-- Disables gpg-agent interactive prompts; the passphrase comes from
+                             the MAVEN_GPG_PASSPHRASE environment variable instead. -->
+                        <useAgent>false</useAgent>
+                    </configuration>
+                    <executions>
+                        <execution>
+                            <id>sign-artifacts</id>
+                            <phase>verify</phase>
+                            <goals>
+                                <goal>sign</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                </plugin>
+
+                <!-- org.sonatype.central:central-publishing-maven-plugin (last released 0.11.0)
+                     rejects real uploads with a bare 401 even with fresh, verified-valid
+                     credentials — confirmed by hitting the Central Portal API directly with the
+                     same token, which got past auth (500 on the deliberately-empty body sent,
+                     not 401). Its own SCM went private/inaccessible, and io.github.mavenplugins
+                     is the actively maintained community fork of the same plugin (same
+                     configuration shape, only the groupId and version differ). -->
+                <plugin>
+                    <groupId>io.github.mavenplugins</groupId>
+                    <artifactId>central-publishing-maven-plugin</artifactId>
+                    <version>1.3.1</version>
+                    <extensions>true</extensions>
+                    <configuration>
+                        <publishingServerId>central</publishingServerId>
+                        <deploymentName>idenplane-java-core</deploymentName>
+                        <!-- Default is false; stated explicitly since it's the property that
+                             makes `mvn deploy` land as a reviewable, still-reversible "validated"
+                             deployment in the Central Portal instead of auto-releasing it. Actual
+                             release is then a separate, explicit action in the Portal UI (or a
+                             deliberate autoPublish=true override), never a side effect of deploy.
+                             Maven Central has no unpublish, so the validated stage is the last
+                             point at which a wrong version costs nothing. Full release process:
+                             docs/docs/contributing/releasing.mdx -->
+                        <autoPublish>false</autoPublish>
+                    </configuration>
+                </plugin>
+
+                <!-- Central Portal validates each uploaded POM file in isolation — it does not
+                     walk Maven's <parent> inheritance chain the way a real build does. Without
+                     this, idenplane-java-core's deploy was rejected: "Failed to get coordinates
+                     from pom file" and cascading "Failed to associate file with coordinates" for
+                     every artifact, plus "missing" project URL/license/developers/SCM and
+                     dependency versions — all of which are genuinely declared here in the parent,
+                     just not visible to a validator reading the child POM standalone. flatten
+                     rewrites the deployed POM with every inherited element inlined and the
+                     <parent> block removed, so the published POM is self-contained (this also
+                     avoids consumers' resolvers 404ing trying to fetch a never-published parent
+                     POM). flattenMode must stay "ossrh": the plugin's default mode strips
+                     <developers>/<scm>/<url>/<name> as a "minimal" simplification, which would
+                     reproduce the exact validation failure this exists to fix. -->
+                <plugin>
+                    <groupId>org.codehaus.mojo</groupId>
+                    <artifactId>flatten-maven-plugin</artifactId>
+                    <version>1.8.0</version>
+                    <configuration>
+                        <flattenMode>ossrh</flattenMode>
+                    </configuration>
+                    <executions>
+                        <execution>
+                            <id>flatten</id>
+                            <phase>process-resources</phase>
+                            <goals>
+                                <goal>flatten</goal>
+                            </goals>
+                        </execution>
+                        <execution>
+                            <id>flatten-clean</id>
+                            <phase>clean</phase>
+                            <goals>
+                                <goal>clean</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                </plugin>
+
+                <plugin>
+                    <groupId>org.jacoco</groupId>
+                    <artifactId>jacoco-maven-plugin</artifactId>
+                    <version>0.8.15</version>
+                    <executions>
+                        <execution>
+                            <id>prepare-agent</id>
+                            <goals>
+                                <goal>prepare-agent</goal>
+                            </goals>
+                        </execution>
+                        <execution>
+                            <id>report</id>
+                            <goals>
+                                <goal>report</goal>
+                            </goals>
+                        </execution>
+                        <execution>
+                            <id>check</id>
+                            <goals>
+                                <goal>check</goal>
+                            </goals>
+                            <configuration>
+                                <rules>
+                                    <rule>
+                                        <element>BUNDLE</element>
+                                        <limits>
+                                            <limit>
+                                                <counter>LINE</counter>
+                                                <value>COVEREDRATIO</value>
+                                                <minimum>0.80</minimum>
+                                            </limit>
+                                        </limits>
+                                    </rule>
+                                </rules>
+                            </configuration>
+                        </execution>
+                    </executions>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+    </build>
+
+</project>
