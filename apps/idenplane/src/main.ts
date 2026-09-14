@@ -107,7 +107,7 @@ async function bootstrap() {
   }
 
   app.enableCors({
-    origin: (
+    origin: async (
       origin: string | undefined,
       callback: (err: Error | null, allow?: string | false) => void,
     ) => {
@@ -126,15 +126,9 @@ async function bootstrap() {
       // Check client webOrigins from the database using synchronous local cache.
       // The local cache is populated at startup and refreshed every 5 min.
       // This avoids async callback issues with Express CORS.
-      const allowedOrigins = corsOriginService.getCachedOrigins();
-      if (allowedOrigins !== null) {
-        callback(null, allowedOrigins.has(origin) ? origin : false);
-        return;
-      }
-
-      // Cache should always be populated at this point since we preload at startup.
-      // If somehow it's not, deny for safety.
-      callback(null, false);
+      const allowedOrigin = await corsOriginService.isOriginAllowed(origin);
+    
+      callback(null, allowedOrigin ? origin : false);
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],

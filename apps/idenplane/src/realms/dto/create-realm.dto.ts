@@ -421,6 +421,13 @@ export class CreateRealmDto {
   @IsString()
   webAuthnRpId?: string;
 
+  @ApiPropertyOptional({
+    description: 'Require user verification (biometric/PIN) for WebAuthn authentication',
+  })
+  @IsOptional()
+  @IsBoolean()
+  webAuthnUserVerificationRequired?: boolean;
+
   // Adaptive authentication
   @ApiPropertyOptional({
     default: false,

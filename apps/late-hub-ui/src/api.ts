@@ -1,6 +1,6 @@
 import type { ImportResult, MonthlyReport, MonthlyReportSummary } from './types';
 
-const BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? 'http://localhost:3003';
+const BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? '/api/late-hub';
 
 async function parseJsonOrThrow<T>(response: Response): Promise<T> {
   if (!response.ok) {

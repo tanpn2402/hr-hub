@@ -6,7 +6,7 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   base: '/console/',
   server: {
-    port: 5173,
+    port: 5175,
     proxy: {
       // Admin API — controllers are mounted under `admin/...`, so forward the
       // path unchanged (do NOT strip `/admin`, or every admin call 404s).

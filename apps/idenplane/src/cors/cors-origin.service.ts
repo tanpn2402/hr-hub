@@ -132,7 +132,8 @@ export class CorsOriginService {
       }
 
       for (const client of clients) {
-        for (const o of client.webOrigins) {
+        const webOrigins =  typeof client.webOrigins === "string" ? JSON.parse(client.webOrigins) : client.webOrigins;
+        for (const o of webOrigins) {
           if (o === '*') {
             // A wildcard origin stored in the database means the client was
             // created before the #320 validation was introduced.  Honouring it

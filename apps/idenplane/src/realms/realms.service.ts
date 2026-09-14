@@ -116,6 +116,7 @@ export class RealmsService {
         webAuthnEnabled: dto.webAuthnEnabled,
         webAuthnRpName: dto.webAuthnRpName,
         webAuthnRpId: dto.webAuthnRpId,
+        webAuthnUserVerificationRequired: dto.webAuthnUserVerificationRequired,
         // Adaptive authentication
         adaptiveAuthEnabled: dto.adaptiveAuthEnabled,
         riskThresholdStepUp: dto.riskThresholdStepUp,
@@ -296,6 +297,7 @@ export class RealmsService {
       webAuthnEnabled: dto.webAuthnEnabled,
       webAuthnRpName: dto.webAuthnRpName,
       webAuthnRpId: dto.webAuthnRpId,
+      webAuthnUserVerificationRequired: dto.webAuthnUserVerificationRequired,
       // Adaptive authentication
       adaptiveAuthEnabled: dto.adaptiveAuthEnabled,
       riskThresholdStepUp: dto.riskThresholdStepUp,

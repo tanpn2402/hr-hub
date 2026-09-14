@@ -10,9 +10,11 @@
     "lint": "eslint src"
   },
   "dependencies": {
-    "@repo/ui": "*"
+    "@repo/ui": "*",
+    "react-router-dom": "^7.18.3"
   },
   "devDependencies": {
+    "@module-federation/vite": "^1.21.6",
     "@repo/eslint-config": "*",
     "@repo/typescript-config": "*",
     "eslint": "10.9.1",

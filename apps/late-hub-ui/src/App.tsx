@@ -1,3 +1,5 @@
+import './styles.css';
+
 import { useCallback, useEffect, useState } from 'react';
 import { fetchReport, fetchReportList, reportExportUrl } from './api';
 import { ReportTable } from './components/ReportTable';

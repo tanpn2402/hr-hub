@@ -164,7 +164,7 @@ export class OAuthService {
         // record what the authentication flow actually *delivered*.
         acrValues: params.acr_values ?? null,
         satisfiedAcr: authContext.acr ?? null,
-        amr: authContext.amr ?? [],
+        amr: JSON.stringify(authContext.amr ?? []),
         expiresAt: new Date(Date.now() + 60 * 1000),
       } as Prisma.AuthorizationCodeUncheckedCreateInput & AcrAmrFields,
     });

@@ -4,6 +4,7 @@ import type {
   CreateProxyApplicationInput,
   UpdateProxyApplicationInput,
 } from '../types';
+import { parseJsonArray, parseJsonObject } from '../utils/jsonFields';
 
 export async function getProxyApplications(
   realmName: string,
@@ -21,7 +22,13 @@ export async function getProxyApplication(
   const { data } = await apiClient.get<ProxyApplicationView>(
     `/realms/${realmName}/proxy-applications/${slug}`,
   );
-  return data;
+  return {
+    ...data,
+    application: {
+      ...data.application,
+      allowedRedirectUris: parseJsonArray(data.application.allowedRedirectUris, []),
+    }
+  };
 }
 
 export async function createProxyApplication(
