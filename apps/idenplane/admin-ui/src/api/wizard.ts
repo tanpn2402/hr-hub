@@ -1,4 +1,5 @@
 import { rootClient } from './client';
+import { parseJsonArray } from '../utils/jsonFields';
 
 export interface WizardStatus {
   isFirstRun: boolean;
@@ -85,6 +86,17 @@ export interface WizardCompleteResult {
   message: string;
 }
 
+// SQLite has no native String[] column type, so WizardState.redirectUris is
+// stored as JSON-serialised TEXT and may come back from the API as a raw
+// string rather than a real array. Parse it here so callers always see the
+// clean shape declared by the `WizardState` type.
+function mapWizardState(raw: WizardState): WizardState {
+  return {
+    ...raw,
+    redirectUris: raw.redirectUris ? parseJsonArray(raw.redirectUris) : raw.redirectUris,
+  };
+}
+
 export async function getWizardStatus(): Promise<WizardStatus> {
   const { data } = await rootClient.get<WizardStatus>('/setup-wizard/status');
   return data;
@@ -92,7 +104,7 @@ export async function getWizardStatus(): Promise<WizardStatus> {
 
 export async function getWizardState(): Promise<WizardState> {
   const { data } = await rootClient.get<WizardState>('/setup-wizard/state');
-  return data;
+  return mapWizardState(data);
 }
 
 export async function saveAdminAccount(
@@ -102,7 +114,7 @@ export async function saveAdminAccount(
     '/setup-wizard/admin-account',
     account,
   );
-  return data;
+  return mapWizardState(data);
 }
 
 export async function saveRealmSettings(
@@ -112,7 +124,7 @@ export async function saveRealmSettings(
     '/setup-wizard/realm-settings',
     settings,
   );
-  return data;
+  return mapWizardState(data);
 }
 
 export async function saveSmtpConfig(
@@ -122,7 +134,7 @@ export async function saveSmtpConfig(
     '/setup-wizard/smtp-config',
     config,
   );
-  return data;
+  return mapWizardState(data);
 }
 
 export async function testSmtp(testData: SmtpTestData): Promise<SmtpTestResult> {
@@ -138,12 +150,12 @@ export async function saveClient(client: ClientData): Promise<WizardState> {
     '/setup-wizard/client',
     client,
   );
-  return data;
+  return mapWizardState(data);
 }
 
 export async function markSdkGenerated(): Promise<WizardState> {
   const { data } = await rootClient.post<WizardState>('/setup-wizard/sdk-generated');
-  return data;
+  return mapWizardState(data);
 }
 
 export async function completeWizard(): Promise<WizardCompleteResult> {
@@ -155,7 +167,7 @@ export async function completeWizard(): Promise<WizardCompleteResult> {
 
 export async function skipWizard(): Promise<WizardState> {
   const { data } = await rootClient.post<WizardState>('/setup-wizard/skip');
-  return data;
+  return mapWizardState(data);
 }
 
 export async function resetWizard(): Promise<{ message: string }> {

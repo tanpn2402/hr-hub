@@ -14,6 +14,44 @@ import { CorsOriginService } from '../cors/cors-origin.service.js';
 import { CreateClientDto } from './dto/create-client.dto.js';
 import { UpdateClientDto } from './dto/update-client.dto.js';
 
+// SQLite has no native String[] column type, so redirectUris/webOrigins/
+// grantTypes/postLogoutRedirectUris are stored as JSON-serialized TEXT (see
+// prisma/schema.prisma banner comment) and come back from Prisma as plain
+// strings rather than real arrays. Every REST response that shapes a Client
+// for an HTTP caller must run through this helper so those four fields are
+// parsed back into real arrays before they leave the process — mirroring the
+// write-side JSON.stringify() calls in create()/update() below. (The GraphQL
+// API has its own equivalent mapper, toGraphQLClient(), in
+// src/graphql/resolvers/client.resolver.ts.)
+interface ClientArrayFieldsRaw {
+  redirectUris: string;
+  postLogoutRedirectUris: string;
+  webOrigins: string;
+  grantTypes: string;
+}
+
+export function toClientResponse<T extends ClientArrayFieldsRaw>(
+  client: T,
+): Omit<
+  T,
+  'redirectUris' | 'postLogoutRedirectUris' | 'webOrigins' | 'grantTypes'
+> & {
+  redirectUris: string[];
+  postLogoutRedirectUris: string[];
+  webOrigins: string[];
+  grantTypes: string[];
+} {
+  return {
+    ...client,
+    redirectUris: JSON.parse(client.redirectUris) as string[],
+    postLogoutRedirectUris: JSON.parse(
+      client.postLogoutRedirectUris,
+    ) as string[],
+    webOrigins: JSON.parse(client.webOrigins) as string[],
+    grantTypes: JSON.parse(client.grantTypes) as string[],
+  };
+}
+
 const CLIENT_SELECT = {
   id: true,
   realmId: true,

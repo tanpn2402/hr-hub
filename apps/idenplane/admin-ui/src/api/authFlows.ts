@@ -1,4 +1,5 @@
 import apiClient from './client';
+import { parseJsonArray } from '../utils/jsonFields';
 
 // ─── Types ──────────────────────────────────────────────────
 
@@ -62,11 +63,19 @@ export interface UpdateAuthFlowPayload {
 
 // ─── API Functions ───────────────────────────────────────────
 
+// SQLite has no native Json column type, so AuthenticationFlow.steps is
+// stored as JSON-serialised TEXT and may come back from the API as a raw
+// string rather than a real array. Parse it here so callers always see the
+// clean shape declared by the `AuthFlow` type.
+function mapAuthFlow(raw: AuthFlow): AuthFlow {
+  return { ...raw, steps: parseJsonArray(raw.steps) };
+}
+
 export async function getAuthFlows(realmName: string): Promise<AuthFlow[]> {
   const { data } = await apiClient.get<AuthFlow[]>(
     `/realms/${realmName}/auth-flows`,
   );
-  return data;
+  return data.map(mapAuthFlow);
 }
 
 export async function getAuthFlowById(
@@ -76,7 +85,7 @@ export async function getAuthFlowById(
   const { data } = await apiClient.get<AuthFlow>(
     `/realms/${realmName}/auth-flows/${id}`,
   );
-  return data;
+  return mapAuthFlow(data);
 }
 
 export async function createAuthFlow(
@@ -87,7 +96,7 @@ export async function createAuthFlow(
     `/realms/${realmName}/auth-flows`,
     payload,
   );
-  return data;
+  return mapAuthFlow(data);
 }
 
 export async function updateAuthFlow(
@@ -99,7 +108,7 @@ export async function updateAuthFlow(
     `/realms/${realmName}/auth-flows/${id}`,
     payload,
   );
-  return data;
+  return mapAuthFlow(data);
 }
 
 export async function deleteAuthFlow(

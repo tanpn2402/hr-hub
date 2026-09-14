@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { toClientResponse } from '../clients/clients.service.js';
 
 export interface RealmExportOptions {
   includeUsers?: boolean;
@@ -85,20 +86,23 @@ export class RealmExportService {
         adminEventsEnabled: realm.adminEventsEnabled,
         theme: realm.theme,
       },
-      clients: clients.map((c) => ({
-        clientId: c.clientId,
-        clientType: c.clientType,
-        clientSecret: options.includeSecrets ? c.clientSecret : undefined,
-        name: c.name,
-        description: c.description,
-        enabled: c.enabled,
-        requireConsent: c.requireConsent,
-        redirectUris: c.redirectUris,
-        webOrigins: c.webOrigins,
-        grantTypes: c.grantTypes,
-        backchannelLogoutUri: c.backchannelLogoutUri,
-        backchannelLogoutSessionRequired: c.backchannelLogoutSessionRequired,
-      })),
+      clients: clients.map((raw) => {
+        const c = toClientResponse(raw);
+        return {
+          clientId: c.clientId,
+          clientType: c.clientType,
+          clientSecret: options.includeSecrets ? c.clientSecret : undefined,
+          name: c.name,
+          description: c.description,
+          enabled: c.enabled,
+          requireConsent: c.requireConsent,
+          redirectUris: c.redirectUris,
+          webOrigins: c.webOrigins,
+          grantTypes: c.grantTypes,
+          backchannelLogoutUri: c.backchannelLogoutUri,
+          backchannelLogoutSessionRequired: c.backchannelLogoutSessionRequired,
+        };
+      }),
       roles: roles.map((r) => ({
         name: r.name,
         description: r.description,

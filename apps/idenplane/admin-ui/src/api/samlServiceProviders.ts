@@ -1,5 +1,19 @@
 import apiClient from './client';
 import type { SamlServiceProvider } from '../types';
+import { parseJsonArray, parseJsonObject } from '../utils/jsonFields';
+
+// SQLite has no native String[]/Json column type, so attributeStatements and
+// validRedirectUris are stored as JSON-serialised TEXT and may come back
+// from the API as raw strings rather than a real object/array. Parse them
+// here so callers always see the clean shape declared by the
+// `SamlServiceProvider` type.
+function mapSamlSp(raw: SamlServiceProvider): SamlServiceProvider {
+  return {
+    ...raw,
+    attributeStatements: parseJsonObject(raw.attributeStatements, {}),
+    validRedirectUris: parseJsonArray(raw.validRedirectUris),
+  };
+}
 
 export async function getSamlSps(
   realmName: string,
@@ -7,7 +21,7 @@ export async function getSamlSps(
   const { data } = await apiClient.get<SamlServiceProvider[]>(
     `/realms/${realmName}/saml-service-providers`,
   );
-  return data;
+  return data.map(mapSamlSp);
 }
 
 export async function getSamlSp(
@@ -17,7 +31,7 @@ export async function getSamlSp(
   const { data } = await apiClient.get<SamlServiceProvider>(
     `/realms/${realmName}/saml-service-providers/${id}`,
   );
-  return data;
+  return mapSamlSp(data);
 }
 
 export interface CreateSamlSpPayload {
@@ -42,7 +56,7 @@ export async function createSamlSp(
     `/realms/${realmName}/saml-service-providers`,
     payload,
   );
-  return data;
+  return mapSamlSp(data);
 }
 
 export async function updateSamlSp(
@@ -54,7 +68,7 @@ export async function updateSamlSp(
     `/realms/${realmName}/saml-service-providers/${id}`,
     payload,
   );
-  return data;
+  return mapSamlSp(data);
 }
 
 export async function deleteSamlSp(

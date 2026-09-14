@@ -1,4 +1,5 @@
 import apiClient from './client';
+import { parseJsonArray } from '../utils/jsonFields';
 
 export type AttributeType = 'text' | 'number' | 'boolean' | 'select' | 'multi-select';
 
@@ -21,18 +22,26 @@ export interface CustomAttribute {
   updatedAt: string;
 }
 
+// SQLite has no native String[] column type, so CustomAttribute.options is
+// stored as JSON-serialised TEXT and may come back from the API as a raw
+// string rather than a real array. Parse it here so callers always see the
+// clean shape declared by the `CustomAttribute` type.
+function mapCustomAttribute(raw: CustomAttribute): CustomAttribute {
+  return { ...raw, options: parseJsonArray(raw.options) };
+}
+
 export async function getCustomAttributes(realmName: string): Promise<CustomAttribute[]> {
   const { data } = await apiClient.get<CustomAttribute[]>(
     `/realms/${realmName}/custom-attributes`,
   );
-  return data;
+  return data.map(mapCustomAttribute);
 }
 
 export async function getCustomAttribute(realmName: string, id: string): Promise<CustomAttribute> {
   const { data } = await apiClient.get<CustomAttribute>(
     `/realms/${realmName}/custom-attributes/${id}`,
   );
-  return data;
+  return mapCustomAttribute(data);
 }
 
 export async function createCustomAttribute(
@@ -43,7 +52,7 @@ export async function createCustomAttribute(
     `/realms/${realmName}/custom-attributes`,
     payload,
   );
-  return data;
+  return mapCustomAttribute(data);
 }
 
 export async function updateCustomAttribute(
@@ -55,7 +64,7 @@ export async function updateCustomAttribute(
     `/realms/${realmName}/custom-attributes/${id}`,
     payload,
   );
-  return data;
+  return mapCustomAttribute(data);
 }
 
 export async function deleteCustomAttribute(realmName: string, id: string): Promise<void> {

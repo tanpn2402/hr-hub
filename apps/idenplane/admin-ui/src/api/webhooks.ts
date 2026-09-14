@@ -1,4 +1,5 @@
 import apiClient from './client';
+import { parseJsonArray } from '../utils/jsonFields';
 
 export interface Webhook {
   id: string;
@@ -40,24 +41,32 @@ export interface UpdateWebhookDto {
   enabled?: boolean;
 }
 
+// SQLite has no native String[] column type, so Webhook.eventTypes is stored
+// as JSON-serialised TEXT and may come back from the API as a raw string
+// rather than a real array. Parse it here so callers always see the clean
+// shape declared by the `Webhook` type.
+function mapWebhook(raw: Webhook): Webhook {
+  return { ...raw, eventTypes: parseJsonArray(raw.eventTypes) };
+}
+
 export async function getWebhooks(realmName: string): Promise<Webhook[]> {
   const { data } = await apiClient.get<Webhook[]>(`/realms/${realmName}/webhooks`);
-  return data;
+  return data.map(mapWebhook);
 }
 
 export async function getWebhook(realmName: string, id: string): Promise<Webhook> {
   const { data } = await apiClient.get<Webhook>(`/realms/${realmName}/webhooks/${id}`);
-  return data;
+  return mapWebhook(data);
 }
 
 export async function createWebhook(realmName: string, dto: CreateWebhookDto): Promise<Webhook> {
   const { data } = await apiClient.post<Webhook>(`/realms/${realmName}/webhooks`, dto);
-  return data;
+  return mapWebhook(data);
 }
 
 export async function updateWebhook(realmName: string, id: string, dto: UpdateWebhookDto): Promise<Webhook> {
   const { data } = await apiClient.put<Webhook>(`/realms/${realmName}/webhooks/${id}`, dto);
-  return data;
+  return mapWebhook(data);
 }
 
 export async function deleteWebhook(realmName: string, id: string): Promise<void> {

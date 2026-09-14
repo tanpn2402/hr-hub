@@ -1,5 +1,18 @@
 import apiClient from './client';
 import type { NhiIdentity, NhiCredential, NhiCredentialPolicy, NhiUsageStats, NhiAuditLog } from '../types';
+import { parseJsonArray } from '../utils/jsonFields';
+
+// SQLite has no native String[] column type, so NhiIdentity.permissionScopes
+// and .tags are stored as JSON-serialised TEXT and may come back from the
+// API as raw strings rather than real arrays. Parse them here so callers
+// always see the clean shape declared by the `NhiIdentity` type.
+function mapNhiIdentity(raw: NhiIdentity): NhiIdentity {
+  return {
+    ...raw,
+    permissionScopes: parseJsonArray(raw.permissionScopes),
+    tags: parseJsonArray(raw.tags),
+  };
+}
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -132,7 +145,7 @@ export async function getNhiIdentities(realmName: string): Promise<NhiIdentity[]
   const { data } = await apiClient.get<NhiIdentity[]>(
     `/realms/${realmName}/nhi`,
   );
-  return data;
+  return data.map(mapNhiIdentity);
 }
 
 export async function getNhiIdentityById(
@@ -142,7 +155,7 @@ export async function getNhiIdentityById(
   const { data } = await apiClient.get<NhiIdentity>(
     `/realms/${realmName}/nhi/${id}`,
   );
-  return data;
+  return mapNhiIdentity(data);
 }
 
 export async function createNhiIdentity(
@@ -153,7 +166,7 @@ export async function createNhiIdentity(
     `/realms/${realmName}/nhi`,
     dto,
   );
-  return data;
+  return mapNhiIdentity(data);
 }
 
 export async function updateNhiIdentity(
@@ -165,7 +178,7 @@ export async function updateNhiIdentity(
     `/realms/${realmName}/nhi/${id}`,
     dto,
   );
-  return data;
+  return mapNhiIdentity(data);
 }
 
 export async function deleteNhiIdentity(
@@ -184,7 +197,7 @@ export async function suspendNhiIdentity(
   const { data } = await apiClient.post<NhiIdentity>(
     `/realms/${realmName}/nhi/${id}/suspend`,
   );
-  return data;
+  return mapNhiIdentity(data);
 }
 
 export async function reactivateNhiIdentity(
@@ -194,7 +207,7 @@ export async function reactivateNhiIdentity(
   const { data } = await apiClient.post<NhiIdentity>(
     `/realms/${realmName}/nhi/${id}/reactivate`,
   );
-  return data;
+  return mapNhiIdentity(data);
 }
 
 export async function decommissionNhiIdentity(
@@ -204,7 +217,7 @@ export async function decommissionNhiIdentity(
   const { data } = await apiClient.post<NhiIdentity>(
     `/realms/${realmName}/nhi/${id}/decommission`,
   );
-  return data;
+  return mapNhiIdentity(data);
 }
 
 // ── Credential API functions ──────────────────────────────────────────────────
@@ -261,7 +274,7 @@ export async function setNhiCertificate(
     `/realms/${realmName}/nhi/${identityId}/certificate`,
     dto,
   );
-  return data;
+  return mapNhiIdentity(data);
 }
 
 export async function generateDeviceCertificate(
@@ -308,7 +321,13 @@ export async function bulkRegisterDevices(
     `/realms/${realmName}/nhi/devices/bulk-register`,
     dto,
   );
-  return data;
+  return {
+    ...data,
+    results: data.results.map((result) => ({
+      ...result,
+      identity: result.identity ? mapNhiIdentity(result.identity) : result.identity,
+    })),
+  };
 }
 
 // ── Credential Policy API functions ───────────────────────────────────────────

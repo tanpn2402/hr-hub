@@ -1,11 +1,28 @@
 import apiClient from './client';
 import type { Client, User } from '../types';
+import { parseJsonArray } from '../utils/jsonFields';
+
+// SQLite has no native String[] column type, so redirectUris/webOrigins/
+// grantTypes (and postLogoutRedirectUris, not currently part of the `Client`
+// type below) are stored as JSON-serialised TEXT. Some backend endpoints
+// already parse them back into real arrays before responding (see
+// toClientResponse() in clients.service.ts), but this is a defensive
+// normalisation for any that don't — mirroring the precedent bug where a raw
+// JSON string reached `(client.redirectUris || []).join(...)`.
+function mapClient(raw: Client): Client {
+  return {
+    ...raw,
+    redirectUris: parseJsonArray(raw.redirectUris),
+    webOrigins: parseJsonArray(raw.webOrigins),
+    grantTypes: parseJsonArray(raw.grantTypes),
+  };
+}
 
 export async function getClients(realmName: string): Promise<Client[]> {
   const { data } = await apiClient.get<Client[]>(
     `/realms/${realmName}/clients`,
   );
-  return data;
+  return data.map(mapClient);
 }
 
 export async function getClientById(
@@ -15,7 +32,7 @@ export async function getClientById(
   const { data } = await apiClient.get<Client>(
     `/realms/${realmName}/clients/${id}`,
   );
-  return data;
+  return mapClient(data);
 }
 
 export async function createClient(
@@ -26,7 +43,7 @@ export async function createClient(
     `/realms/${realmName}/clients`,
     client,
   );
-  return data;
+  return mapClient(data);
 }
 
 export async function updateClient(
@@ -38,7 +55,7 @@ export async function updateClient(
     `/realms/${realmName}/clients/${id}`,
     client,
   );
-  return data;
+  return mapClient(data);
 }
 
 export async function deleteClient(

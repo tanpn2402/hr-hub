@@ -1,4 +1,5 @@
 import apiClient from './client';
+import { parseJsonArray } from '../utils/jsonFields';
 
 export interface ServiceAccount {
   id: string;
@@ -77,9 +78,18 @@ export async function deleteServiceAccount(realmName: string, accountId: string)
   await apiClient.delete(`/realms/${realmName}/service-accounts/${accountId}`);
 }
 
+// SQLite has no native String[] column type, so ApiKey.scopes is stored as
+// JSON-serialised TEXT. The backend already parses this back into a real
+// array for most responses (see withParsedScopes() in
+// service-accounts.service.ts), but this is a defensive normalisation for
+// any response that doesn't.
+function mapApiKey<T extends ApiKey>(raw: T): T {
+  return { ...raw, scopes: parseJsonArray(raw.scopes) };
+}
+
 export async function getApiKeys(realmName: string, accountId: string): Promise<ApiKey[]> {
   const { data } = await apiClient.get<ApiKey[]>(`/realms/${realmName}/service-accounts/${accountId}/api-keys`);
-  return data;
+  return data.map(mapApiKey);
 }
 
 export async function createApiKey(realmName: string, accountId: string, dto: CreateApiKeyDto): Promise<ApiKeyCreateResult> {
@@ -87,7 +97,7 @@ export async function createApiKey(realmName: string, accountId: string, dto: Cr
     `/realms/${realmName}/service-accounts/${accountId}/api-keys`,
     dto,
   );
-  return data;
+  return mapApiKey(data);
 }
 
 export async function revokeApiKey(realmName: string, accountId: string, keyId: string): Promise<void> {
@@ -98,5 +108,5 @@ export async function rotateApiKey(realmName: string, accountId: string, keyId: 
   const { data } = await apiClient.post<ApiKeyCreateResult>(
     `/realms/${realmName}/service-accounts/${accountId}/api-keys/${keyId}/rotate`,
   );
-  return data;
+  return mapApiKey(data);
 }

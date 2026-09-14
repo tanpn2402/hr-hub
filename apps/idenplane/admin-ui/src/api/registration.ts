@@ -1,4 +1,5 @@
 import { rootClient } from './client';
+import { parseJsonArray } from '../utils/jsonFields';
 
 export interface RegistrationField {
   id: string;
@@ -63,11 +64,22 @@ export async function rejectRegistration(
   return data;
 }
 
+// SQLite has no native String[] column type, so RegistrationField.options is
+// stored as JSON-serialised TEXT and may come back from the API as a raw
+// string rather than a real array. Parse it here so callers always see the
+// clean shape declared by the `RegistrationField` type.
+function mapRegistrationField<T extends Partial<RegistrationField>>(raw: T): T {
+  return {
+    ...raw,
+    options: raw.options !== undefined ? parseJsonArray(raw.options) : raw.options,
+  };
+}
+
 export async function getRegistrationFields(realmName: string): Promise<RegistrationField[]> {
   const { data } = await rootClient.get<RegistrationField[]>(
     `/realms/${realmName}/registration/admin/fields`,
   );
-  return data;
+  return data.map(mapRegistrationField);
 }
 
 export async function createRegistrationField(
@@ -78,7 +90,7 @@ export async function createRegistrationField(
     `/realms/${realmName}/registration/admin/fields`,
     field,
   );
-  return data;
+  return mapRegistrationField(data);
 }
 
 export async function updateRegistrationField(
@@ -90,7 +102,7 @@ export async function updateRegistrationField(
     `/realms/${realmName}/registration/admin/fields/${fieldId}`,
     field,
   );
-  return data;
+  return mapRegistrationField(data);
 }
 
 export async function deleteRegistrationField(
@@ -104,5 +116,5 @@ export async function getPublicRegistrationFields(realmName: string): Promise<Pa
   const { data } = await rootClient.get<Partial<RegistrationField>[]>(
     `/realms/${realmName}/registration/fields`,
   );
-  return data;
+  return data.map(mapRegistrationField);
 }

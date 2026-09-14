@@ -1,9 +1,18 @@
 import apiClient from './client';
 import type { ConsentCategory } from '../types';
+import { parseJsonArray, parseJsonObject } from '../utils/jsonFields';
 
 // ---------------------------------------------------------------------------
 // Consent Categories
 // ---------------------------------------------------------------------------
+
+// SQLite has no native String[] column type, so ConsentCategory.scopes is
+// stored as JSON-serialised TEXT and may come back from the API as a raw
+// string rather than a real array. Parse it here so callers always see the
+// clean shape declared by the `ConsentCategory` type.
+function mapConsentCategory(raw: ConsentCategory): ConsentCategory {
+  return { ...raw, scopes: parseJsonArray(raw.scopes) };
+}
 
 export async function getConsentCategories(
   realmName: string,
@@ -13,7 +22,7 @@ export async function getConsentCategories(
     `/realms/${realmName}/consent-categories`,
     { params: { includeDisabled } },
   );
-  return data;
+  return data.map(mapConsentCategory);
 }
 
 export async function getConsentCategoryById(
@@ -23,7 +32,7 @@ export async function getConsentCategoryById(
   const { data } = await apiClient.get<ConsentCategory>(
     `/realms/${realmName}/consent-categories/${categoryId}`,
   );
-  return data;
+  return mapConsentCategory(data);
 }
 
 export async function createConsentCategory(
@@ -34,7 +43,7 @@ export async function createConsentCategory(
     `/realms/${realmName}/consent-categories`,
     category,
   );
-  return data;
+  return mapConsentCategory(data);
 }
 
 export async function updateConsentCategory(
@@ -46,7 +55,7 @@ export async function updateConsentCategory(
     `/realms/${realmName}/consent-categories/${categoryId}`,
     category,
   );
-  return data;
+  return mapConsentCategory(data);
 }
 
 export async function deleteConsentCategory(
@@ -84,6 +93,24 @@ export interface UserConsentHistoryEntry {
   createdAt: string;
 }
 
+// SQLite has no native String[]/Json column type, so UserConsent.scopes and
+// UserConsentHistory.scopes/.metadata are stored as JSON-serialised TEXT and
+// may come back from the API as raw strings rather than real arrays/objects.
+// Parse them here so callers always see the clean shapes declared above.
+function mapUserConsent(raw: UserConsent): UserConsent {
+  return { ...raw, scopes: parseJsonArray(raw.scopes) };
+}
+
+function mapUserConsentHistoryEntry(
+  raw: UserConsentHistoryEntry,
+): UserConsentHistoryEntry {
+  return {
+    ...raw,
+    scopes: parseJsonArray(raw.scopes),
+    metadata: raw.metadata ? parseJsonObject(raw.metadata, {}) : raw.metadata,
+  };
+}
+
 export async function getUserConsents(
   realmName: string,
   userId: string,
@@ -91,7 +118,7 @@ export async function getUserConsents(
   const { data } = await apiClient.get<UserConsent[]>(
     `/realms/${realmName}/users/${userId}/consents`,
   );
-  return data;
+  return data.map(mapUserConsent);
 }
 
 export interface UserConsentHistoryResponse {
@@ -111,7 +138,7 @@ export async function getUserConsentHistory(
     `/realms/${realmName}/users/${userId}/consents/history`,
     { params: { page, limit } },
   );
-  return data;
+  return { ...data, history: data.history.map(mapUserConsentHistoryEntry) };
 }
 
 // ---------------------------------------------------------------------------

@@ -18,7 +18,7 @@ import {
   ApiResponse,
 } from '@nestjs/swagger';
 import type { Realm } from '@prisma/client';
-import { ClientsService } from './clients.service.js';
+import { ClientsService, toClientResponse } from './clients.service.js';
 import { CreateClientDto } from './dto/create-client.dto.js';
 import { UpdateClientDto } from './dto/update-client.dto.js';
 import { RealmGuard } from '../common/guards/realm.guard.js';
@@ -42,16 +42,18 @@ export class ClientsController {
   @ApiResponse({ status: 201, description: 'Client created successfully' })
   @ApiResponse({ status: 400, description: 'Invalid request body' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  create(@CurrentRealm() realm: Realm, @Body() dto: CreateClientDto) {
-    return this.clientsService.create(realm, dto);
+  async create(@CurrentRealm() realm: Realm, @Body() dto: CreateClientDto) {
+    const client = await this.clientsService.create(realm, dto);
+    return toClientResponse(client);
   }
 
   @Get()
   @ApiOperation({ summary: 'List clients in a realm' })
   @ApiResponse({ status: 200, description: 'List of clients' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  findAll(@CurrentRealm() realm: Realm) {
-    return this.clientsService.findAll(realm);
+  async findAll(@CurrentRealm() realm: Realm) {
+    const clients = await this.clientsService.findAll(realm);
+    return clients.map((client) => toClientResponse(client));
   }
 
   @Get(':clientId')
@@ -59,8 +61,12 @@ export class ClientsController {
   @ApiResponse({ status: 200, description: 'Client details' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 404, description: 'Client not found' })
-  findOne(@CurrentRealm() realm: Realm, @Param('clientId') clientId: string) {
-    return this.clientsService.findByClientId(realm, clientId);
+  async findOne(
+    @CurrentRealm() realm: Realm,
+    @Param('clientId') clientId: string,
+  ) {
+    const client = await this.clientsService.findByClientId(realm, clientId);
+    return toClientResponse(client);
   }
 
   @Put(':clientId')
@@ -69,12 +75,13 @@ export class ClientsController {
   @ApiResponse({ status: 400, description: 'Invalid request body' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 404, description: 'Client not found' })
-  update(
+  async update(
     @CurrentRealm() realm: Realm,
     @Param('clientId') clientId: string,
     @Body() dto: UpdateClientDto,
   ) {
-    return this.clientsService.update(realm, clientId, dto);
+    const client = await this.clientsService.update(realm, clientId, dto);
+    return toClientResponse(client);
   }
 
   @Patch(':clientId')
@@ -83,12 +90,13 @@ export class ClientsController {
   @ApiResponse({ status: 400, description: 'Invalid request body' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 404, description: 'Client not found' })
-  partialUpdate(
+  async partialUpdate(
     @CurrentRealm() realm: Realm,
     @Param('clientId') clientId: string,
     @Body() dto: UpdateClientDto,
   ) {
-    return this.clientsService.update(realm, clientId, dto);
+    const client = await this.clientsService.update(realm, clientId, dto);
+    return toClientResponse(client);
   }
 
   @Delete(':clientId')

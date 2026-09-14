@@ -41,6 +41,10 @@ describe('RealmExportService', () => {
     theme: {},
   };
 
+  // SQLite has no native String[] column, so Prisma returns these fields as
+  // JSON-serialized strings, not real arrays — mirror that here so the
+  // service's toClientResponse() parsing (see clients.service.ts) is
+  // exercised the same way it would be against a real SQLite-backed row.
   const mockClient = {
     id: 'client-db-1',
     realmId: 'realm-1',
@@ -51,9 +55,10 @@ describe('RealmExportService', () => {
     description: 'Test client',
     enabled: true,
     requireConsent: false,
-    redirectUris: ['http://localhost/callback'],
-    webOrigins: ['http://localhost'],
-    grantTypes: ['authorization_code'],
+    redirectUris: '["http://localhost/callback"]',
+    postLogoutRedirectUris: '[]',
+    webOrigins: '["http://localhost"]',
+    grantTypes: '["authorization_code"]',
     backchannelLogoutUri: null,
     backchannelLogoutSessionRequired: true,
   };
@@ -158,6 +163,11 @@ describe('RealmExportService', () => {
       const clients = result['clients'] as any[];
       expect(clients).toHaveLength(1);
       expect(clients[0].clientId).toBe('my-app');
+      // redirectUris/webOrigins/grantTypes must come back as real arrays,
+      // not the raw JSON-encoded strings SQLite stores them as.
+      expect(clients[0].redirectUris).toEqual(['http://localhost/callback']);
+      expect(clients[0].webOrigins).toEqual(['http://localhost']);
+      expect(clients[0].grantTypes).toEqual(['authorization_code']);
 
       // Roles
       const roles = result['roles'] as any[];

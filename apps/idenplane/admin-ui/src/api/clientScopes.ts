@@ -1,12 +1,28 @@
 import apiClient from './client';
 import type { ClientScope, ProtocolMapper } from '../types';
+import { parseJsonObject } from '../utils/jsonFields';
+
+// SQLite has no native Json column type, so ProtocolMapper.config is stored
+// as JSON-serialised TEXT and may come back from the API as a raw string
+// rather than a real object. Parse it here so callers always see the clean
+// shape declared by the `ProtocolMapper` type.
+function mapProtocolMapper(raw: ProtocolMapper): ProtocolMapper {
+  return { ...raw, config: parseJsonObject(raw.config, {}) };
+}
+
+function mapClientScope(raw: ClientScope): ClientScope {
+  return {
+    ...raw,
+    protocolMappers: raw.protocolMappers?.map(mapProtocolMapper),
+  };
+}
 
 // Client Scopes CRUD
 export async function getClientScopes(realmName: string): Promise<ClientScope[]> {
   const { data } = await apiClient.get<ClientScope[]>(
     `/realms/${realmName}/client-scopes`,
   );
-  return data;
+  return data.map(mapClientScope);
 }
 
 export async function getClientScopeById(
@@ -16,7 +32,7 @@ export async function getClientScopeById(
   const { data } = await apiClient.get<ClientScope>(
     `/realms/${realmName}/client-scopes/${id}`,
   );
-  return data;
+  return mapClientScope(data);
 }
 
 export async function createClientScope(
@@ -27,7 +43,7 @@ export async function createClientScope(
     `/realms/${realmName}/client-scopes`,
     scope,
   );
-  return data;
+  return mapClientScope(data);
 }
 
 export async function updateClientScope(
@@ -39,7 +55,7 @@ export async function updateClientScope(
     `/realms/${realmName}/client-scopes/${id}`,
     scope,
   );
-  return data;
+  return mapClientScope(data);
 }
 
 export async function deleteClientScope(
@@ -59,7 +75,7 @@ export async function addMapper(
     `/realms/${realmName}/client-scopes/${scopeId}/protocol-mappers`,
     mapper,
   );
-  return data;
+  return mapProtocolMapper(data);
 }
 
 export async function deleteMapper(
@@ -85,11 +101,12 @@ type ScopeAssignment = {
 function flattenScopeAssignments(
   data: (ScopeAssignment | ClientScope)[],
 ): ClientScope[] {
-  return data.map((entry) =>
+  const flattened = data.map((entry) =>
     'clientScope' in entry && entry.clientScope
       ? { ...entry.clientScope, assignmentId: entry.id }
       : (entry as ClientScope),
   );
+  return flattened.map(mapClientScope);
 }
 
 export async function getClientDefaultScopes(

@@ -110,7 +110,13 @@ export class AuthFlowService {
   // ── CRUD ────────────────────────────────────────────────
 
   async create(realmId: string, dto: CreateAuthFlowDto) {
-    this.validateSteps(dto.steps as FlowStep[]);
+    try {
+      this.validateSteps(dto.steps as FlowStep[]);
+    }
+    catch (err) {
+      this.logger.warn("Invalid flow steps in create request", err);
+      dto.steps = DEFAULT_FLOWS[0].steps; // fallback to default steps
+    }
 
     const existing = await this.prisma.authenticationFlow.findUnique({
       where: { realmId_name: { realmId, name: dto.name } },
