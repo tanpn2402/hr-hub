@@ -30,10 +30,10 @@ export default defineConfig({
     strictPort: true,
 
     proxy: {
-      "/api/late-hub": {
+      "/api": {
         target: "http://localhost:3003",
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api\/late-hub/, ""),
+        rewrite: (path) => path.replace(/^\/api/, ""),
       },
     },
   },

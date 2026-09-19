@@ -4,18 +4,30 @@ import {
   CalendarCheck,
   Clock3,
   FileWarning,
+  Upload,
   Users,
 } from "lucide-react";
 
 import { HRMetricCard } from "../components/HRMetricCard"
 import { ImportDataDialog } from "../components/ImportDataDialog"
 import { Button } from "@/components/ui/button";
+import { HRPageHeader } from "../components/HRPageHeader";
 
 export function AttendanceLeavePage() {
   const [importOpen, setImportOpen] = useState(false);
 
-  return <div className="px-6">
-    <div>
+  return <div>
+    <HRPageHeader
+      title="Attendance & Leave"
+      description="Review employee attendance, late hours, and leave records."
+      actions={
+        <Button onClick={() => setImportOpen(true)}>
+          <Upload className="mr-2 size-4" />
+          Import data
+        </Button>
+      }
+    />
+    <div className="px-6">
       {/* Metrics */}
       <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <HRMetricCard
@@ -67,12 +79,6 @@ export function AttendanceLeavePage() {
               Latest HR data updates
             </p>
           </div>
-          <Button
-            onClick={() => setImportOpen(true)}
-          >
-            <FileWarning className="mr-2 size-4" />
-            Import data
-          </Button>
         </div>
 
         <div className="mt-4 rounded-xl border bg-card">

@@ -97,7 +97,7 @@ export function AppSwitcher({
               );
             })}
           </div>
-        </DropdownMenuGroup>npm install idenplane-sdk
+        </DropdownMenuGroup>
 
       </DropdownMenuContent>
     </DropdownMenu>
