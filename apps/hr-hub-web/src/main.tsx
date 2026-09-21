@@ -3,6 +3,18 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
+import App from './App';
+import { AuthProvider } from './auth/AuthProvider';
+
+import dayjs from 'dayjs';
+import utc from 'dayjs/plugin/utc';
+import 'dayjs/locale/vi';
+
+import "./style.css";
+
+dayjs.extend(utc);
+dayjs.locale('vi');
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -13,11 +25,6 @@ const queryClient = new QueryClient({
   },
 });
 
-import App from './App';
-
-
-import "./style.css";
-import { AuthProvider } from './auth/AuthProvider';
 
 const container = document.getElementById('root');
 

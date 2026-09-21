@@ -97,12 +97,38 @@ export class FinesService {
       const ids = await this.prisma.fine.findMany({ where: { date: monthRange(query.month) }, select: { id: true } });
       where.fineId = { in: ids.map((x) => x.id) };
     }
-    return this.prisma.fineFeedback.findMany({ where, orderBy: { createdAt: 'desc' } });
+    const items = await this.prisma.fineFeedback.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+    });
+    return {
+      items,
+      summary: {
+        total: items.length,
+        reviewed: items.filter((item) => item.status !== 'pending').length,
+        approved: items.filter((item) => item.status === 'approved').length,
+        pending: items.filter((item) => item.status === 'pending').length,
+        rejected: items.filter((item) => item.status === 'rejected').length,
+      },
+    };
+  }
+
+  async feedbackDetail(id: string) {
+    const feedback = await this.prisma.fineFeedback.findUnique({ where: { id } });
+    if (!feedback) throw new NotFoundException('Fine feedback not found');
+    const fine = await this.prisma.fine.findUnique({ where: { id: feedback.fineId } });
+    if (!fine) throw new NotFoundException('Fine not found');
+    const day = { gte: new Date(fine.date), lt: new Date(new Date(fine.date).getTime() + 24 * 60 * 60 * 1000) };
+    const [attendance, leave] = await Promise.all([
+      this.prisma.attendance.findFirst({ where: { employeeCode: fine.employeeCode, date: day } }),
+      this.prisma.leave.findFirst({ where: { employeeCode: fine.employeeCode, date: day } }),
+    ]);
+    return { feedback, fine: this.payable(fine), attendance, leave };
   }
 
   async approve(id: string, body: any, user?: AuthenticatedUser) {
     const reduction = body?.reductionAmount;
-    if (!Number.isInteger(reduction) || reduction < 0 || (body.reviewNote !== undefined && typeof body.reviewNote !== 'string'))
+    if (!Number.isInteger(reduction ?? 0) || (reduction ?? 0) < 0 || (body.reviewNote !== undefined && typeof body.reviewNote !== 'string'))
       throw new BadRequestException('Invalid approval data');
     return this.prisma.$transaction(async (tx) => {
       const feedback = await tx.fineFeedback.findUnique({ where: { id } });
@@ -112,12 +138,13 @@ export class FinesService {
       if (!fine) throw new NotFoundException('Fine not found');
       if (fine.status === 'paid') throw new ConflictException('Paid fines cannot be adjusted');
       const payable = fine.adjustedAmount ?? fine.amount;
-      if (reduction > payable) throw new BadRequestException('Reduction exceeds current payable amount');
+      const reductionAmount = reduction ?? 0;
+      if (reductionAmount > payable) throw new BadRequestException('Reduction exceeds current payable amount');
       const updated = await tx.fineFeedback.updateMany({
         where: { id, status: 'pending' },
         data: {
           status: 'approved',
-          reductionAmount: reduction,
+          reductionAmount,
           reviewedBy: user?.id ?? null,
           reviewedByName: user?.username ?? user?.email ?? null,
           reviewedAt: new Date(),
@@ -125,8 +152,8 @@ export class FinesService {
         },
       });
       if (updated.count !== 1) throw new ConflictException('Feedback has already been reviewed');
-      await tx.fine.update({ where: { id: fine.id }, data: { adjustedAmount: payable - reduction } });
-      return { id, status: 'approved', payableAmount: payable - reduction };
+      await tx.fine.update({ where: { id: fine.id }, data: { adjustedAmount: payable - reductionAmount } });
+      return tx.fineFeedback.findUniqueOrThrow({ where: { id } });
     });
   }
 

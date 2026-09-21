@@ -96,6 +96,10 @@ export function LateHubReviewDialog({
             queryKey: ["workforce", "import-history"],
           });
 
+          queryClient.invalidateQueries({
+            queryKey: ["workforce", "report-months"],
+          });
+
           // TODO: invalidate query batchImportMonth
         },
       },

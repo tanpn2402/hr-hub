@@ -48,6 +48,12 @@ export class FinesController {
   }
 
   @UseGuards(AuthGuard)
+  @Get('fine-feedback/:id')
+  feedbackDetail(@Param('id') id: string) {
+    return this.fines.feedbackDetail(id);
+  }
+
+  @UseGuards(AuthGuard)
   @Post('fine-feedback/:id/approve')
   approve(@Param('id') id: string, @Body() body: any, @CurrentUser() user: AuthenticatedUser) {
     return this.fines.approve(id, body, user);

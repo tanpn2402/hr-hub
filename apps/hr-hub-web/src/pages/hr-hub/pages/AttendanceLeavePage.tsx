@@ -6,6 +6,8 @@ import {
   Clock3,
   Eye,
   FileWarning,
+  MessageSquareText,
+  BadgeCheck,
   Upload,
   Users,
 } from "lucide-react";
@@ -29,6 +31,8 @@ import { apiClient } from "@/api/client";
 import { WorkforceImportHistory } from "../components/WorkforceImportHistory";
 import { LateHubReviewDialog } from "../components/LateHubReviewDialog";
 import { WorkforceRow } from "../api/workforce";
+import { getWorkforceFeedback } from "../api/workforce";
+import { FeedbackReviewDialog } from "../components/FeedbackReviewDialog";
 
 /* -------------------------------------------------------------------------- */
 /* Types                                                                      */
@@ -110,6 +114,8 @@ export function AttendanceLeavePage() {
   const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
 
   const [reviewOpen, setReviewOpen] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [feedbackFilter, setFeedbackFilter] = useState<"all" | "approved">("all");
 
   /* ---------------------------------------------------------------------- */
   /* Queries                                                                */
@@ -127,6 +133,11 @@ export function AttendanceLeavePage() {
   const reportQuery = useMonthlyReport(currentMonth);
 
   const report = reportQuery.data;
+  const feedbackQuery = useQuery({
+    queryKey: ["workforce", "feedback", currentMonth],
+    queryFn: () => getWorkforceFeedback(currentMonth),
+    enabled: Boolean(currentMonth),
+  });
 
   /* ---------------------------------------------------------------------- */
   /* Stats                                                                  */
@@ -170,6 +181,16 @@ export function AttendanceLeavePage() {
   function handleViewMonthly() {
     setReviewOpen(true);
   }
+
+  function openFeedbackDialog(filter: "all" | "approved") {
+    setFeedbackFilter(filter);
+    setFeedbackOpen(true);
+  }
+
+  const feedbackSummary = feedbackQuery.data?.summary;
+  const feedbackTotal = feedbackSummary?.total ?? 0;
+  const reviewedPercent = feedbackTotal ? Math.round(((feedbackSummary?.reviewed ?? 0) / feedbackTotal) * 100) : 0;
+  const approvedPercent = feedbackTotal ? Math.round(((feedbackSummary?.approved ?? 0) / feedbackTotal) * 100) : 0;
 
   return (
     <div>
@@ -223,7 +244,7 @@ export function AttendanceLeavePage() {
         {/* Metrics                                                          */}
         {/* -------------------------------------------------------------- */}
 
-        <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
           <HRMetricCard
             title="Employees"
             value={stats.employees.toLocaleString()}
@@ -250,6 +271,22 @@ export function AttendanceLeavePage() {
             value={`${formatMoney(stats.fines)} ₫`}
             description="Total attendance fines"
             icon={Banknote}
+          />
+
+          <HRMetricCard
+            title="Feedback"
+            value={`${feedbackSummary?.reviewed ?? 0} / ${feedbackTotal}`}
+            description={`${reviewedPercent}% reviewed`}
+            icon={MessageSquareText}
+            onClick={() => openFeedbackDialog("all")}
+          />
+
+          <HRMetricCard
+            title="Approved Feedback"
+            value={`${feedbackSummary?.approved ?? 0} / ${feedbackTotal}`}
+            description={`${approvedPercent}% approved`}
+            icon={BadgeCheck}
+            onClick={() => openFeedbackDialog("approved")}
           />
         </div>
 
@@ -326,6 +363,13 @@ export function AttendanceLeavePage() {
           rows: reportQuery.data.rows,
         } : null}
         onOpenChange={setReviewOpen}
+      />
+
+      <FeedbackReviewDialog
+        open={feedbackOpen}
+        month={currentMonth}
+        initialFilter={feedbackFilter}
+        onOpenChange={setFeedbackOpen}
       />
     </div>
   );

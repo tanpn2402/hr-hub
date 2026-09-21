@@ -10,6 +10,7 @@ type Props = {
     value: string;
     positive?: boolean;
   };
+  onClick?: () => void;
 };
 
 export function HRMetricCard({
@@ -18,9 +19,24 @@ export function HRMetricCard({
   description,
   icon: Icon,
   trend,
+  onClick,
 }: Props) {
   return (
-    <div className="rounded-xl border bg-card p-5 shadow-sm">
+    <div
+      className={[
+        "rounded-xl border bg-card p-5 shadow-sm",
+        onClick ? "cursor-pointer transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" : "",
+      ].join(" ")}
+      onClick={onClick}
+      onKeyDown={(event) => {
+        if (onClick && (event.key === "Enter" || event.key === " ")) {
+          event.preventDefault();
+          onClick();
+        }
+      }}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+    >
       <div className="flex items-start justify-between">
         <div className="flex size-9 items-center justify-center rounded-lg bg-muted">
           <Icon className="size-4 text-muted-foreground" />
