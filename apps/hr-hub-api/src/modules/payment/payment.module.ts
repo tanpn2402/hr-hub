@@ -2,12 +2,13 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TraceContextService } from '../app/trace/trace-context.service';
 import { TraceModule } from '../app/trace/trace.module';
+import { AuthModule } from '../auth/auth.module';
 import { PaymentController } from './payment.controller';
 import { PaymentService } from './payment.service';
 import { INTEGRATED_PAYMENT_PROVIDER, paymentProviderFactory } from './providers/payment-provider.factory';
 
 @Module({
-  imports: [ConfigModule, TraceModule],
+  imports: [ConfigModule, TraceModule, AuthModule],
   controllers: [PaymentController],
   providers: [
     {

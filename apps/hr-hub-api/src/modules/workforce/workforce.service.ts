@@ -53,6 +53,7 @@ export class WorkforceService {
     private readonly monthlyReports: MonthlyReportsRepository,
   ) {}
 
+  // @ts-ignore
   async importExcelFiles(files: Express.Multer.File[]): Promise<WorkforceImportResult> {
     const parsed = files.map((file) => this.readWorkbook(file));
     const kinds = new Set(parsed.map((item) => item.kind));

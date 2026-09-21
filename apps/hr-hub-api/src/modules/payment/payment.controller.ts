@@ -1,4 +1,5 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import { AuthGuard } from '../auth/auth.guard';
 import { GenerateQrDto } from './dto/generate-qr.dto';
 import { PaymentService } from './payment.service';
 
@@ -9,5 +10,11 @@ export class PaymentController {
   @Post('qr')
   generateQr(@Body() request: GenerateQrDto) {
     return this.paymentService.generateQr(request);
+  }
+
+  @Get()
+  @UseGuards(AuthGuard)
+  getPayment() {
+    return [];
   }
 }

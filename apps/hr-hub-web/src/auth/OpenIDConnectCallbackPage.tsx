@@ -1,16 +1,9 @@
-import { IdenplaneClient } from "idenplane-sdk";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
-import { config } from "./config";
+import { idenplane } from "@/lib/idenplane";
 
 export function OpenIDConnectCallbackPage() {
   const [error, setError] = useState<string | null>(null);
-
-  const idenplane = useMemo(() => {
-    return new IdenplaneClient({
-      ...config,
-    });
-  }, []);
 
   useEffect(() => {
     let cancelled = false;

@@ -1,8 +1,23 @@
-import { BadRequestException, Controller, Get, Header, Param, Post, StreamableFile, UploadedFiles, UseInterceptors } from '@nestjs/common';
+import {
+  BadRequestException,
+  Controller,
+  Get,
+  Header,
+  Param,
+  Post,
+  StreamableFile,
+  UploadedFiles,
+  UseGuards,
+  UseInterceptors,
+} from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
+import { AuthGuard } from '../auth/auth.guard';
 import { WorkforceService } from './workforce.service';
+import { AuthenticatedUser } from '../auth/auth.types';
+import { CurrentUser } from '../auth/current-user.decorator';
 
 @Controller('workforce')
+@UseGuards(AuthGuard)
 export class WorkforceController {
   constructor(private readonly workforceService: WorkforceService) {}
 
@@ -12,7 +27,8 @@ export class WorkforceController {
       limits: { fileSize: 10 * 1024 * 1024 },
     }),
   )
-  importExcelFiles(@UploadedFiles() files: Express.Multer.File[]) {
+  // @ts-ignore
+  importExcelFiles(@UploadedFiles() files: Express.Multer.File[], @CurrentUser() user: AuthenticatedUser) {
     if (!files || files.length !== 2) {
       throw new BadRequestException('Exactly two Excel files are required: one check-in/checkout file and one leave file');
     }

@@ -1,6 +1,7 @@
-import { createContext, useEffect, useState, useMemo, useCallback } from 'react';
-import { IdenplaneClient, UserInfo } from 'idenplane-sdk';
-import { config } from './config';
+import { createContext, useEffect, useState, useCallback } from 'react';
+import { UserInfo } from 'idenplane-sdk';
+
+import { idenplane } from '@/lib/idenplane';
 
 export type AuthContextType = {
   user: UserInfo | null;
@@ -18,15 +19,6 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   const [user, setUser] = useState<UserInfo | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-
-  const idenplane = useMemo(() => {
-    return new IdenplaneClient({
-      ...config,
-      onLogout: () => {
-        //
-      }
-    });
-  }, []);
 
   useEffect(() => {
     function checkAuth() {

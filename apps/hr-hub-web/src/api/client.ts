@@ -1,3 +1,4 @@
+import { idenplane } from "@/lib/idenplane";
 import axios from "axios";
 
 export const apiClient = axios.create({
@@ -6,4 +7,14 @@ export const apiClient = axios.create({
   headers: {
     Accept: "application/json",
   },
+});
+
+apiClient.interceptors.request.use((config) => {
+  const token = idenplane.getAccessToken();
+
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+
+  return config;
 });

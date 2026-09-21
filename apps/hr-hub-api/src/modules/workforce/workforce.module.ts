@@ -3,8 +3,10 @@ import { WorkforceController } from './workforce.controller';
 import { WorkforceService } from './workforce.service';
 import { LateFineCalculatorService } from './late-fine-calculator.service';
 import { MonthlyReportsRepository } from './monthly-reports.repository';
+import { AuthModule } from '../auth/auth.module';
 
 @Module({
+  imports: [AuthModule],
   controllers: [WorkforceController],
   providers: [WorkforceService, LateFineCalculatorService, MonthlyReportsRepository],
 })
