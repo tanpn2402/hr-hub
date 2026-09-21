@@ -1,17 +1,14 @@
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import {
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
   CalendarDays,
-  ChevronDown,
-  ChevronRight,
-  Clock3,
 } from "lucide-react";
+import dayjs from "dayjs";
+import { useVirtualizer } from "@tanstack/react-virtual";
 
 import {
-  createSortedRowModel,
-  rowSortingFeature,
   stockFeatures,
   tableFeatures,
   useTable,
@@ -19,8 +16,6 @@ import {
 } from "@tanstack/react-table";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 
 /* -------------------------------------------------------------------------- */
 /* Types                                                                      */
@@ -39,11 +34,13 @@ export type WorkforceRow = {
 
 export type EmployeeSummary = {
   employeeCode: string;
-  employeeName: string;
+  employeeName?: string | null;
   totalFine: number;
 };
 
 export type WorkforceImportResult = {
+  batchId: string;
+  status?: "preview" | "confirmed";
   rows: WorkforceRow[];
   employeeSummaries: EmployeeSummary[];
   grandTotal: number;
@@ -65,6 +62,7 @@ type ReviewSummaryRow = {
 
 type ReviewTableRow = ReviewDetailRow | ReviewSummaryRow;
 
+
 /* -------------------------------------------------------------------------- */
 /* Helpers                                                                    */
 /* -------------------------------------------------------------------------- */
@@ -78,11 +76,7 @@ function formatMoney(value: number) {
 }
 
 function formatDate(value: string) {
-  return new Intl.DateTimeFormat("vi-VN", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(new Date(`${value}T00:00:00`));
+  return dayjs(value).format("DD/MM/YYYY");
 }
 
 function getInitials(name: string) {
@@ -163,6 +157,9 @@ type Props = {
   data: WorkforceImportResult;
 };
 
+const GRID_COLUMNS =
+  "minmax(220px, 2fr) minmax(120px, 1fr) minmax(100px, 0.8fr) minmax(100px, 0.8fr) minmax(220px, 2fr) minmax(140px, 1fr)";
+
 export function LateHubReviewTable({ data }: Props) {
   const tableData = useMemo(
     () => buildReviewRows(data),
@@ -184,7 +181,7 @@ export function LateHubReviewTable({ data }: Props) {
           if (item.rowType === "summary") {
             return (
               <div className="flex items-center gap-3 pl-11">
-                <div className="flex size-7 items-center justify-center rounded-md bg-primary/10">
+                <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary/10">
                   <CalendarDays className="size-3.5 text-primary" />
                 </div>
 
@@ -202,8 +199,8 @@ export function LateHubReviewTable({ data }: Props) {
           }
 
           return (
-            <div className="flex items-center gap-3">
-              <Avatar className="size-8">
+            <div className="flex min-w-0 items-center gap-3">
+              <Avatar className="size-8 shrink-0">
                 <AvatarFallback className="bg-primary/10 text-xs text-primary">
                   {getInitials(item.employeeName)}
                 </AvatarFallback>
@@ -253,9 +250,7 @@ export function LateHubReviewTable({ data }: Props) {
       {
         id: "checkIn",
         accessorFn: (row) =>
-          row.rowType === "detail"
-            ? row.checkIn
-            : "",
+          row.rowType === "detail" ? row.checkIn : "",
         header: "Check-in",
 
         cell: ({ row }) => {
@@ -276,9 +271,7 @@ export function LateHubReviewTable({ data }: Props) {
       {
         id: "checkOut",
         accessorFn: (row) =>
-          row.rowType === "detail"
-            ? row.checkOut
-            : "",
+          row.rowType === "detail" ? row.checkOut : "",
         header: "Check-out",
 
         cell: ({ row }) => {
@@ -299,9 +292,7 @@ export function LateHubReviewTable({ data }: Props) {
       {
         id: "note",
         accessorFn: (row) =>
-          row.rowType === "detail"
-            ? row.note
-            : "",
+          row.rowType === "detail" ? row.note : "",
         header: "Ghi chú",
 
         cell: ({ row }) => {
@@ -329,6 +320,7 @@ export function LateHubReviewTable({ data }: Props) {
           row.rowType === "detail"
             ? row.fineAmount
             : row.totalFine,
+
         header: () => (
           <div className="text-right">
             Tiền phạt
@@ -363,114 +355,143 @@ export function LateHubReviewTable({ data }: Props) {
     columns,
   });
 
-  return (
-    <div className="overflow-auto rounded-lg border">
-      <table className="w-full min-w-[900px] border-collapse">
-        <thead>
-          {table.getHeaderGroups().map((headerGroup) => (
-            <tr
-              key={headerGroup.id}
-              className="border-b bg-muted/30"
-            >
-              {headerGroup.headers.map((header) => (
-                <th
-                  key={header.id}
-                  className="h-10 whitespace-nowrap px-4 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
-                >
-                  {header.isPlaceholder
-                    ? null
-                    : header.column.getCanSort()
-                      ? (
-                        <button
-                          type="button"
-                          onClick={header.column.getToggleSortingHandler()}
-                          className="flex items-center gap-1 hover:text-foreground"
-                        >
-                          <table.FlexRender
-                            header={header}
-                          />
+  const rows = table.getRowModel().rows;
 
-                          {header.column.getIsSorted() ===
-                            "asc" ? (
-                            <ArrowUp className="size-3" />
-                          ) : header.column.getIsSorted() ===
-                            "desc" ? (
-                            <ArrowDown className="size-3" />
-                          ) : (
-                            <ArrowUpDown className="size-3 opacity-40" />
-                          )}
-                        </button>
-                      )
-                      : (
+  /* ------------------------------------------------------------------------ */
+  /* Virtualization                                                           */
+  /* ------------------------------------------------------------------------ */
+
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const rowVirtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => 57,
+    overscan: 10,
+  });
+
+  const virtualRows = rowVirtualizer.getVirtualItems();
+
+  return (
+    <div className="overflow-hidden rounded-lg border">
+      {/* ------------------------------------------------------------------ */}
+      {/* Scroll container                                                   */}
+      {/* ------------------------------------------------------------------ */}
+
+      <div
+        ref={scrollRef}
+        className="max-h-[calc(92vh-240px)] overflow-auto"
+      >
+        <div className="min-w-225">
+          {/* -------------------------------------------------------------- */}
+          {/* Header                                                         */}
+          {/* -------------------------------------------------------------- */}
+
+          <div
+            className="sticky top-0 z-20 grid border-b bg-muted/95 backdrop-blur"
+            style={{
+              gridTemplateColumns: GRID_COLUMNS,
+            }}
+          >
+            {table.getHeaderGroups()[0].headers.map((header) => (
+              <div
+                key={header.id}
+                className="flex h-10 items-center px-4 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
+              >
+                {header.isPlaceholder
+                  ? null
+                  : header.column.getCanSort()
+                    ? (
+                      <button
+                        type="button"
+                        onClick={header.column.getToggleSortingHandler()}
+                        className="flex items-center gap-1 hover:text-foreground"
+                      >
                         <table.FlexRender
                           header={header}
                         />
-                      )}
-                </th>
-              ))}
-            </tr>
-          ))}
-        </thead>
 
-        <tbody>
-          {table.getRowModel().rows.map((row) => {
-            const item = row.original;
+                        {header.column.getIsSorted() ===
+                          "asc" ? (
+                          <ArrowUp className="size-3" />
+                        ) : header.column.getIsSorted() ===
+                          "desc" ? (
+                          <ArrowDown className="size-3" />
+                        ) : (
+                          <ArrowUpDown className="size-3 opacity-40" />
+                        )}
+                      </button>
+                    )
+                    : (
+                      <table.FlexRender
+                        header={header}
+                      />
+                    )}
+              </div>
+            ))}
+          </div>
 
-            if (item.rowType === "summary") {
+          {/* -------------------------------------------------------------- */}
+          {/* Virtualized rows                                                */}
+          {/* -------------------------------------------------------------- */}
+
+          <div
+            className="relative"
+            style={{
+              height: rowVirtualizer.getTotalSize(),
+            }}
+          >
+            {virtualRows.map((virtualRow) => {
+              const row = rows[virtualRow.index];
+              const item = row.original;
+
               return (
-                <tr
+                <div
                   key={row.id}
-                  className="border-b bg-muted/20"
+                  data-index={virtualRow.index}
+                  ref={rowVirtualizer.measureElement}
+                  className={
+                    item.rowType === "summary"
+                      ? "absolute left-0 grid w-full border-b bg-muted/20"
+                      : "absolute left-0 grid w-full border-b transition-colors hover:bg-muted/20"
+                  }
+                  style={{
+                    gridTemplateColumns: GRID_COLUMNS,
+                    transform: `translateY(${virtualRow.start}px)`,
+                  }}
                 >
                   {row.getVisibleCells().map((cell) => (
-                    <td
+                    <div
                       key={cell.id}
-                      className="px-4 py-2.5"
+                      className="min-w-0 px-4 py-2.5"
                     >
                       <table.FlexRender
                         cell={cell}
                       />
-                    </td>
+                    </div>
                   ))}
-                </tr>
+                </div>
               );
-            }
+            })}
+          </div>
+        </div>
+      </div>
 
-            return (
-              <tr
-                key={row.id}
-                className="group border-b transition-colors hover:bg-muted/20"
-              >
-                {row.getVisibleCells().map((cell) => (
-                  <td
-                    key={cell.id}
-                    className="px-4 py-2.5"
-                  >
-                    <table.FlexRender
-                      cell={cell}
-                    />
-                  </td>
-                ))}
-              </tr>
-            );
-          })}
-        </tbody>
+      {/* ------------------------------------------------------------------ */}
+      {/* Grand total                                                        */}
+      {/* ------------------------------------------------------------------ */}
 
-        <tfoot>
-          <tr className="border-t-2 bg-muted/40">
-            <td
-              colSpan={5}
-              className="px-4 py-3 text-right text-sm font-semibold"
-            >
-              Tổng cộng
-            </td>
+      <div className="border-t-2 bg-muted/95">
+        <div className="flex min-w-225 items-center justify-end px-4 py-3">
+          <div className="mr-8 text-sm font-semibold">
+            Tổng cộng
+          </div>
 
-            <td className="px-4 py-3 text-right font-mono text-sm font-bold">
-              {formatMoney(data.grandTotal)}
-            </td>
-          </tr>
-        </tfoot>
-      </table>
+          <div className="w-32 text-right font-mono text-sm font-bold">
+            {formatMoney(data.grandTotal)}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

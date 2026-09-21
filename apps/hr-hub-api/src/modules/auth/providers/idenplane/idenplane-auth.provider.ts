@@ -30,9 +30,7 @@ export class IdenplaneAuthProvider implements AuthProvider {
   }
 
   private getRoles(user: IdenplaneTokenIntrospection): string[] {
-    const resourceRoles = Object.values(user.resource_access ?? {}).flatMap(
-      (resource) => resource.roles ?? [],
-    );
+    const resourceRoles = Object.values(user.resource_access ?? {}).flatMap((resource) => resource.roles ?? []);
 
     return [...new Set([...(user.realm_access?.roles ?? []), ...resourceRoles])];
   }

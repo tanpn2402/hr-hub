@@ -7,10 +7,11 @@ import * as XLSX from 'xlsx';
 import { buildLateFineReportWorkbook } from './exporters/late-fine-report.exporter';
 import { LateFineCalculatorService } from './late-fine-calculator.service';
 import { LateFineReport } from './models/late-fine-report.model';
-import { MonthlyReport, MonthlyReportSummary } from './models/monthly-report.model';
 import { MonthlyReportsRepository } from './monthly-reports.repository';
 import { parseAttendanceWorkbook } from './parsers/attendance-workbook.parser';
 import { parseLeaveWorkbook } from './parsers/leave-workbook.parser';
+import { PrismaService } from '@app/prisma/prisma.service';
+import { Prisma } from '@prisma/client';
 
 type WorkforceFileKind = 'CHECKIN_CHECKOUT' | 'LEAVE';
 
@@ -51,6 +52,7 @@ export class WorkforceService {
     private readonly config: ConfigService,
     private readonly lateFineCalculator: LateFineCalculatorService,
     private readonly monthlyReports: MonthlyReportsRepository,
+    private readonly prisma: PrismaService,
   ) {}
 
   // @ts-ignore
@@ -88,16 +90,135 @@ export class WorkforceService {
     };
   }
 
-  listMonthlyReports(): Promise<MonthlyReportSummary[]> {
-    return this.monthlyReports.list();
+  async listMonthlyReports(): Promise<string[]> {
+    const rows = await this.prisma.$queryRaw<Array<{ month: string }>>(
+      Prisma.sql`
+        SELECT DISTINCT strftime('%Y-%m', date) AS month
+        FROM Attendance
+        WHERE date IS NOT NULL
+        ORDER BY month DESC
+      `,
+    );
+
+    return rows.map((row) => row.month);
   }
 
-  async getMonthlyReport(month: string): Promise<MonthlyReport> {
-    const report = await this.monthlyReports.get(month);
-    if (!report) {
-      throw new NotFoundException(`No report found for month "${month}"`);
+  async getMonthlyReport(value: string): Promise<any> {
+    const [year, month] = value.split('-').map(Number);
+
+    const monthStart = new Date(year, month - 1, 1);
+    const nextMonthStart = new Date(year, month, 1);
+
+    const rows = await this.prisma.$queryRaw<
+      Array<{
+        attendanceId: string;
+        employeeCode: string;
+        employeeName: string | null;
+        date: Date;
+        checkIn: Date | null;
+        checkOut: Date | null;
+        note: string | null;
+
+        fineId: string | null;
+        originalFineAmount: number | null;
+        adjustedAmount: number | null;
+        fineAmount: number;
+
+        feedback: string;
+      }>
+    >(Prisma.sql`
+      SELECT
+          a.id AS attendanceId,
+          a.employeeCode,
+          a.employeeName,
+          a.date,
+          strftime('%H:%M', a.checkIn) AS checkIn,
+          strftime('%H:%M', a.checkOut) AS checkOut,
+          a.note,
+
+          f.id AS fineId,
+          f.amount AS originalFineAmount,
+          f.adjustedAmount,
+
+          CASE
+              WHEN f.status = 'cancelled' THEN 0
+              ELSE COALESCE(f.adjustedAmount, f.amount, 0)
+          END AS fineAmount,
+
+          COALESCE(
+              (
+                  SELECT json_group_array(
+                      json_object(
+                          'id', ff.id,
+                          'reason', ff.reason,
+                          'description', ff.description,
+                          'status', ff.status,
+                          'reductionAmount', ff.reductionAmount,
+                          'reviewedBy', ff.reviewedBy,
+                          'reviewedByName', ff.reviewedByName,
+                          'reviewedAt', ff.reviewedAt,
+                          'reviewNote', ff.reviewNote,
+                          'createdAt', ff.createdAt
+                      )
+                  )
+                  FROM FineFeedback ff
+                  WHERE ff.fineId = f.id
+              ),
+              '[]'
+          ) AS feedback
+
+      FROM Attendance a
+
+      LEFT JOIN Fine f
+          ON f.employeeCode = a.employeeCode
+          AND date(f.date) = date(a.date)
+
+      WHERE
+          a.date >= ${monthStart}
+          AND a.date < ${nextMonthStart}
+
+      ORDER BY
+          a.date,
+          a.employeeCode
+    `);
+
+    const employeeSummaries = new Map<
+      string,
+      {
+        employeeCode: string;
+        employeeName: string | null;
+        totalFine: number;
+        attendanceCount: number;
+      }
+    >();
+
+    for (const row of rows) {
+      let employee = employeeSummaries.get(row.employeeCode);
+
+      if (!employee) {
+        employee = {
+          employeeCode: row.employeeCode,
+          employeeName: row.employeeName,
+          totalFine: 0,
+          attendanceCount: 0,
+        };
+
+        employeeSummaries.set(row.employeeCode, employee);
+      }
+
+      employee.attendanceCount++;
+      employee.totalFine += Number(row.fineAmount ?? 0);
     }
-    return report;
+
+    return {
+      month: value,
+      employeeSummaries: Array.from(employeeSummaries.values()),
+      grandTotal: Array.from(employeeSummaries.values()).reduce((sum, employee) => sum + employee.totalFine, 0),
+      rows: rows.map((row) => ({
+        ...row,
+        feedback: typeof row.feedback === 'string' ? JSON.parse(row.feedback) : row.feedback,
+      })),
+    };
   }
 
   async exportMonthlyReport(month: string): Promise<{ buffer: Buffer; fileName: string }> {

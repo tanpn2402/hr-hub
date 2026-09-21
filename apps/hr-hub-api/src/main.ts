@@ -64,3 +64,8 @@ async function bootstrap() {
 }
 
 void bootstrap();
+
+// @ts-ignore
+BigInt.prototype.toJSON = function () {
+  return Number(this);
+};

@@ -7,9 +7,10 @@ import { AuthModule } from './modules/auth/auth.module';
 import { RequestLoggingInterceptor } from './modules/app/trace/request-logging.interceptor';
 import { TraceModule } from './modules/app/trace/trace.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { FinesModule } from './modules/fines/fines.module';
 
 @Module({
-  imports: [ConfigModule.forRoot({ isGlobal: true }), PrismaModule, TraceModule, AuthModule, PaymentModule, WorkforceModule],
+  imports: [ConfigModule.forRoot({ isGlobal: true }), PrismaModule, TraceModule, AuthModule, PaymentModule, WorkforceModule, FinesModule],
   providers: [
     {
       provide: APP_INTERCEPTOR,

@@ -1,3 +1,4 @@
+import { BadRequestException } from '@nestjs/common';
 import dayjs, { Dayjs } from 'dayjs';
 import customParseFormat from 'dayjs/plugin/customParseFormat';
 
@@ -56,4 +57,12 @@ export function startOfLocalDay(date: Date): Date {
 /** The next calendar day, local time - safe across month/year rollover and DST. */
 export function nextLocalDay(date: Date): Date {
   return dayjs(date).add(1, 'day').toDate();
+}
+
+export function monthRange(month: string) {
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) throw new BadRequestException('month must be YYYY-MM');
+  const start = new Date(`${month}-01T00:00:00.000Z`);
+  const end = new Date(start);
+  end.setUTCMonth(end.getUTCMonth() + 1);
+  return { gte: start, lt: end };
 }

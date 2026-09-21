@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { useImportWorkforce } from "../hooks/useImportWorkforce";
 import { WorkforceImportResult } from "./LateHubReviewTable";
 import { LateHubReviewDialog } from "./LateHubReviewDialog";
+import { useQueryClient } from "@tanstack/react-query";
 
 const excelFileSchema = z
   .instanceof(File)
@@ -43,6 +44,7 @@ export function ImportDataDialog({
 }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const queryClient = useQueryClient();
   const importMutation = useImportWorkforce();
 
   const [files, setFiles] = useState<File[]>([]);
@@ -131,11 +133,15 @@ export function ImportDataDialog({
       },
       {
         onSuccess: (result) => {
-          setReviewData(result.lateFineReport);
+          setReviewData(result);
           setReviewOpen(true);
 
           onOpenChange(false);
           reset();
+
+          queryClient.invalidateQueries({
+            queryKey: ["workforce", "import-history"],
+          });
         },
 
         onError: (error) => {

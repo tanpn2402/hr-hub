@@ -13,7 +13,8 @@
     "prisma:generate": "npx prisma generate",
     "prisma:migrate": "npx prisma migrate dev",
     "prisma:format": "npx prisma format",
-    "prisma:seed": "npx ts-node prisma/seed.ts"
+    "prisma:seed": "npx ts-node prisma/seed.ts",
+    "prisma:deploy": "npx prisma migrate deploy"
   },
   "dependencies": {
     "@nestjs/axios": "^3.0.3",

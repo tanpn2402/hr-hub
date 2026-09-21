@@ -17,14 +17,11 @@ export type EmployeeSummary = {
   totalFine: number;
 };
 
-export type WorkforceImportResult = {
+export type ImportWorkforceResponse = {
+  batchId: string;
   rows: WorkforceRow[];
   employeeSummaries: EmployeeSummary[];
   grandTotal: number;
-};
-
-export type ImportWorkforceResponse = {
-  lateFineReport: WorkforceImportResult;
 };
 
 export type ImportWorkforceFilesParams = {
@@ -42,7 +39,7 @@ export async function importWorkforceFiles({
   formData.append("files", leaveFile);
 
   const { data } = await apiClient.post<ImportWorkforceResponse>(
-    "/workforce/import",
+    "/workforce/import/preview",
     formData,
   );
 

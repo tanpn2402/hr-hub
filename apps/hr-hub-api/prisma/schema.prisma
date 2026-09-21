@@ -115,6 +115,27 @@ model FineFeedback {
   @@index([employeeCode, status])
 }
 
+model WorkforceImport {
+  id String @id @default(cuid())
+
+  month              String?
+  status             String    @default("preview")
+  attendanceFileName String
+  leaveFileName      String
+  totalAttendance    Int       @default(0)
+  totalLeave         Int       @default(0)
+  totalFine          Int       @default(0)
+  previewData        String?
+  createdBy          String?
+  createdByName      String?
+  confirmedAt        DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
+}
+
 model FinancialTransaction {
   id String @id @default(cuid())
 

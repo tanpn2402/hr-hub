@@ -15,13 +15,45 @@ import { AuthGuard } from '../auth/auth.guard';
 import { WorkforceService } from './workforce.service';
 import { AuthenticatedUser } from '../auth/auth.types';
 import { CurrentUser } from '../auth/current-user.decorator';
+import { Body } from '@nestjs/common';
+import { StageOneWorkforceService } from './stage-one-workforce.service';
+import { ConfirmWorkforceImportDto } from './dto/confirm-workforce-import.dto';
 
 @Controller('workforce')
-@UseGuards(AuthGuard)
 export class WorkforceController {
-  constructor(private readonly workforceService: WorkforceService) {}
+  constructor(
+    private readonly workforceService: WorkforceService,
+    private readonly imports: StageOneWorkforceService,
+  ) {}
+
+  @Post('import/preview')
+  @UseGuards(AuthGuard)
+  @UseInterceptors(FilesInterceptor('files', 2, { limits: { fileSize: 10 * 1024 * 1024 } }))
+  // @ts-ignore
+  previewImport(@UploadedFiles() files: Express.Multer.File[], @CurrentUser() user: AuthenticatedUser) {
+    return this.imports.preview(files, user);
+  }
+
+  @Post('import/:batchId/confirm')
+  @UseGuards(AuthGuard)
+  confirmImport(@Param('batchId') batchId: string, @Body() dto: ConfirmWorkforceImportDto) {
+    return this.imports.confirm(batchId, dto);
+  }
+
+  @Get('imports')
+  @UseGuards(AuthGuard)
+  listImports() {
+    return this.imports.list();
+  }
+
+  @Get('imports/:batchId')
+  @UseGuards(AuthGuard)
+  getImport(@Param('batchId') batchId: string) {
+    return this.imports.get(batchId);
+  }
 
   @Post('import')
+  @UseGuards(AuthGuard)
   @UseInterceptors(
     FilesInterceptor('files', 2, {
       limits: { fileSize: 10 * 1024 * 1024 },

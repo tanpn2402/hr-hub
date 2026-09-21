@@ -2,6 +2,7 @@ import { useState } from "react";
 import {
   CheckCircle2,
   FileSpreadsheet,
+  Loader2,
   Maximize2,
   Minimize2,
   X,
@@ -11,6 +12,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -20,6 +22,8 @@ import {
   LateHubReviewTable,
   type WorkforceImportResult,
 } from "./LateHubReviewTable";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiClient } from "@/api/client";
 
 type Props = {
   open: boolean;
@@ -27,12 +31,36 @@ type Props = {
   onOpenChange: (open: boolean) => void;
 };
 
-function formatMoney(value: number) {
-  return new Intl.NumberFormat("vi-VN", {
-    style: "currency",
-    currency: "VND",
-    maximumFractionDigits: 0,
-  }).format(value);
+/* -------------------------------------------------------------------------- */ /* API */ /* -------------------------------------------------------------------------- */ async function getImportBatch(
+  batchId: string,
+): Promise<WorkforceImportResult> {
+  const { data } = await apiClient.get<WorkforceImportResult>(
+    `/workforce/import/${batchId}`,
+  );
+  return data;
+}
+type ConfirmImportPayload = { overrides?: Record<string, unknown> };
+async function confirmImport(
+  batchId: string,
+  payload: ConfirmImportPayload = {},
+) {
+  const { data } = await apiClient.post(
+    `/workforce/import/${batchId}/confirm`,
+    payload,
+  );
+  return data;
+}
+
+function useConfirmImport() {
+  return useMutation({
+    mutationFn: ({
+      batchId,
+      overrides,
+    }: {
+      batchId: string;
+      overrides?: Record<string, unknown>;
+    }) => confirmImport(batchId, { overrides }),
+  });
 }
 
 export function LateHubReviewDialog({
@@ -42,17 +70,49 @@ export function LateHubReviewDialog({
 }: Props) {
   const [fullscreen, setFullscreen] = useState(false);
 
-  if (!data) {
-    return null;
-  }
+  const queryClient = useQueryClient();
+  const confirmMutation = useConfirmImport();
+  const isConfirming = confirmMutation.isPending;
 
   const handleOpenChange = (value: boolean) => {
     if (!value) {
       setFullscreen(false);
     }
-
     onOpenChange(value);
   };
+
+  function handleConfirm() {
+    if (!data || !data.batchId || data.status !== "preview") {
+      return;
+    }
+
+    confirmMutation.mutate(
+      { batchId: data.batchId },
+      {
+        onSuccess: () => {
+          onOpenChange(false);
+
+          queryClient.invalidateQueries({
+            queryKey: ["workforce", "import-history"],
+          });
+
+          // TODO: invalidate query batchImportMonth
+        },
+      },
+    );
+  }
+
+  function handleClose() {
+    if (isConfirming) {
+      return;
+    }
+    onOpenChange(false);
+  }
+
+
+  if (!data) {
+    return null;
+  }
 
   return (
     <Dialog
@@ -63,7 +123,7 @@ export function LateHubReviewDialog({
         showCloseButton={false}
         className={[
           "flex flex-col gap-0 overflow-hidden p-0",
-          "transition-[width,height,max-width,border-radius] duration-200",
+          open ? "transition-[width,height,max-width,border-radius] duration-200" : "",
           fullscreen
             ? "h-screen w-screen sm:max-w-none rounded-none"
             : "h-[92vh] w-[96vw] sm:max-w-none max-w-none",
@@ -82,38 +142,14 @@ export function LateHubReviewDialog({
                   Review imported attendance
                 </DialogTitle>
 
-                <DialogDescription className="mt-0.5">
-                  Review attendance violations and calculated
-                  fines before continuing.
+                <DialogDescription className="mt-0.5 text-xs">
+                  Review attendance violations and calculated fines before continuing.
                 </DialogDescription>
               </div>
             </div>
 
             {/* Header actions */}
             <div className="flex shrink-0 items-center gap-2">
-              <div className="hidden items-center gap-2 rounded-lg border bg-muted/30 px-3 py-1.5 sm:flex">
-                <CheckCircle2 className="size-4 text-emerald-600" />
-
-                <div>
-                  <div className="text-[10px] text-muted-foreground">
-                    Imported
-                  </div>
-
-                  <div className="text-xs font-medium">
-                    {data.rows.length.toLocaleString("vi-VN")} records
-                  </div>
-                </div>
-              </div>
-
-              <div className="hidden rounded-lg border bg-muted/30 px-3 py-1.5 md:block">
-                <div className="text-[10px] text-muted-foreground">
-                  Total fine
-                </div>
-
-                <div className="font-mono text-xs font-semibold">
-                  {formatMoney(data.grandTotal)}
-                </div>
-              </div>
 
               <Button
                 variant="ghost"
@@ -152,7 +188,28 @@ export function LateHubReviewDialog({
         <div className="min-h-0 flex-1 overflow-auto bg-background p-6">
           <LateHubReviewTable data={data} />
         </div>
+
+        <DialogFooter className="shrink-0 border-t bg-muted/20 px-6 py-4">
+          <Button variant="outline" onClick={handleClose} disabled={isConfirming}>
+            Close
+          </Button>
+          <Button
+            onClick={handleConfirm}
+            disabled={!data || !data.batchId || data.status !== "preview" || isConfirming}
+          >
+            {isConfirming ? (
+              <>
+                <Loader2 className="size-4 animate-spin" /> Confirming...
+              </>
+            ) : (
+              <>
+                <CheckCircle2 className="size-4" /> Confirm Import
+              </>
+            )}
+          </Button>
+        </DialogFooter>
       </DialogContent>
+
     </Dialog>
   );
 }
