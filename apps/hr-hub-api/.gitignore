@@ -4,3 +4,4 @@ dist/
 logs/
 uploads/workforce/
 *.log
+generated/*

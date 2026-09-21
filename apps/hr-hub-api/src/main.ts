@@ -4,7 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { format, transports, createLogger } from 'winston';
 import TransportStream from 'winston-transport';
 import { WinstonModule, utilities as nestWinstonUtilities } from 'nest-winston';
-import { AppModule } from './modules/app/app.module';
+import { AppModule } from './app.module';
 
 async function bootstrap() {
   const bootstrapLogger = createLogger({

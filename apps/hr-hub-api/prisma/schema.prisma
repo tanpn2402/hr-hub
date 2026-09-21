@@ -1,0 +1,165 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Attendance {
+  id String @id @default(cuid())
+
+  employeeCode String
+  employeeName String?
+
+  date DateTime
+
+  checkIn  DateTime?
+  checkOut DateTime?
+
+  note String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([employeeCode, date])
+  @@index([date])
+}
+
+model Leave {
+  id String @id @default(cuid())
+
+  employeeCode String
+  employeeName String?
+
+  date DateTime
+
+  type   String
+  reason String?
+
+  status String @default("approved")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([employeeCode, date])
+  @@index([employeeCode, status])
+  @@index([date])
+}
+
+model Fine {
+  id String @id @default(cuid())
+
+  employeeCode String
+  employeeName String?
+
+  date DateTime
+
+  // Original amount imported/calculated from attendance data.
+  // This value should never be changed after creation.
+  amount Int
+
+  // Current payable amount after approved feedback reductions.
+  // null means no adjustment has been applied.
+  adjustedAmount Int?
+
+  currency String @default("VND")
+
+  type   String
+  reason String?
+
+  // unpaid / paid / cancelled
+  status String @default("unpaid")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([employeeCode, date])
+  @@index([employeeCode, status])
+  @@index([date])
+}
+
+model FineFeedback {
+  id String @id @default(cuid())
+
+  fineId String
+
+  employeeCode String
+  employeeName String?
+
+  // early_leave_permission
+  // late_permission
+  // wrong_time
+  // wrong_fine
+  // other
+  reason String
+
+  description String?
+
+  // pending / approved / rejected
+  status String @default("pending")
+
+  // Amount actually reduced from the fine when approved.
+  reductionAmount Int?
+
+  reviewedBy     String?
+  reviewedByName String?
+  reviewedAt     DateTime?
+  reviewNote     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([fineId])
+  @@index([employeeCode, status])
+}
+
+model FinancialTransaction {
+  id String @id @default(cuid())
+
+  transactionDate DateTime
+
+  // fine_payment / reimbursement / refund / salary_adjustment / ...
+  type String
+
+  // income / expense
+  direction String
+
+  amount   Int
+  currency String @default("VND")
+
+  // Generic reference to the business record.
+  // Example:
+  // type = "fine_payment"
+  // referenceId = Fine.id
+  referenceId String?
+
+  // User/system that created the transaction.
+  createdBy     String?
+  createdByName String?
+
+  category    String?
+  description String?
+
+  // APIPAY / PAYOS / ...
+  provider         String?
+  // JSON string for provider-specific information.
+  providerMetadata String?
+
+  // qr / bank_transfer / cash / ...
+  paymentMethod String?
+
+  // pending / completed / cancelled / refunded
+  status String @default("pending")
+
+  metadata String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([referenceId])
+  @@index([type, referenceId])
+  @@index([status])
+  @@index([transactionDate])
+}
