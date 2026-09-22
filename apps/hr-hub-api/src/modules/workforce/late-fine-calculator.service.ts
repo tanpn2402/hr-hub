@@ -94,7 +94,7 @@ export class LateFineCalculatorService {
     // No leave + no attendance at all
     if (!coverage.morning && !coverage.afternoon && !record.checkIn && !record.checkOut) {
       fineAmount += rules.fineLateMorning;
-      fineAmount += rules.fineLateAfternoon;
+      fineAmount += rules.fineNoCheckoutFullDay;
 
       notes.push('Không checkin/checkout');
 

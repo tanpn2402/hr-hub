@@ -7,6 +7,9 @@ import * as XLSX from 'xlsx';
 import { ConfirmWorkforceImportDto, OverrideWorkforceRowDto } from './dto/confirm-workforce-import.dto';
 import { AuthenticatedUser } from '../auth/auth.types';
 import { effectiveRules } from './models/workforce-rules.model';
+import dayjs from 'dayjs';
+import { TraceLogger } from '../app/trace/trace-logger.service';
+import { TraceContextService } from '../app/trace/trace-context.service';
 
 type PreviewRow = {
   rowId: string;
@@ -30,10 +33,15 @@ type PreviewData = {
 
 @Injectable()
 export class StageOneWorkforceService {
+  private readonly logger: TraceLogger;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly calculator: LateFineCalculatorService,
-  ) {}
+    readonly traceContext: TraceContextService,
+  ) {
+    this.logger = new TraceLogger(traceContext, 'StageOneWorkforceService');
+  }
 
   // @ts-ignore
   async preview(files: Express.Multer.File[], user?: AuthenticatedUser) {
@@ -48,6 +56,15 @@ export class StageOneWorkforceService {
     const attendance = parseAttendanceWorkbook(this.read(attendanceFile), this.calculator.rules);
     const leaveCoverage = parseLeaveWorkbook(this.read(leaveFile), this.calculator.rules);
     const report = this.calculator.calculate(attendance, leaveCoverage);
+
+    const dates = attendance.map((record) => record.date);
+    const firstDate = dates.length ? Math.min(...dates.map(Date.parse)) : null;
+    const lastDate = dates.length ? Math.max(...dates.map(Date.parse)) : null;
+    const isSameMonth = dayjs(firstDate).isSame(lastDate, 'month');
+
+    if (!isSameMonth) {
+      throw new BadRequestException('Not same month exception: first-date: ' + firstDate + ', last-date: ' + lastDate);
+    }
 
     const rows: PreviewRow[] = report.rows.map((row, index) => ({
       ...row,
@@ -95,7 +112,7 @@ export class StageOneWorkforceService {
 
     const batch = await this.prisma.workforceImport.create({
       data: {
-        month: '2026-08',
+        month: dayjs(dates[0]).format('YYYY-MM'),
         attendanceFileName: attendanceFile.originalname,
         leaveFileName: leaveFile.originalname,
         totalAttendance: rows.length,
@@ -106,6 +123,8 @@ export class StageOneWorkforceService {
         createdByName: user?.username ?? user?.email,
       },
     });
+
+    this.logger.log(`Import batch ${batch.month}`);
 
     return {
       batchId: batch.id,
@@ -284,6 +303,8 @@ export class StageOneWorkforceService {
       });
     });
 
+    this.logger.log(`Confirm import batch ${batch.month}`);
+
     return {
       batchId,
       status: 'confirmed',
@@ -302,6 +323,7 @@ export class StageOneWorkforceService {
         totalFine: true,
         createdAt: true,
         confirmedAt: true,
+        month: true,
       },
       orderBy: { createdAt: 'desc' },
     });
