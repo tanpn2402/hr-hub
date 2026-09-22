@@ -129,7 +129,7 @@ export function LateHubReviewDialog({
           "flex flex-col gap-0 overflow-hidden p-0",
           open ? "transition-[width,height,max-width,border-radius] duration-200" : "",
           fullscreen
-            ? "h-screen w-screen sm:max-w-none rounded-none"
+            ? "h-screen w-screen sm:max-w-none rounded-none max-w-full"
             : "h-[92vh] w-[96vw] sm:max-w-none max-w-none",
         ].join(" ")}
       >
