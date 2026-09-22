@@ -4,18 +4,17 @@ import { AttendanceRecord } from '../models/attendance-record.model';
 import { effectiveRules, WorkforceRules } from '../models/workforce-rules.model';
 import { isoDate, timeOfDayMinutes } from '../utils/time.util';
 
-type AttendanceColumn = 'employeeCode' | 'employeeName' | 'date' | 'dayOfWeek' | 'checkIn' | 'checkOut';
+type AttendanceColumn = 'employeeCode' | 'employeeName' | 'date' | 'checkIn' | 'checkOut';
 
 const COLUMN_ALIASES: Record<string, AttendanceColumn> = {
   'mã nhân viên': 'employeeCode',
   'tên nhân viên': 'employeeName',
   ngày: 'date',
-  thứ: 'dayOfWeek',
   'giờ vào': 'checkIn',
   'giờ ra': 'checkOut',
 };
 
-const REQUIRED_COLUMNS: AttendanceColumn[] = ['employeeCode', 'employeeName', 'date', 'dayOfWeek', 'checkIn', 'checkOut'];
+const REQUIRED_COLUMNS: AttendanceColumn[] = ['employeeCode', 'employeeName', 'date', 'checkIn', 'checkOut'];
 
 /** Parses the "BCC_<Mon>.<Year>.xlsx" check-in/checkout workbook into one record per employee/day. */
 export function parseAttendanceWorkbook(workbook: XLSX.WorkBook, rules: WorkforceRules): AttendanceRecord[] {
@@ -24,7 +23,7 @@ export function parseAttendanceWorkbook(workbook: XLSX.WorkBook, rules: Workforc
     throw new BadRequestException('Attendance workbook has no sheets');
   }
 
-  const rows = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1 });
+  const rows = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, blankrows: false });
   const headerIndex = rows.findIndex((row) => row.some((cell) => normalize(cell) === 'mã nhân viên'));
   if (headerIndex === -1) {
     throw new BadRequestException('Unable to locate header row in attendance workbook (expected column "Mã nhân viên")');
@@ -66,7 +65,6 @@ export function parseAttendanceWorkbook(workbook: XLSX.WorkBook, rules: Workforc
       employeeCode,
       employeeName: String(row[columnIndex.get('employeeName')!] ?? '').trim(),
       date: isoDate(dateCell),
-      dayOfWeek: String(row[columnIndex.get('dayOfWeek')!] ?? '').trim(),
       checkIn,
       checkOut,
     });

@@ -1,3 +1,4 @@
+import dayjs from 'dayjs';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AttendanceRecord } from './models/attendance-record.model';
@@ -20,12 +21,20 @@ export class LateFineCalculatorService {
 
     for (const record of attendance) {
       if (this.rules.excludedEmployeeCodes.has(record.employeeCode)) continue; // e.g. staff who have since left the company
-      if (!record.checkIn && !record.checkOut) continue; // no attendance that day - absence is out of scope for these rules
-      const isMakeupWorkday = this.rules.makeupWorkdays.has(record.date);
-      const isRequiredWorkday = this.rules.workdays.has(record.dayOfWeek) || isMakeupWorkday;
+
+      const isHoliday = this.rules.holidays.has(record.date);
+      if (isHoliday) continue;
+
+      const makeupWorkday = this.rules.makeupWorkdays.get(record.date);
+
+      const isMakeupWorkday = !!makeupWorkday;
+
+      const isRequiredWorkday = this.rules.workdays.has(String(dayjs(record.date).day())) || isMakeupWorkday;
       if (!isRequiredWorkday) continue; // fines only apply on configured working days, plus any configured compensatory ("làm bù") dates
 
-      const coverage = leave.get(leaveCoverageKey(record.employeeCode, record.date)) ?? { morning: false, afternoon: false };
+      const coverage = (makeupWorkday
+        ? leave.get(leaveCoverageKey(record.employeeCode, makeupWorkday.LeaveDate))
+        : leave.get(leaveCoverageKey(record.employeeCode, record.date))) ?? { morning: false, afternoon: false };
       const rules = effectiveRules(this.rules, record.employeeCode);
       const { fineAmount, note } = this.evaluateDay(record, coverage, isMakeupWorkday, rules);
 
@@ -33,7 +42,6 @@ export class LateFineCalculatorService {
         employeeCode: record.employeeCode,
         employeeName: record.employeeName,
         date: record.date,
-        dayOfWeek: record.dayOfWeek,
         checkIn: record.checkIn ? formatTimeOfDay(record.checkIn) : null,
         checkOut: record.checkOut ? formatTimeOfDay(record.checkOut) : null,
         note,
@@ -45,7 +53,8 @@ export class LateFineCalculatorService {
         employeeName: record.employeeName,
         totalFine: 0,
       };
-      summary.totalFine += fineAmount;
+      
+      summary.totalFine = Math.min(summary.totalFine + Number(fineAmount ?? 0), rules.maxFinePerMonth);
       totalsByEmployee.set(record.employeeCode, summary);
     }
 
@@ -81,6 +90,19 @@ export class LateFineCalculatorService {
     if (coverage.morning) notes.push('P/2 (Nghỉ sáng)');
     else if (coverage.afternoon) notes.push('P/2 (Nghỉ chiều)');
     let fineAmount = 0;
+
+    // No leave + no attendance at all
+    if (!coverage.morning && !coverage.afternoon && !record.checkIn && !record.checkOut) {
+      fineAmount += rules.fineLateMorning;
+      fineAmount += rules.fineLateAfternoon;
+
+      notes.push('Không checkin/checkout');
+
+      return {
+        fineAmount,
+        note: notes.join('; '),
+      };
+    }
 
     if (!coverage.morning) {
       if (!record.checkIn) {

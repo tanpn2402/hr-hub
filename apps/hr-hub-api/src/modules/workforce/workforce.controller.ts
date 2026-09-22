@@ -5,6 +5,7 @@ import {
   Header,
   Param,
   Post,
+  Query,
   StreamableFile,
   UploadedFiles,
   UseGuards,
@@ -66,6 +67,11 @@ export class WorkforceController {
     }
 
     return this.workforceService.importExcelFiles(files);
+  }
+
+  @Get('metadata')
+  getMetadata(@Query() query: any) {
+    return {};
   }
 
   @Get('reports')

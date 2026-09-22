@@ -41,6 +41,12 @@ function excelDate(dateIso: string, time?: string | null): Date {
   return time ? dayjs.utc(`${dateIso} ${time}`, 'YYYY-MM-DD HH:mm').toDate() : dayjs.utc(dateIso, 'YYYY-MM-DD').toDate();
 }
 
+function dayOfWeek(date: string | Date) {
+  const dayNames = ['CN', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+
+  return dayNames[dayjs(date).day()];
+}
+
 /** Builds a single-sheet .xlsx report: day-by-day detail, a "Tổng: <name>" subtotal per employee, and a company grand total. */
 export async function buildLateFineReportWorkbook(report: LateFineReport): Promise<Buffer> {
   const firstRow: LateFineRow | undefined = report.rows[0];
@@ -92,7 +98,7 @@ export async function buildLateFineReportWorkbook(report: LateFineReport): Promi
       dataRow.employeeCode,
       dataRow.employeeName,
       date,
-      dataRow.dayOfWeek,
+      dayOfWeek(date),
       checkInDate,
       checkOutDate,
       dataRow.note,

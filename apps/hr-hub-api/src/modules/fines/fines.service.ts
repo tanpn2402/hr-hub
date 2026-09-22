@@ -25,7 +25,13 @@ export class FinesService {
     const fine = await this.prisma.fine.findUnique({ where: { id } });
     if (!fine) throw new NotFoundException('Fine not found');
     const feedback = await this.prisma.fineFeedback.findMany({ where: { fineId: id }, orderBy: { createdAt: 'desc' } });
-    return { ...this.payable(fine), feedback };
+    const attendance = await this.prisma.attendance.findFirst({
+      where: {
+        date: fine.date,
+        employeeCode: fine.employeeCode,
+      },
+    });
+    return { ...this.payable(fine), feedback, attendance };
   }
 
   async report(month: string) {

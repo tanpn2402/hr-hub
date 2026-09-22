@@ -27,9 +27,13 @@ export interface WorkforceRules extends OverridableWorkforceRules {
   /** Vietnamese weekday labels (as printed in the attendance file) that the fine rules apply to. */
   workdays: Set<string>;
   /** Extra calendar dates (ISO yyyy-MM-dd) that count as required workdays even on an off-day - e.g. a compensatory "ngày làm bù" scheduled on a Saturday. */
-  makeupWorkdays: Set<string>;
+  makeupWorkdays: Map<string, { LeaveDate: string }>;
   /** Employee codes (Mã NV) to exclude entirely from the report - e.g. staff who have since left the company. */
   excludedEmployeeCodes: Set<string>;
+  /** Holidays */
+  holidays: Set<string>;
+  /** Max fine per month */
+  maxFinePerMonth: number;
   /** Per-employee overrides for the fields above, keyed by Mã NV (see WORKFORCE_OVERRIDE_RULE_EMPLOYEES). */
   employeeOverrides: Map<string, Partial<OverridableWorkforceRules>>;
 }
@@ -57,14 +61,29 @@ export function loadWorkforceRules(config: ConfigService): WorkforceRules {
   return {
     workdays: new Set(
       config
-        .get<string>('WORKFORCE_WORKDAYS', 'Hai,Ba,Tư,Năm,Sáu')
+        .get<string>('WORKFORCE_WORKDAYS', '1,2,3,4,5')
         .split(',')
         .map((day) => day.trim())
         .filter(Boolean),
     ),
-    makeupWorkdays: new Set(
+    makeupWorkdays: new Map<string, { LeaveDate: string }>(
       config
         .get<string>('WORKFORCE_MAKEUP_WORKDAYS', '')
+        .split(',')
+        .map((value) => value.trim())
+        .filter(Boolean)
+        .map((value) => {
+          const match = value.match(/^(\d{2}-\d{2}-\d{4})\((.+)\)$/);
+          if (!match) {
+            throw new Error(`Invalid WORKFORCE_MAKEUP_WORKDAYS value: ${value}`);
+          }
+          const [, makeupWorkday, json] = match;
+          return [parseDdMmYyyy(makeupWorkday), JSON.parse(json) as { LeaveDate: string }];
+        }),
+    ),
+    holidays: new Set(
+      config
+        .get<string>('WORKFORCE_HOLIDAYS', '')
         .split(',')
         .map((value) => value.trim())
         .filter(Boolean)
@@ -77,6 +96,7 @@ export function loadWorkforceRules(config: ConfigService): WorkforceRules {
         .map((code) => code.trim())
         .filter(Boolean),
     ),
+    maxFinePerMonth: config.get<number>('WORKFORCE_MAX_FINE_PER_MONTH', 500_000),
     employeeOverrides: loadEmployeeOverrides(config),
     morningStartMinutes: minutesOfDay(config.get<string>('WORKFORCE_MORNING_START', '08:30')),
     morningEndMinutes: minutesOfDay(config.get<string>('WORKFORCE_MORNING_END', '11:30')),

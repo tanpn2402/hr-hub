@@ -189,7 +189,7 @@ export function LateHubReviewDialog({
         </DialogHeader>
 
         {/* Table */}
-        <div className="min-h-0 flex-1 overflow-auto bg-background p-6">
+        <div className="min-h-0 flex-1 overflow-auto bg-background p-2">
           <LateHubReviewTable data={data} />
         </div>
 

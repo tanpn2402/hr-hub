@@ -4,11 +4,11 @@ export type WorkforceRow = {
   employeeCode: string;
   employeeName: string;
   date: string;
-  dayOfWeek: string;
   checkIn: string;
   checkOut: string;
   note: string;
   fineAmount: number;
+  fineId?: string;
 };
 
 export type EmployeeSummary = {

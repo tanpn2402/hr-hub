@@ -6,6 +6,7 @@ import { parseLeaveWorkbook } from './parsers/leave-workbook.parser';
 import * as XLSX from 'xlsx';
 import { ConfirmWorkforceImportDto, OverrideWorkforceRowDto } from './dto/confirm-workforce-import.dto';
 import { AuthenticatedUser } from '../auth/auth.types';
+import { effectiveRules } from './models/workforce-rules.model';
 
 type PreviewRow = {
   rowId: string;
@@ -87,7 +88,9 @@ export class StageOneWorkforceService {
       }
 
       employee.attendanceCount++;
-      employee.totalFine += Number(row.fineAmount ?? 0);
+
+      const employeeRules = effectiveRules(this.calculator.rules, row.employeeCode);
+      employee.totalFine = Math.min(employee.totalFine + Number(row.fineAmount ?? 0), employeeRules.maxFinePerMonth);
     }
 
     const batch = await this.prisma.workforceImport.create({
@@ -97,7 +100,7 @@ export class StageOneWorkforceService {
         leaveFileName: leaveFile.originalname,
         totalAttendance: rows.length,
         totalLeave: leaves.length,
-        totalFine: rows.reduce((sum, row) => sum + row.fineAmount, 0),
+        totalFine: Array.from(employeeSummaries.values()).reduce((sum, employee) => sum + employee.totalFine, 0),
         previewData: JSON.stringify({ rows, leaves }),
         createdBy: user?.id,
         createdByName: user?.username ?? user?.email,

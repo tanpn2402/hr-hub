@@ -2,7 +2,6 @@ export interface LateFineRow {
   employeeCode: string;
   employeeName: string;
   date: string; // ISO yyyy-MM-dd
-  dayOfWeek: string;
   checkIn: string | null; // HH:mm
   checkOut: string | null; // HH:mm
   note: string | null;

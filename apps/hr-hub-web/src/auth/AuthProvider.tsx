@@ -28,6 +28,10 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
 
         if (authStatus) {
           const userData = idenplane.getUserInfo();
+
+          console.log("UserInfo", idenplane.getUserInfo());
+          console.log("UserRole", idenplane.getClientRoles(idenplane.getConfig().clientId));
+
           setUser(userData);
         }
       } catch (error) {
@@ -41,13 +45,13 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
 
   // Utility method to check roles
   const hasRole = (role: string) => {
-    if (!user || !user.roles) return false;
+    if (!user) return false;
     return idenplane.hasClientRole(idenplane.getConfig().clientId, role);
   };
 
   // Utility method to check granular permissions
   const hasPermission = (permission: string) => {
-    if (!user || !user.permissions) return false;
+    if (!user) return false;
     return idenplane.hasPermission(permission);
   };
 

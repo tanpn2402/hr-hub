@@ -12,6 +12,7 @@ import { parseAttendanceWorkbook } from './parsers/attendance-workbook.parser';
 import { parseLeaveWorkbook } from './parsers/leave-workbook.parser';
 import { PrismaService } from '@app/prisma/prisma.service';
 import { Prisma } from '@prisma/client';
+import { effectiveRules, WorkforceRules } from './models/workforce-rules.model';
 
 type WorkforceFileKind = 'CHECKIN_CHECKOUT' | 'LEAVE';
 
@@ -45,6 +46,12 @@ interface ParsedWorkforceFile {
   workbook: XLSX.WorkBook;
   summary: WorkforceFileSummary;
 }
+
+export interface WorkforceMetadata {
+  rules?: WorkforceRules;
+}
+
+export type WorkforceMetadataQuery = Partial<Record<keyof WorkforceMetadata, boolean>>;
 
 @Injectable()
 export class WorkforceService {
@@ -207,7 +214,8 @@ export class WorkforceService {
       }
 
       employee.attendanceCount++;
-      employee.totalFine += Number(row.fineAmount ?? 0);
+      const employeeRules = effectiveRules(this.lateFineCalculator.rules, row.employeeCode);
+      employee.totalFine = Math.min(employee.totalFine + Number(row.fineAmount ?? 0), employeeRules.maxFinePerMonth);
     }
 
     return {
