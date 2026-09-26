@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { FileSpreadsheet, Upload, X } from "lucide-react";
+import { FileSpreadsheet, Loader2, Upload, X } from "lucide-react";
 import { z } from "zod";
 
 import {
@@ -332,6 +332,7 @@ export function ImportDataDialog({
           <DialogFooter>
             <Button
               variant="outline"
+              className="min-w-32"
               onClick={() => handleOpenChange(false)}
               disabled={importMutation.isPending}
             >
@@ -339,10 +340,16 @@ export function ImportDataDialog({
             </Button>
 
             <Button
+              className="min-w-32"
               disabled={!classifiedFiles || importMutation.isPending}
               onClick={handleImport}
             >
-              <Upload className="mr-2 size-4" />
+              {importMutation.isPending ? (
+                <Loader2 className="mr-2 size-4 animate-spin" />
+              ) : (
+                <Upload className="mr-2 size-4" />
+              )}
+
               Import data
             </Button>
           </DialogFooter>

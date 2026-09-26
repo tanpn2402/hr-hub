@@ -27,6 +27,7 @@ import {
 
 import { SubmitFinePaymentDialog } from "./SubmitFinePaymentDialog";
 import { useAuth } from "@/auth/useAuth";
+import { cn } from "cn";
 
 function formatMoney(value: number) {
   return new Intl.NumberFormat("vi-VN", {
@@ -44,6 +45,8 @@ type Props = {
 
 export function LateHubSummaryTable({ data }: Props) {
   const parentRef = useRef<HTMLDivElement>(null);
+
+  const isReviewing = useMemo(() => data.batchId !== "", [data]);
 
   const { hasPermission } = useAuth();
 
@@ -145,6 +148,11 @@ export function LateHubSummaryTable({ data }: Props) {
     features,
     data: data.employeeSummaries,
     columns,
+    initialState: {
+      columnVisibility: {
+        actions: !isReviewing,
+      }
+    }
   });
 
   const rows = table.getRowModel().rows;
@@ -160,24 +168,39 @@ export function LateHubSummaryTable({ data }: Props) {
 
   return (
     <>
-      <div className="overflow-hidden rounded-lg border">
-        {/* Header */}
-        <div className="grid grid-cols-[minmax(300px,2fr)_minmax(180px,1fr)_52px] border-b bg-muted/95">
-          {table.getHeaderGroups()[0].headers.map((header) => (
-            <div
-              key={header.id}
-              className="flex h-10 items-center px-4 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
-            >
-              <table.FlexRender header={header} />
-            </div>
-          ))}
-        </div>
+      <div className="overflow-hidden rounded-lg border flex-1">
 
-        {/* Virtualized rows */}
+        {/* ------------------------------------------------------------------ */}
+        {/* Scroll container                                                   */}
+        {/* ------------------------------------------------------------------ */}
+
         <div
           ref={parentRef}
-          className="max-h-[calc(92vh-300px)] overflow-auto"
+          className="max-h-[calc(100%-40px)] overflow-auto"
         >
+          {/* -------------------------------------------------------------- */}
+          {/* Header                                                         */}
+          {/* -------------------------------------------------------------- */}
+
+          <div className={
+            cn("sticky top-0 z-20 grid border-b bg-muted/95",
+              isReviewing ? "grid-cols-[minmax(300px,2fr)_minmax(180px,1fr)]" : "grid-cols-[minmax(300px,2fr)_minmax(180px,1fr)_52px]"
+            )
+          }>
+            {table.getHeaderGroups()[0].headers.map((header) => (
+              <div
+                key={header.id}
+                className="flex h-10 items-center px-4 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
+              >
+                <table.FlexRender header={header} />
+              </div>
+            ))}
+          </div>
+
+          {/* -------------------------------------------------------------- */}
+          {/* Virtualized rows                                                */}
+          {/* -------------------------------------------------------------- */}
+
           <div
             className="relative min-w-140"
             style={{
@@ -190,7 +213,11 @@ export function LateHubSummaryTable({ data }: Props) {
               return (
                 <div
                   key={row.id}
-                  className="absolute left-0 right-0 grid grid-cols-[minmax(300px,2fr)_minmax(180px,1fr)_52px] border-b transition-colors hover:bg-muted/20"
+                  className={
+                    cn("absolute left-0 right-0 grid border-b transition-colors hover:bg-muted/20",
+                      isReviewing ? "grid-cols-[minmax(300px,2fr)_minmax(180px,1fr)]" : "grid-cols-[minmax(300px,2fr)_minmax(180px,1fr)_52px]"
+                    )
+                  }
                   style={{
                     height: `${virtualRow.size}px`,
                     transform: `translateY(${virtualRow.start}px)`,

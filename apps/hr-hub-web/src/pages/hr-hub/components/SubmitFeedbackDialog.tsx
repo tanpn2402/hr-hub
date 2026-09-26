@@ -2,16 +2,11 @@ import { useEffect, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import axios from "axios";
 
-import type {
-  EmployeeSummary,
-  WorkforceImportResult,
-} from "./LateHubReviewTable";
 
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -29,6 +24,7 @@ import { WorkforceRow } from "../api/workforce";
 import dayjs from "dayjs";
 import { dateOfWeek } from "@/lib/time-utils";
 import { formatMoney } from "@/lib/format-utils";
+import { Loader2, SendIcon } from "lucide-react";
 
 
 const FEEDBACK_REASONS = [
@@ -183,6 +179,7 @@ export function SubmitFeedbackDialog({ feedbackEmployee, onOpenChange }: Props) 
                   setFeedbackReason(value as FeedbackReason)
                 }
                 disabled={feedbackMutation.isPending}
+                items={FEEDBACK_REASONS}
               >
                 <SelectTrigger className="w-full">
                   <SelectValue />
@@ -228,6 +225,7 @@ export function SubmitFeedbackDialog({ feedbackEmployee, onOpenChange }: Props) 
               variant="outline"
               onClick={() => onOpenChange(false)}
               disabled={feedbackMutation.isPending}
+              className="min-w-32"
             >
               Hủy
             </Button>
@@ -241,7 +239,13 @@ export function SubmitFeedbackDialog({ feedbackEmployee, onOpenChange }: Props) 
                 feedbackMutation.isPending ||
                 !feedbackEmployee?.fineId
               }
+              className="min-w-32"
             >
+              {feedbackMutation.isPending ? (
+                <Loader2 className="animate-spin" />
+              ) : (
+                <SendIcon />
+              )}
               {feedbackMutation.isPending
                 ? "Đang gửi..."
                 : "Gửi Feedback"}

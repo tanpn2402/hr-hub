@@ -40,7 +40,7 @@ export function LateHubReviewTable({ data }: Props) {
   const [viewMode, setViewMode] = useState<"detail" | "summary">("detail");
 
   return (
-    <div>
+    <>
       <div className="flex items-center mb-2">
         <div className="inline-flex rounded-4xl border bg-muted p-1">
           <Button
@@ -70,6 +70,6 @@ export function LateHubReviewTable({ data }: Props) {
       ) : (
         <LateHubSummaryTable data={data} />
       )}
-    </div>
+    </>
   );
 }

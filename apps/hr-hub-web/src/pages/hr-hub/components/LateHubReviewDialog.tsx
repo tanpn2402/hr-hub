@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   CheckCircle2,
   FileSpreadsheet,
@@ -31,14 +31,7 @@ type Props = {
   onOpenChange: (open: boolean) => void;
 };
 
-/* -------------------------------------------------------------------------- */ /* API */ /* -------------------------------------------------------------------------- */ async function getImportBatch(
-  batchId: string,
-): Promise<WorkforceImportResult> {
-  const { data } = await apiClient.get<WorkforceImportResult>(
-    `/workforce/import/${batchId}`,
-  );
-  return data;
-}
+
 type ConfirmImportPayload = { overrides?: Record<string, unknown> };
 async function confirmImport(
   batchId: string,
@@ -68,16 +61,15 @@ export function LateHubReviewDialog({
   data,
   onOpenChange,
 }: Props) {
-  const [fullscreen, setFullscreen] = useState(false);
+  const [fullscreen, setFullscreen] = useState(true);
+
+  const isReviewing = useMemo(() => data?.batchId !== "", [data]);
 
   const queryClient = useQueryClient();
   const confirmMutation = useConfirmImport();
   const isConfirming = confirmMutation.isPending;
 
   const handleOpenChange = (value: boolean) => {
-    if (!value) {
-      setFullscreen(false);
-    }
     onOpenChange(value);
   };
 
@@ -143,18 +135,17 @@ export function LateHubReviewDialog({
 
               <div className="min-w-0">
                 <DialogTitle className="truncate">
-                  Review imported attendance
+                  {isReviewing ? "Review imported attendance" : "Attendance view"}
                 </DialogTitle>
 
                 <DialogDescription className="mt-0.5 text-xs">
-                  Review attendance violations and calculated fines before continuing.
+                  {isReviewing ? "Review attendance violations and calculated fines before continuing." : ""}
                 </DialogDescription>
               </div>
             </div>
 
             {/* Header actions */}
             <div className="flex shrink-0 items-center gap-2">
-
               <Button
                 variant="ghost"
                 size="icon"
@@ -189,28 +180,31 @@ export function LateHubReviewDialog({
         </DialogHeader>
 
         {/* Table */}
-        <div className="min-h-0 flex-1 overflow-auto bg-background p-2">
+        <div className="min-h-0 flex-1 overflow-auto bg-background p-2 flex flex-col">
           <LateHubReviewTable data={data} />
         </div>
 
         <DialogFooter className="shrink-0 border-t bg-muted/20 px-6 py-4">
-          <Button variant="outline" onClick={handleClose} disabled={isConfirming}>
+          <Button variant="outline"
+            className="min-w-32"
+            onClick={handleClose} disabled={isConfirming}>
             Close
           </Button>
-          <Button
-            onClick={handleConfirm}
-            disabled={!data || !data.batchId || data.status !== "preview" || isConfirming}
-          >
-            {isConfirming ? (
-              <>
-                <Loader2 className="size-4 animate-spin" /> Confirming...
-              </>
-            ) : (
-              <>
-                <CheckCircle2 className="size-4" /> Confirm Import
-              </>
-            )}
-          </Button>
+
+          {isReviewing ? (
+            <Button
+              onClick={handleConfirm}
+              className="min-w-32"
+              disabled={!data || !data.batchId || data.status !== "preview" || isConfirming}
+            >
+              {isConfirming ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <CheckCircle2 className="size-4" />
+              )}
+              Confirm Import
+            </Button>
+          ) : null}
         </DialogFooter>
       </DialogContent>
 

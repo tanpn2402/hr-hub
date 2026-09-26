@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import {
   stockFeatures,
   tableFeatures,
+  TableState,
   useTable,
   type ColumnDef,
 } from "@tanstack/react-table";
@@ -283,9 +284,14 @@ const features = tableFeatures(stockFeatures);
 export type UseLateHubTableOptions = {
   data: WorkforceImportResult;
   columns: Array<ColumnDef<typeof features, ReviewTableRow>>;
+  initialState?: Partial<TableState<typeof stockFeatures>>;
 };
 
-export function useLateHubTable({ data, columns }: UseLateHubTableOptions) {
+export function useLateHubTable({
+  data,
+  columns,
+  initialState,
+}: UseLateHubTableOptions) {
   const [sorting, setSorting] = useState<LateHubSorting>(null);
 
   /**
@@ -308,6 +314,7 @@ export function useLateHubTable({ data, columns }: UseLateHubTableOptions) {
     features,
     data: sortedData,
     columns,
+    initialState,
   });
 
   /**

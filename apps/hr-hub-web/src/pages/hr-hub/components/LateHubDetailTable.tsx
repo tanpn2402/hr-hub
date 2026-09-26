@@ -96,8 +96,12 @@ type Props = {
 
 const GRID_COLUMNS =
   "minmax(220px, 2fr) minmax(120px, 1fr) minmax(100px, 0.8fr) minmax(100px, 0.8fr) minmax(220px, 2fr) minmax(140px, 1fr) 50px";
+const GRID_COLUMNS_NO_ACTION =
+  "minmax(220px, 2fr) minmax(120px, 1fr) minmax(100px, 0.8fr) minmax(100px, 0.8fr) minmax(220px, 2fr) minmax(140px, 1fr)";
 
 export function LateHubDetailTable({ data }: Props) {
+
+  const isReviewing = useMemo(() => data.batchId !== "", [data]);
 
   const [feedbackEmployee, setFeedbackEmployee] = useState<ReviewDetailRow | null>(null);
   const [paymentEmployee, setPaymentEmployee] = useState<ReviewSummaryRow | null>(null);
@@ -324,7 +328,14 @@ export function LateHubDetailTable({ data }: Props) {
     [],
   );
 
-  const { table, toggleSort, getSortDirection, } = useLateHubTable({ data, columns, });
+  const { table, toggleSort, getSortDirection, } = useLateHubTable({
+    data, columns,
+    initialState: {
+      columnVisibility: {
+        actions: !isReviewing,
+      }
+    }
+  });
 
   const rows = table.getRowModel().rows;
 
@@ -346,120 +357,123 @@ export function LateHubDetailTable({ data }: Props) {
   const virtualRows = rowVirtualizer.getVirtualItems();
 
   return (
-    <div className="overflow-hidden rounded-lg border">
-      {/* ------------------------------------------------------------------ */}
-      {/* Scroll container                                                   */}
-      {/* ------------------------------------------------------------------ */}
+    <>
+      <div className="overflow-hidden rounded-lg border flex-1">
+        {/* ------------------------------------------------------------------ */}
+        {/* Scroll container                                                   */}
+        {/* ------------------------------------------------------------------ */}
 
-      <div
-        ref={scrollRef}
-        className="max-h-[calc(92vh-260px)] overflow-auto"
-      >
-        <div className="min-w-225">
-          {/* -------------------------------------------------------------- */}
-          {/* Header                                                         */}
-          {/* -------------------------------------------------------------- */}
+        <div
+          ref={scrollRef}
+          className="max-h-[calc(100%-40px)] overflow-auto"
+        >
+          <div className="min-w-225">
+            {/* -------------------------------------------------------------- */}
+            {/* Header                                                         */}
+            {/* -------------------------------------------------------------- */}
 
-          <div
-            className="sticky top-0 z-20 grid border-b bg-muted/95 backdrop-blur"
-            style={{
-              gridTemplateColumns: GRID_COLUMNS,
-            }}
-          >
-            {table.getHeaderGroups()[0].headers.map((header) => {
-              const canSort = sortableColumns.has(header.column.id);
-              const direction = canSort ? getSortDirection(header.column.id) : undefined;
+            <div
+              className="sticky top-0 z-20 grid border-b bg-muted/95 backdrop-blur"
+              style={{
+                gridTemplateColumns: isReviewing ? GRID_COLUMNS_NO_ACTION : GRID_COLUMNS,
+              }}
+            >
+              {table.getHeaderGroups()[0].headers.map((header) => {
+                const canSort = sortableColumns.has(header.column.id);
+                const direction = canSort ? getSortDirection(header.column.id) : undefined;
 
-              return (
-                <div
-                  key={header.id}
-                  className="flex h-10 items-center px-4 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
-                >
-                  {header.isPlaceholder ? null : canSort ? (
-                    <button
-                      type="button"
-                      onClick={() => toggleSort(header.column.id)}
-                      className="flex items-center gap-1 hover:text-foreground"
-                    >
+                return (
+                  <div
+                    key={header.id}
+                    className="flex h-10 items-center px-4 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
+                  >
+                    {header.isPlaceholder ? null : canSort ? (
+                      <button
+                        type="button"
+                        onClick={() => toggleSort(header.column.id)}
+                        className="flex items-center gap-1 hover:text-foreground"
+                      >
+                        <table.FlexRender header={header} />
+
+                        {direction === "asc" ? (
+                          <ArrowUp className="size-3" />
+                        ) : direction === "desc" ? (
+                          <ArrowDown className="size-3" />
+                        ) : (
+                          <ArrowUpDown className="size-3 opacity-40" />
+                        )}
+                      </button>
+                    ) : (
                       <table.FlexRender header={header} />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
 
-                      {direction === "asc" ? (
-                        <ArrowUp className="size-3" />
-                      ) : direction === "desc" ? (
-                        <ArrowDown className="size-3" />
-                      ) : (
-                        <ArrowUpDown className="size-3 opacity-40" />
-                      )}
-                    </button>
-                  ) : (
-                    <table.FlexRender header={header} />
-                  )}
-                </div>
-              );
-            })}
+            {/* -------------------------------------------------------------- */}
+            {/* Virtualized rows                                                */}
+            {/* -------------------------------------------------------------- */}
+
+            <div
+              className="relative"
+              style={{
+                height: rowVirtualizer.getTotalSize(),
+              }}
+            >
+              {virtualRows.map((virtualRow) => {
+                const row = rows[virtualRow.index];
+                const item = row.original;
+
+                return (
+                  <div
+                    key={row.id}
+                    data-index={virtualRow.index}
+                    ref={rowVirtualizer.measureElement}
+                    className={
+                      item.rowType === "summary"
+                        ? "absolute left-0 grid w-full border-b bg-muted/20"
+                        : "absolute left-0 grid w-full border-b transition-colors hover:bg-muted/20"
+                    }
+                    style={{
+                      gridTemplateColumns: isReviewing ? GRID_COLUMNS_NO_ACTION : GRID_COLUMNS,
+                      transform: `translateY(${virtualRow.start}px)`,
+                    }}
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <div
+                        key={cell.id}
+                        className="min-w-0 px-4 py-2.5"
+                      >
+                        <table.FlexRender
+                          cell={cell}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                );
+              })}
+            </div>
           </div>
+        </div>
 
-          {/* -------------------------------------------------------------- */}
-          {/* Virtualized rows                                                */}
-          {/* -------------------------------------------------------------- */}
+        {/* ------------------------------------------------------------------ */}
+        {/* Grand total                                                        */}
+        {/* ------------------------------------------------------------------ */}
 
-          <div
-            className="relative"
-            style={{
-              height: rowVirtualizer.getTotalSize(),
-            }}
-          >
-            {virtualRows.map((virtualRow) => {
-              const row = rows[virtualRow.index];
-              const item = row.original;
+        <div className="border-t-2 bg-muted/95">
+          <div className="flex min-w-225 items-center justify-end px-4 py-3">
+            <div className="mr-8 text-sm font-semibold">
+              Tổng cộng
+            </div>
 
-              return (
-                <div
-                  key={row.id}
-                  data-index={virtualRow.index}
-                  ref={rowVirtualizer.measureElement}
-                  className={
-                    item.rowType === "summary"
-                      ? "absolute left-0 grid w-full border-b bg-muted/20"
-                      : "absolute left-0 grid w-full border-b transition-colors hover:bg-muted/20"
-                  }
-                  style={{
-                    gridTemplateColumns: GRID_COLUMNS,
-                    transform: `translateY(${virtualRow.start}px)`,
-                  }}
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <div
-                      key={cell.id}
-                      className="min-w-0 px-4 py-2.5"
-                    >
-                      <table.FlexRender
-                        cell={cell}
-                      />
-                    </div>
-                  ))}
-                </div>
-              );
-            })}
+            <div className="w-32 text-right font-mono text-sm font-bold">
+              {formatMoney(data.grandTotal)}
+            </div>
           </div>
         </div>
       </div>
 
-      {/* ------------------------------------------------------------------ */}
-      {/* Grand total                                                        */}
-      {/* ------------------------------------------------------------------ */}
-
-      <div className="border-t-2 bg-muted/95">
-        <div className="flex min-w-225 items-center justify-end px-4 py-3">
-          <div className="mr-8 text-sm font-semibold">
-            Tổng cộng
-          </div>
-
-          <div className="w-32 text-right font-mono text-sm font-bold">
-            {formatMoney(data.grandTotal)}
-          </div>
-        </div>
-      </div>
 
       {/* Feedback Dialog */}
       <SubmitFeedbackDialog
@@ -477,6 +491,6 @@ export function LateHubDetailTable({ data }: Props) {
           }}
         onOpenChange={() => setPaymentEmployee(null)}
       />
-    </div>
+    </>
   );
 }
