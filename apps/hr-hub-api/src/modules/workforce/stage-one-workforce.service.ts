@@ -6,10 +6,10 @@ import { parseLeaveWorkbook } from './parsers/leave-workbook.parser';
 import * as XLSX from 'xlsx';
 import { ConfirmWorkforceImportDto, OverrideWorkforceRowDto } from './dto/confirm-workforce-import.dto';
 import { AuthenticatedUser } from '../auth/auth.types';
-import { effectiveRules } from './models/workforce-rules.model';
 import dayjs from 'dayjs';
 import { TraceLogger } from '../app/trace/trace-logger.service';
 import { TraceContextService } from '../app/trace/trace-context.service';
+import { WorkforceRulesService } from './workforce-rules.service';
 
 type PreviewRow = {
   rowId: string;
@@ -38,6 +38,7 @@ export class StageOneWorkforceService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly calculator: LateFineCalculatorService,
+    private readonly rulesService: WorkforceRulesService,
     readonly traceContext: TraceContextService,
   ) {
     this.logger = new TraceLogger(traceContext, 'StageOneWorkforceService');
@@ -53,8 +54,8 @@ export class StageOneWorkforceService {
 
     const attendanceFile = attendanceFiles[0];
     const leaveFile = files.find((file) => file !== attendanceFile)!;
-    const attendance = parseAttendanceWorkbook(this.read(attendanceFile), this.calculator.rules);
-    const leaveCoverage = parseLeaveWorkbook(this.read(leaveFile), this.calculator.rules);
+    const attendance = parseAttendanceWorkbook(this.read(attendanceFile), { resolve: this.rulesService.resolve });
+    const leaveCoverage = parseLeaveWorkbook(this.read(leaveFile), { resolve: this.rulesService.resolve });
     const report = this.calculator.calculate(attendance, leaveCoverage);
 
     const dates = attendance.map((record) => record.date);
@@ -106,7 +107,7 @@ export class StageOneWorkforceService {
 
       employee.attendanceCount++;
 
-      const employeeRules = effectiveRules(this.calculator.rules, row.employeeCode);
+      const employeeRules = this.rulesService.resolve(row.employeeCode, row.date);
       employee.totalFine = Math.min(employee.totalFine + Number(row.fineAmount ?? 0), employeeRules.maxFinePerMonth);
     }
 

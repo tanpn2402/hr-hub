@@ -1,41 +1,38 @@
 import dayjs from 'dayjs';
 import { Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { AttendanceRecord } from './models/attendance-record.model';
 import { LeaveCoverage, LeaveCoverageMap, leaveCoverageKey } from './models/leave-coverage.model';
 import { EmployeeFineSummary, LateFineReport, LateFineRow } from './models/late-fine-report.model';
-import { effectiveRules, loadWorkforceRules, WorkforceRules } from './models/workforce-rules.model';
+import { WorkforceRules } from './models/workforce-rules.model';
 import { formatTimeOfDay, timeOfDayMinutes } from './utils/time.util';
+import { WorkforceRulesService } from './workforce-rules.service';
 
 @Injectable()
 export class LateFineCalculatorService {
-  readonly rules: WorkforceRules;
-
-  constructor(config: ConfigService) {
-    this.rules = loadWorkforceRules(config);
-  }
+  constructor(private workforceRules: WorkforceRulesService) {}
 
   calculate(attendance: AttendanceRecord[], leave: LeaveCoverageMap): LateFineReport {
     const rows: LateFineRow[] = [];
     const totalsByEmployee = new Map<string, EmployeeFineSummary>();
 
+    const baseRules = this.workforceRules.getBaseRules();
     for (const record of attendance) {
-      if (this.rules.excludedEmployeeCodes.has(record.employeeCode)) continue; // e.g. staff who have since left the company
+      if (baseRules.excludedEmployeeCodes.has(record.employeeCode)) continue; // e.g. staff who have since left the company
 
-      const isHoliday = this.rules.holidays.has(record.date);
+      const isHoliday = baseRules.holidays.has(record.date);
       if (isHoliday) continue;
 
-      const makeupWorkday = this.rules.makeupWorkdays.get(record.date);
+      const makeupWorkday = baseRules.makeupWorkdays.get(record.date);
 
       const isMakeupWorkday = !!makeupWorkday;
 
-      const isRequiredWorkday = this.rules.workdays.has(String(dayjs(record.date).day())) || isMakeupWorkday;
+      const isRequiredWorkday = baseRules.workdays.has(String(dayjs(record.date).day())) || isMakeupWorkday;
       if (!isRequiredWorkday) continue; // fines only apply on configured working days, plus any configured compensatory ("làm bù") dates
 
       const coverage = (makeupWorkday
         ? leave.get(leaveCoverageKey(record.employeeCode, makeupWorkday.LeaveDate))
         : leave.get(leaveCoverageKey(record.employeeCode, record.date))) ?? { morning: false, afternoon: false };
-      const rules = effectiveRules(this.rules, record.employeeCode);
+      const rules = this.workforceRules.resolve(record.employeeCode, record.date);
       const { fineAmount, note } = this.evaluateDay(record, coverage, isMakeupWorkday, rules);
 
       rows.push({
@@ -53,7 +50,7 @@ export class LateFineCalculatorService {
         employeeName: record.employeeName,
         totalFine: 0,
       };
-      
+
       summary.totalFine = Math.min(summary.totalFine + Number(fineAmount ?? 0), rules.maxFinePerMonth);
       totalsByEmployee.set(record.employeeCode, summary);
     }

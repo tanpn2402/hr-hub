@@ -136,6 +136,55 @@ model WorkforceImport {
   @@index([createdAt])
 }
 
+model WorkforceRule {
+  id String @id @default(cuid())
+
+  /// BASE is reserved for future DB-based base rules.
+  /// OVERRIDE represents an HR-defined exception.
+  kind String @default("OVERRIDE")
+
+  /// Property being overridden.
+  /// Examples:
+  /// AFTERNOON_CHECKOUT_DEADLINE
+  /// MORNING_START
+  /// CHECKIN_REQUIRED
+  /// CHECKOUT_REQUIRED
+  /// FINE_LATE_MORNING
+  /// WORKING_DAY
+  property String
+
+  /// Serialized value.
+  /// Time properties: HH:mm
+  /// Fine properties: numeric string
+  /// Boolean properties: "true"/"false"
+  value String
+
+  /// null = all employees
+  employeeCode String?
+
+  /// null = every weekday/date
+  weekday Int?
+
+  /// Inclusive date range.
+  /// startDate == endDate means one specific date.
+  startDate DateTime?
+  endDate   DateTime?
+
+  /// Higher priority wins when multiple rules match.
+  priority Int @default(0)
+
+  reason String?
+
+  enabled Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([employeeCode, enabled])
+  @@index([startDate, endDate, enabled])
+  @@index([property, enabled])
+}
+
 model FinancialTransaction {
   id String @id @default(cuid())
 

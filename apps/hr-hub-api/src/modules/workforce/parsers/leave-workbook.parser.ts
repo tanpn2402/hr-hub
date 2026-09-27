@@ -1,11 +1,15 @@
 import { BadRequestException } from '@nestjs/common';
 import * as XLSX from 'xlsx';
 import { LeaveCoverageMap, leaveCoverageKey } from '../models/leave-coverage.model';
-import { effectiveRules, WorkforceRules } from '../models/workforce-rules.model';
+import { WorkforceRules } from '../models/workforce-rules.model';
 import { isoDate, nextLocalDay, startOfLocalDay, timeOfDayMinutes } from '../utils/time.util';
 
+interface WorkforceRuleResolver {
+  resolve(employeeCode: string, date: string | Date): WorkforceRules;
+}
+
 /** Parses the "leavedetailsreportbydate_*.xlsx" workbook into per-day AM/PM leave coverage. */
-export function parseLeaveWorkbook(workbook: XLSX.WorkBook, rules: WorkforceRules): LeaveCoverageMap {
+export function parseLeaveWorkbook(workbook: XLSX.WorkBook, ruleResolver: WorkforceRuleResolver): LeaveCoverageMap {
   const sheet = workbook.Sheets[workbook.SheetNames[0]];
   if (!sheet) {
     throw new BadRequestException('Leave workbook has no sheets');
@@ -38,7 +42,7 @@ export function parseLeaveWorkbook(workbook: XLSX.WorkBook, rules: WorkforceRule
     const leaveTo = row[leaveToIndex];
     if (!employeeCode || !(leaveFrom instanceof Date) || !(leaveTo instanceof Date)) continue;
 
-    markDailyCoverage(coverage, employeeCode, leaveFrom, leaveTo, effectiveRules(rules, employeeCode));
+    markDailyCoverage(coverage, employeeCode, leaveFrom, leaveTo, ruleResolver.resolve(employeeCode, leaveFrom));
   }
 
   return coverage;
