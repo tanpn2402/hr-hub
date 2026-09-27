@@ -4,6 +4,7 @@ import * as XLSX from 'xlsx';
 import { AttendanceRecord } from '../models/attendance-record.model';
 import { WorkforceRules } from '../models/workforce-rules.model';
 import { isoDate, timeOfDayMinutes } from '../utils/time.util';
+import { TraceLogger } from '@app/modules/app/trace/trace-logger.service';
 
 type AttendanceColumn = 'employeeCode' | 'employeeName' | 'date' | 'checkIn' | 'checkOut';
 
@@ -25,7 +26,11 @@ const REQUIRED_COLUMNS: AttendanceColumn[] = ['employeeCode', 'employeeName', 'd
  * Parses the "BCC_<Mon>.<Year>.xlsx" check-in/checkout workbook
  * into one record per employee/day.
  */
-export function parseAttendanceWorkbook(workbook: XLSX.WorkBook, ruleResolver: WorkforceRuleResolver): AttendanceRecord[] {
+export function parseAttendanceWorkbook(
+  workbook: XLSX.WorkBook,
+  ruleResolver: WorkforceRuleResolver,
+  logger?: TraceLogger,
+): AttendanceRecord[] {
   const sheet = workbook.Sheets[workbook.SheetNames[0]];
 
   if (!sheet) {

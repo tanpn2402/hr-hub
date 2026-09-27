@@ -1,5 +1,6 @@
 import { ConfigService } from '@nestjs/config';
 import { minutesOfDay, parseDdMmYyyy } from '../utils/time.util';
+import { TraceLogger } from '@app/modules/app/trace/trace-logger.service';
 
 /** Numeric rule fields that can be overridden per employee or by HR exceptions. */
 export interface OverridableWorkforceRules {
@@ -239,6 +240,7 @@ export function effectiveRules(
   employeeCode: string,
   date: string,
   dbRules: WorkforceRuleRecord[] = [],
+  logger?: TraceLogger,
 ): WorkforceRules {
   // 1. Start with .env base rules.
   let result: WorkforceRules = rules;
@@ -263,6 +265,9 @@ export function effectiveRules(
   //   employee 533 / Friday / 16:00
   //
   // Both match, but the employee-specific rule wins.
+  if (employeeCode === '512') {
+    logger?.debug('matchingRules ' + JSON.stringify({ matchingRules, employeeOverride }));
+  }
   const properties = new Set(matchingRules.map((rule) => rule.property));
 
   for (const property of properties) {

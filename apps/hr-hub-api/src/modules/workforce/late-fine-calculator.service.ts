@@ -6,10 +6,19 @@ import { EmployeeFineSummary, LateFineReport, LateFineRow } from './models/late-
 import { WorkforceRules } from './models/workforce-rules.model';
 import { formatTimeOfDay, timeOfDayMinutes } from './utils/time.util';
 import { WorkforceRulesService } from './workforce-rules.service';
+import { TraceLogger } from '../app/trace/trace-logger.service';
+import { TraceContextService } from '../app/trace/trace-context.service';
 
 @Injectable()
 export class LateFineCalculatorService {
-  constructor(private workforceRules: WorkforceRulesService) {}
+  private readonly logger: TraceLogger;
+
+  constructor(
+    private workforceRules: WorkforceRulesService,
+    readonly traceContext: TraceContextService,
+  ) {
+    this.logger = new TraceLogger(traceContext, 'StageOneWorkforceService');
+  }
 
   calculate(attendance: AttendanceRecord[], leave: LeaveCoverageMap): LateFineReport {
     const rows: LateFineRow[] = [];
@@ -32,6 +41,19 @@ export class LateFineCalculatorService {
       const coverage = (makeupWorkday
         ? leave.get(leaveCoverageKey(record.employeeCode, makeupWorkday.LeaveDate))
         : leave.get(leaveCoverageKey(record.employeeCode, record.date))) ?? { morning: false, afternoon: false };
+
+      if (record.employeeCode === '510') {
+        this.logger.debug(
+          '[calc] ' +
+            JSON.stringify({
+              date: record.date,
+              isMakeupWorkday,
+              makeupWorkday,
+              coverage,
+              attendance: record,
+            }),
+        );
+      }
       const rules = this.workforceRules.resolve(record.employeeCode, record.date);
       const { fineAmount, note } = this.evaluateDay(record, coverage, isMakeupWorkday, rules);
 

@@ -38,7 +38,7 @@ export class StageOneWorkforceService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly calculator: LateFineCalculatorService,
-    private readonly rulesService: WorkforceRulesService,
+    private readonly workforceRules: WorkforceRulesService,
     readonly traceContext: TraceContextService,
   ) {
     this.logger = new TraceLogger(traceContext, 'StageOneWorkforceService');
@@ -54,8 +54,17 @@ export class StageOneWorkforceService {
 
     const attendanceFile = attendanceFiles[0];
     const leaveFile = files.find((file) => file !== attendanceFile)!;
-    const attendance = parseAttendanceWorkbook(this.read(attendanceFile), { resolve: this.rulesService.resolve });
-    const leaveCoverage = parseLeaveWorkbook(this.read(leaveFile), { resolve: this.rulesService.resolve });
+    const attendance = parseAttendanceWorkbook(this.read(attendanceFile), {
+      resolve: (employeeCode, date) => this.workforceRules.resolve(employeeCode, date),
+    });
+    const leaveCoverage = parseLeaveWorkbook(
+      this.read(leaveFile),
+      {
+        resolve: (employeeCode, date) => this.workforceRules.resolve(employeeCode, date),
+      },
+      this.logger,
+    );
+
     const report = this.calculator.calculate(attendance, leaveCoverage);
 
     const dates = attendance.map((record) => record.date);
@@ -107,7 +116,7 @@ export class StageOneWorkforceService {
 
       employee.attendanceCount++;
 
-      const employeeRules = this.rulesService.resolve(row.employeeCode, row.date);
+      const employeeRules = this.workforceRules.resolve(row.employeeCode, row.date);
       employee.totalFine = Math.min(employee.totalFine + Number(row.fineAmount ?? 0), employeeRules.maxFinePerMonth);
     }
 

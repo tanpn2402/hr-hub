@@ -3,6 +3,9 @@ import { ConfigService } from '@nestjs/config';
 
 import { PrismaService } from '../../prisma/prisma.service';
 import { effectiveRules, loadWorkforceRules, type WorkforceRuleRecord, type WorkforceRules } from './models/workforce-rules.model';
+import { TraceContextService } from '../app/trace/trace-context.service';
+import { TraceLogger } from '../app/trace/trace-logger.service';
+import dayjs from 'dayjs';
 
 export interface CreateWorkforceRuleInput {
   kind?: string;
@@ -33,6 +36,7 @@ export interface UpdateWorkforceRuleInput {
 @Injectable()
 export class WorkforceRulesService implements OnModuleInit {
   private readonly baseRules: WorkforceRules;
+  private readonly logger: TraceLogger;
 
   /**
    * Only DB rules are cached here.
@@ -42,10 +46,14 @@ export class WorkforceRulesService implements OnModuleInit {
   private dbRules: WorkforceRuleRecord[] = [];
 
   constructor(
-    private readonly config: ConfigService,
+    readonly config: ConfigService,
+    readonly traceContext: TraceContextService,
     private readonly prisma: PrismaService,
   ) {
     this.baseRules = loadWorkforceRules(config);
+    this.logger = new TraceLogger(traceContext, WorkforceRulesService.name);
+
+    this.logger.log('Base Rules ' + JSON.stringify(this.baseRules));
   }
 
   async onModuleInit(): Promise<void> {
@@ -241,6 +249,8 @@ export class WorkforceRulesService implements OnModuleInit {
    * No database query is performed here.
    */
   resolve(employeeCode: string, date: string | Date): WorkforceRules {
+    this.logger.debug('DB Rules ' + JSON.stringify({ dbRules: this.dbRules }));
+
     return effectiveRules(
       {
         ...this.baseRules,
@@ -248,6 +258,7 @@ export class WorkforceRulesService implements OnModuleInit {
       employeeCode,
       date instanceof Date ? date.toISOString() : date,
       this.dbRules,
+      this.logger,
     );
   }
 
@@ -278,11 +289,11 @@ export class WorkforceRulesService implements OnModuleInit {
       }
     }
 
-    if (input.startDate !== undefined && input.startDate !== null && !isIsoDate(input.startDate)) {
+    if (input.startDate !== undefined && input.startDate !== null && !dayjs(input.startDate).isValid()) {
       throw new Error(`Invalid startDate: ${input.startDate}. Expected YYYY-MM-DD`);
     }
 
-    if (input.endDate !== undefined && input.endDate !== null && !isIsoDate(input.endDate)) {
+    if (input.endDate !== undefined && input.endDate !== null && !dayjs(input.endDate).isValid()) {
       throw new Error(`Invalid endDate: ${input.endDate}. Expected YYYY-MM-DD`);
     }
 
@@ -294,14 +305,4 @@ export class WorkforceRulesService implements OnModuleInit {
       throw new Error('priority must be a non-negative integer');
     }
   }
-}
-
-function isIsoDate(value: string): boolean {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    return false;
-  }
-
-  const date = new Date(`${value}T00:00:00.000Z`);
-
-  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
 }
