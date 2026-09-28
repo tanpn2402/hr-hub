@@ -5,8 +5,6 @@ import {
   ArrowUpDown,
   AlertCircle,
   Eye,
-  History,
-  RefreshCw,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 
@@ -306,104 +304,81 @@ export function WorkforceImportHistory() {
 
   return (
     <div>
-      <div className="mt-8">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="flex items-center gap-2">
-              <History className="size-4" />
-
-              <h2 className="text-sm font-semibold">
-                Import history
-              </h2>
-            </div>
-
-            <p className="mt-1 text-xs text-muted-foreground">
-              Previous attendance and leave imports
-            </p>
+      {/* Table */}
+      <div className="mt-4 overflow-hidden rounded-xl border bg-card">
+        {historyQuery.isLoading ? (
+          <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
+            Loading import history...
           </div>
-
-          {historyQuery.isFetching && (
-            <RefreshCw className="size-4 animate-spin text-muted-foreground" />
-          )}
-        </div>
-
-        {/* Table */}
-        <div className="mt-4 overflow-hidden rounded-xl border bg-card">
-          {historyQuery.isLoading ? (
-            <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
-              Loading import history...
-            </div>
-          ) : historyQuery.isError ? (
-            <div className="flex h-32 items-center justify-center gap-2 text-sm text-destructive">
-              <AlertCircle className="size-4" />
-              Failed to load import history.
-            </div>
-          ) : !data.length ? (
-            <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
-              No import history yet.
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                {table.getHeaderGroups().map((headerGroup) => (
-                  <TableRow key={headerGroup.id}>
-                    {headerGroup.headers.map((header) => (
-                      <TableHead
-                        key={header.id}
-                        className="whitespace-nowrap"
-                      >
-                        {header.isPlaceholder ? null : (
-                          <div className={"flex items-center " + (header.column.columnDef.meta?.textRight ? " justify-end" : "")}>
-                            {header.column.getCanSort() ? (
-                              <button
-                                type="button"
-                                onClick={header.column.getToggleSortingHandler()}
-                                className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground"
-                              >
-                                <table.FlexRender
-                                  header={header}
-                                />
-
-                                {header.column.getIsSorted() ===
-                                  "asc" ? (
-                                  <ArrowUp className="size-3" />
-                                ) : header.column.getIsSorted() ===
-                                  "desc" ? (
-                                  <ArrowDown className="size-3" />
-                                ) : (
-                                  <ArrowUpDown className="size-3 opacity-40" />
-                                )}
-                              </button>
-                            ) : (
+        ) : historyQuery.isError ? (
+          <div className="flex h-32 items-center justify-center gap-2 text-sm text-destructive">
+            <AlertCircle className="size-4" />
+            Failed to load import history.
+          </div>
+        ) : !data.length ? (
+          <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
+            No import history yet.
+          </div>
+        ) : (
+          <Table>
+            <TableHeader>
+              {table.getHeaderGroups().map((headerGroup) => (
+                <TableRow key={headerGroup.id}>
+                  {headerGroup.headers.map((header) => (
+                    <TableHead
+                      key={header.id}
+                      className="whitespace-nowrap"
+                    >
+                      {header.isPlaceholder ? null : (
+                        <div className={"flex items-center " + (header.column.columnDef.meta?.textRight ? " justify-end" : "")}>
+                          {header.column.getCanSort() ? (
+                            <button
+                              type="button"
+                              onClick={header.column.getToggleSortingHandler()}
+                              className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground"
+                            >
                               <table.FlexRender
                                 header={header}
                               />
-                            )}
-                          </div>
-                        )}
-                      </TableHead>
-                    ))}
-                  </TableRow>
-                ))}
-              </TableHeader>
 
-              <TableBody>
-                {table.getRowModel().rows.map((row) => (
-                  <TableRow key={row.id}>
-                    {row.getVisibleCells().map((cell) => (
-                      <TableCell key={cell.id}>
-                        <table.FlexRender
-                          cell={cell}
-                        />
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </div>
+                              {header.column.getIsSorted() ===
+                                "asc" ? (
+                                <ArrowUp className="size-3" />
+                              ) : header.column.getIsSorted() ===
+                                "desc" ? (
+                                <ArrowDown className="size-3" />
+                              ) : (
+                                <ArrowUpDown className="size-3 opacity-40" />
+                              )}
+                            </button>
+                          ) : (
+                            <table.FlexRender
+                              header={header}
+                            />
+                          )}
+                        </div>
+                      )}
+                    </TableHead>
+                  ))}
+                </TableRow>
+              ))}
+            </TableHeader>
+
+            <TableBody>
+              {table.getRowModel().rows.map((row) => (
+                <TableRow key={row.id}>
+                  {row.getVisibleCells().map((cell) => (
+                    <TableCell key={cell.id}>
+                      <table.FlexRender
+                        cell={cell}
+                      />
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
       </div>
 
       <LateHubReviewDialog

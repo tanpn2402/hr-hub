@@ -185,6 +185,49 @@ model WorkforceRule {
   @@index([property, enabled])
 }
 
+model EmployeeMonthlyFine {
+  id String @id @default(cuid())
+
+  employeeCode String
+  employeeName String?
+
+  /// First day of the month, e.g. 2026-09-01
+  month DateTime
+
+  /// Total of Fine.amount for this employee/month.
+  originalAmount Int @default(0)
+
+  /// Total approved reductions from FineFeedback.
+  reductionAmount Int @default(0)
+
+  /// Amount that the employee actually needs to pay.
+  /// Usually:
+  /// originalAmount - reductionAmount
+  payableAmount Int @default(0)
+
+  currency String @default("VND")
+
+  /// pending / completed / cancelled
+  status String @default("pending")
+
+  /// Optional: when this monthly fine was paid.
+  paidAt DateTime?
+
+  /// User/system that confirmed the payment.
+  paidBy     String?
+  paidByName String?
+
+  /// Optional note about the monthly settlement.
+  note String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([employeeCode, month])
+  @@index([month, status])
+  @@index([employeeCode, status])
+}
+
 model FinancialTransaction {
   id String @id @default(cuid())
 

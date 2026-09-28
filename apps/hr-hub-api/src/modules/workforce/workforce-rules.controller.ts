@@ -2,7 +2,7 @@ import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestj
 
 import { CreateWorkforceRuleInput, UpdateWorkforceRuleInput, WorkforceRulesService } from './workforce-rules.service';
 
-@Controller('api/workforce/rules')
+@Controller('workforce/rules')
 export class WorkforceRulesController {
   constructor(private readonly workforceRulesService: WorkforceRulesService) {}
 

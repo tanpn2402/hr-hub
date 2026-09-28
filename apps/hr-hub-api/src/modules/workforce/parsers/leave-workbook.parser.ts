@@ -54,7 +54,7 @@ export function parseLeaveWorkbook(workbook: XLSX.WorkBook, ruleResolver: Workfo
           }),
       );
     }
-    const employeeRules = ruleResolver.resolve(employeeCode, dayjs(leaveFrom).toDate());
+    const employeeRules = ruleResolver.resolve(employeeCode, dayjs.utc(leaveFrom).toDate());
     markDailyCoverage(coverage, employeeCode, leaveFrom, leaveTo, employeeRules, logger);
   }
 
@@ -81,9 +81,7 @@ function markDailyCoverage(
     const isFirstDay = cursor.getTime() === startOfLocalDay(leaveFrom).getTime();
     const isLastDay = cursor.getTime() === lastDay.getTime();
 
-    if (employeeCode === '510') {
-      logger?.debug('[markDailyCoverage]' + JSON.stringify({ cursor }));
-    }
+    logger?.debug('[Employee ' + employeeCode + '] ' + '[markDailyCoverage]' + JSON.stringify({ cursor }));
 
     let morning: boolean;
     let afternoon: boolean;
@@ -105,9 +103,7 @@ function markDailyCoverage(
     const existing = coverage.get(key) ?? { morning: false, afternoon: false };
     const leave = { morning: existing.morning || morning, afternoon: existing.afternoon || afternoon };
 
-    if (employeeCode === '510') {
-      logger?.debug('[markDailyCoverage]' + JSON.stringify({ key, existing, leave }));
-    }
+    logger?.debug('[Employee ' + employeeCode + '] ' + '[markDailyCoverage]' + JSON.stringify({ key, existing, leave }));
 
     coverage.set(key, leave);
   }

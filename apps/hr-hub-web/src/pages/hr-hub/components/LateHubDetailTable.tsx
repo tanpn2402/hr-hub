@@ -11,6 +11,7 @@ import dayjs from "dayjs";
 import { useVirtualizer } from "@tanstack/react-virtual";
 
 import {
+  metaHelper,
   stockFeatures,
   tableFeatures,
   type ColumnDef,
@@ -29,6 +30,9 @@ import { SubmitFeedbackDialog } from "./SubmitFeedbackDialog";
 import { SubmitFinePaymentDialog } from "./SubmitFinePaymentDialog";
 import { dateOfWeek } from "@/lib/time-utils";
 import { formatMoney } from "@/lib/format-utils";
+import { cn } from "cn";
+import { WorkforceFeedback } from "../api/workforce";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 /* -------------------------------------------------------------------------- */
 /* Types                                                                      */
@@ -62,6 +66,7 @@ export type WorkforceImportResult = {
 type ReviewDetailRow = WorkforceRow & {
   rowType: "detail";
   id: string;
+  feedback?: WorkforceFeedback[];
 };
 
 type ReviewSummaryRow = {
@@ -84,11 +89,20 @@ function formatDate(value: string) {
   return dayjs(value).format("DD/MM/YYYY");
 }
 
+function feedbackLabel(value: string) {
+  return value
+    .replaceAll("_", " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
 /* -------------------------------------------------------------------------- */
 /* Table                                                                      */
 /* -------------------------------------------------------------------------- */
 
-const features = tableFeatures(stockFeatures);
+const features = tableFeatures({
+  ...stockFeatures,
+  columnMeta: metaHelper<{ textRight?: boolean }>()
+});
 
 type Props = {
   data: WorkforceImportResult;
@@ -220,20 +234,29 @@ export function LateHubDetailTable({ data }: Props) {
         cell: ({ row }) => {
           const item = row.original;
 
-          if (item.rowType === "summary") {
+          if (item.rowType === "summary" || !item.note) {
             return null;
           }
 
+          const notes = item.note.split(";").map(note => note.trim()).filter(note => note.length > 0);
+
           return (
-            <span className="text-sm text-muted-foreground">
-              {item.note || "—"}
-            </span>
-          );
+            <div className="space-y-1">
+              {notes.map((note) => (
+                <div key={note + "_" + row.original.employeeCode} className="text-sm text-muted-foreground">
+                  {note}
+                </div>
+              ))}
+            </div>
+          )
         },
       },
 
       {
         id: "fineAmount",
+        meta: {
+          textRight: true,
+        },
         accessorFn: (row) =>
           row.rowType === "detail"
             ? row.fineAmount
@@ -256,9 +279,23 @@ export function LateHubDetailTable({ data }: Props) {
             );
           }
 
+          const feedback = item.feedback || [];
+
           return (
-            <div className="text-right font-mono text-sm">
-              {formatMoney(item.fineAmount)}
+            <div className="flex items-center justify-end gap-2">
+              {feedback.length ? (
+                feedback.map(({ id, status, reason, reductionAmount }) => (
+                  <Tooltip key={id}>
+                    <TooltipTrigger render={<Flag className={cn("size-3.5", status === "approved" ? "text-primary" : status === "rejected" ? "text-destructive" : "")} />} />
+                    <TooltipContent>
+                      <p>{feedbackLabel(status)} feedback: {feedbackLabel(reason)} {status === "approved" ? `(-${formatMoney(reductionAmount ?? 0)})` : ""}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                ))
+              ) : null}
+              <div className="text-right font-mono text-sm">
+                {formatMoney(item.fineAmount)}
+              </div>
             </div>
           );
         },
@@ -385,7 +422,10 @@ export function LateHubDetailTable({ data }: Props) {
                 return (
                   <div
                     key={header.id}
-                    className="flex h-10 items-center px-4 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
+                    className={cn(
+                      "flex h-10 items-center px-4 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground",
+                      header.column.columnDef.meta?.textRight ? "justify-end" : ""
+                    )}
                   >
                     {header.isPlaceholder ? null : canSort ? (
                       <button

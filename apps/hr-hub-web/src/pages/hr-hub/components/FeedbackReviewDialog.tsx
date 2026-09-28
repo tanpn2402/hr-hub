@@ -388,6 +388,7 @@ export function FeedbackReviewDialog({
                       ? "secondary"
                       : "ghost"
                   }
+                  className={cn(filter === value ? "border-ring" : "")}
                   onClick={() => setFilter(value)}
                 >
                   {label(value)}

@@ -32,6 +32,14 @@ type Props = {
   onReviewed: () => Promise<void>;
 };
 
+const FEEDBACK_REDUCTION_AMOUNTS: Record<string, number> = {
+  early_leave_permission: 10000,
+  late_permission: 30000,
+  wrong_time: 10000,
+  wrong_fine: 0,
+  other: 0,
+};
+
 function formatMoney(value: number) {
   return `${new Intl.NumberFormat("vi-VN").format(value)} ₫`;
 }
@@ -71,7 +79,7 @@ export function FeedbackDetail({
   const fine = detail.fine;
 
   useEffect(() => {
-    setReduction(String(selected.reductionAmount ?? 0));
+    setReduction(String(selected.reductionAmount ?? (selected.status === "pending" ? (FEEDBACK_REDUCTION_AMOUNTS[selected.reason] ?? 0) : 0)));
     setReason("");
     setRejecting(false);
   }, [selected.id, selected.reductionAmount]);
@@ -83,6 +91,9 @@ export function FeedbackDetail({
       }),
       queryClient.invalidateQueries({
         queryKey: ["workforce", "report", month],
+      }),
+      queryClient.invalidateQueries({
+        queryKey: ["workforce", "feedback-detail", selected.id],
       }),
     ]);
 
@@ -172,6 +183,9 @@ export function FeedbackDetail({
         <dt className="text-muted-foreground">Original fine</dt>
         <dd>{formatMoney(fine.amount)}</dd>
 
+        <dt className="text-muted-foreground">Adjusted mount</dt>
+        <dd>{!fine.adjustedAmount ? formatMoney(0) : formatMoney(fine.adjustedAmount)}</dd>
+
         <dt className="self-center text-muted-foreground">
           Reduction amount
         </dt>
@@ -209,10 +223,11 @@ export function FeedbackDetail({
 
         <dt className="text-muted-foreground">Final fine</dt>
         <dd>
-          {formatMoney(
-            (fine.adjustedAmount ?? fine.amount) -
-            (validReduction ? reductionValue : 0),
-          )}
+          {selected.status === "pending" ?
+            formatMoney(
+              (fine.adjustedAmount ?? fine.amount) -
+              (validReduction ? reductionValue : 0),
+            ) : formatMoney(fine.adjustedAmount ?? fine.amount)}
         </dd>
       </dl>
 
@@ -244,15 +259,21 @@ export function FeedbackDetail({
 
           <div className="mt-6 flex justify-end gap-2">
             <Button
-              variant="outline"
+              className="min-w-32"
               disabled={pending}
-              onClick={() => setRejecting((value) => !value)}
+              variant="destructive"
+              // onClick={() => setRejecting((value) => !value)}
+              onClick={() => reject.mutate()}
             >
+              {reject.isPending && (
+                <Loader2 className="animate-spin" />
+              )}
               {rejecting ? "Cancel" : "Reject"}
             </Button>
 
             {rejecting ? (
               <Button
+                className="min-w-32"
                 variant="destructive"
                 disabled={pending}
                 onClick={() => reject.mutate()}
@@ -264,6 +285,7 @@ export function FeedbackDetail({
               </Button>
             ) : (
               <Button
+                className="min-w-32"
                 disabled={!validReduction || pending}
                 onClick={() => approve.mutate()}
               >

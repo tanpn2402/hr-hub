@@ -1,12 +1,15 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import * as XLSX from 'xlsx';
+import dayjs from 'dayjs';
+import utc from 'dayjs/plugin/utc';
+dayjs.extend(utc);
+
 import { PrismaService } from '../../prisma/prisma.service';
 import { LateFineCalculatorService } from './late-fine-calculator.service';
 import { parseAttendanceWorkbook } from './parsers/attendance-workbook.parser';
 import { parseLeaveWorkbook } from './parsers/leave-workbook.parser';
-import * as XLSX from 'xlsx';
 import { ConfirmWorkforceImportDto, OverrideWorkforceRowDto } from './dto/confirm-workforce-import.dto';
 import { AuthenticatedUser } from '../auth/auth.types';
-import dayjs from 'dayjs';
 import { TraceLogger } from '../app/trace/trace-logger.service';
 import { TraceContextService } from '../app/trace/trace-context.service';
 import { WorkforceRulesService } from './workforce-rules.service';
@@ -167,6 +170,12 @@ export class StageOneWorkforceService {
     const names = new Map(rows.map((row) => [row.employeeCode, row.employeeName]));
 
     await this.prisma.$transaction(async (tx) => {
+      /*
+       * ------------------------------------------------------------
+       * Claim import batch
+       * ------------------------------------------------------------
+       */
+
       const claimed = await (tx as any).workforceImport.updateMany({
         where: {
           id: batchId,
@@ -183,10 +192,11 @@ export class StageOneWorkforceService {
       }
 
       /*
-       * The business key is:
-       *   employeeCode + date
-       * Remove existing imported data before inserting the new version.
+       * ------------------------------------------------------------
+       * Business keys
+       * ------------------------------------------------------------
        */
+
       const attendanceKeys = rows.map((row) => ({
         employeeCode: row.employeeCode,
         date: dbDate(row.date),
@@ -197,17 +207,47 @@ export class StageOneWorkforceService {
         date: dbDate(row.date),
       }));
 
-      const fineKeys = rows.map((row) => ({
-        employeeCode: row.employeeCode,
-        date: dbDate(row.date),
-      }));
+      const fineKeys = rows
+        .filter((row) => row.fineAmount > 0)
+        .map((row) => ({
+          employeeCode: row.employeeCode,
+          date: dbDate(row.date),
+        }));
 
       /*
-       * Delete existing records first.
-       *
-       * FineFeedback must be removed before Fine because feedback
-       * references Fine.
+       * ------------------------------------------------------------
+       * Helpers
+       * ------------------------------------------------------------
        */
+
+      const businessKey = (employeeCode: string, date: Date) => {
+        return `${employeeCode}|${dayjs(date).format('YYYY-MM-DD')}`;
+      };
+
+      /*
+       * ------------------------------------------------------------
+       * Preserve existing FineFeedback
+       *
+       * Fine IDs are regenerated during import, so preserve the
+       * feedback first and attach it to the new Fine later.
+       * ------------------------------------------------------------
+       */
+
+      type PreservedFeedback = {
+        employeeCode: string;
+        employeeName: string | null;
+        reason: string;
+        description: string | null;
+        status: string;
+        reductionAmount: number | null;
+        reviewedBy: string | null;
+        reviewedByName: string | null;
+        reviewedAt: Date | null;
+        reviewNote: string | null;
+      };
+
+      const preservedFeedback = new Map<string, PreservedFeedback[]>();
+
       if (fineKeys.length) {
         for (const key of fineKeys) {
           const existingFines = await tx.fine.findMany({
@@ -220,15 +260,46 @@ export class StageOneWorkforceService {
             },
           });
 
-          if (existingFines.length) {
-            await tx.fineFeedback.deleteMany({
-              where: {
-                fineId: {
-                  in: existingFines.map((fine) => fine.id),
-                },
-              },
-            });
+          if (!existingFines.length) {
+            continue;
           }
+
+          const existingFeedback = await tx.fineFeedback.findMany({
+            where: {
+              fineId: {
+                in: existingFines.map((fine) => fine.id),
+              },
+            },
+          });
+
+          if (existingFeedback.length) {
+            preservedFeedback.set(
+              businessKey(key.employeeCode, key.date),
+              existingFeedback.map((feedback) => ({
+                employeeCode: feedback.employeeCode,
+                employeeName: feedback.employeeName,
+                reason: feedback.reason,
+                description: feedback.description,
+                status: feedback.status,
+                reductionAmount: feedback.reductionAmount,
+                reviewedBy: feedback.reviewedBy,
+                reviewedByName: feedback.reviewedByName,
+                reviewedAt: feedback.reviewedAt,
+                reviewNote: feedback.reviewNote,
+              })),
+            );
+          }
+
+          /*
+           * FineFeedback references Fine, so remove feedback first.
+           */
+          await tx.fineFeedback.deleteMany({
+            where: {
+              fineId: {
+                in: existingFines.map((fine) => fine.id),
+              },
+            },
+          });
 
           await tx.fine.deleteMany({
             where: {
@@ -239,31 +310,42 @@ export class StageOneWorkforceService {
         }
       }
 
-      if (attendanceKeys.length) {
-        for (const key of attendanceKeys) {
-          await tx.attendance.deleteMany({
-            where: {
-              employeeCode: key.employeeCode,
-              date: key.date,
-            },
-          });
-        }
-      }
+      /*
+       * ------------------------------------------------------------
+       * Replace Attendance
+       * ------------------------------------------------------------
+       */
 
-      if (leaveKeys.length) {
-        for (const key of leaveKeys) {
-          await tx.leave.deleteMany({
-            where: {
-              employeeCode: key.employeeCode,
-              date: key.date,
-            },
-          });
-        }
+      for (const key of attendanceKeys) {
+        await tx.attendance.deleteMany({
+          where: {
+            employeeCode: key.employeeCode,
+            date: key.date,
+          },
+        });
       }
 
       /*
-       * Insert the confirmed data.
+       * ------------------------------------------------------------
+       * Replace Leave
+       * ------------------------------------------------------------
        */
+
+      for (const key of leaveKeys) {
+        await tx.leave.deleteMany({
+          where: {
+            employeeCode: key.employeeCode,
+            date: key.date,
+          },
+        });
+      }
+
+      /*
+       * ------------------------------------------------------------
+       * Insert Attendance
+       * ------------------------------------------------------------
+       */
+
       if (rows.length) {
         await tx.attendance.createMany({
           data: rows.map((row) => ({
@@ -277,6 +359,12 @@ export class StageOneWorkforceService {
         });
       }
 
+      /*
+       * ------------------------------------------------------------
+       * Insert Leave
+       * ------------------------------------------------------------
+       */
+
       if (data.leaves.length) {
         await tx.leave.createMany({
           data: data.leaves.map((row) => ({
@@ -289,24 +377,284 @@ export class StageOneWorkforceService {
         });
       }
 
+      /*
+       * ------------------------------------------------------------
+       * Insert Fine
+       * ------------------------------------------------------------
+       */
+
       const fines = rows.filter((row) => row.fineAmount > 0);
 
+      /*
+       * employeeCode|yyyy-MM-dd -> new Fine.id
+       */
+      const fineByKey = new Map<string, string>();
+
       if (fines.length) {
-        await tx.fine.createMany({
-          data: fines.map((row) => ({
-            employeeCode: row.employeeCode,
-            employeeName: row.employeeName,
-            date: dbDate(row.date),
-            amount: row.fineAmount,
-            type: 'attendance',
-            reason: row.note,
-            status: 'unpaid',
+        for (const row of fines) {
+          const date = dbDate(row.date);
+
+          const fine = await tx.fine.create({
+            data: {
+              employeeCode: row.employeeCode,
+              employeeName: row.employeeName,
+              date,
+              amount: row.fineAmount,
+              type: 'attendance',
+              reason: row.note,
+              status: 'unpaid',
+            },
+          });
+
+          fineByKey.set(businessKey(row.employeeCode, date), fine.id);
+        }
+      }
+
+      /*
+       * ------------------------------------------------------------
+       * Restore FineFeedback
+       *
+       * Also restore Fine.adjustedAmount based on approved
+       * feedback.
+       * ------------------------------------------------------------
+       */
+
+      for (const [key, feedbackList] of preservedFeedback) {
+        const fineId = fineByKey.get(key);
+
+        /*
+         * The new import no longer has a fine for this date.
+         * There is nothing to attach the feedback to.
+         */
+        if (!fineId) {
+          continue;
+        }
+
+        const fine = await tx.fine.findUnique({
+          where: {
+            id: fineId,
+          },
+          select: {
+            amount: true,
+          },
+        });
+
+        if (!fine) {
+          continue;
+        }
+
+        const approvedReduction = feedbackList
+          .filter((feedback) => feedback.status === 'approved')
+          .reduce((sum, feedback) => sum + (feedback.reductionAmount ?? 0), 0);
+
+        /*
+         * Never allow adjustedAmount below zero.
+         */
+        const adjustedAmount = Math.max(0, fine.amount - approvedReduction);
+
+        await tx.fine.update({
+          where: {
+            id: fineId,
+          },
+          data: {
+            adjustedAmount,
+          },
+        });
+
+        await tx.fineFeedback.createMany({
+          data: feedbackList.map((feedback) => ({
+            fineId,
+            employeeCode: feedback.employeeCode,
+            employeeName: feedback.employeeName,
+            reason: feedback.reason,
+            description: feedback.description,
+            status: feedback.status,
+            reductionAmount: feedback.reductionAmount,
+            reviewedBy: feedback.reviewedBy,
+            reviewedByName: feedback.reviewedByName,
+            reviewedAt: feedback.reviewedAt,
+            reviewNote: feedback.reviewNote,
           })),
         });
       }
 
+      /*
+       * ------------------------------------------------------------
+       * Recalculate EmployeeMonthlyFine
+       * ------------------------------------------------------------
+       */
+
+      const month = batch.month;
+
+      if (month) {
+        const monthStart = dayjs.utc(month).startOf('month').toDate();
+
+        const monthEnd = dayjs.utc(month).endOf('month').toDate();
+
+        /*
+         * Fine is now the source of truth.
+         *
+         * amount          = original amount
+         * adjustedAmount  = current payable amount
+         *
+         * No need to query FineFeedback here.
+         */
+        const monthlyFines = await tx.fine.findMany({
+          where: {
+            date: {
+              gte: monthStart,
+              lte: monthEnd,
+            },
+          },
+          select: {
+            employeeCode: true,
+            employeeName: true,
+            amount: true,
+            adjustedAmount: true,
+          },
+        });
+
+        /*
+         * Aggregate by employee.
+         */
+        const employeeTotals = new Map<
+          string,
+          {
+            employeeName: string | null;
+            originalAmount: number;
+            payableAmount: number;
+          }
+        >();
+
+        for (const fine of monthlyFines) {
+          const current = employeeTotals.get(fine.employeeCode) ?? {
+            employeeName: fine.employeeName,
+            originalAmount: 0,
+            payableAmount: 0,
+          };
+
+          const payable = fine.adjustedAmount ?? fine.amount;
+
+          current.originalAmount += fine.amount;
+
+          current.payableAmount += payable;
+
+          employeeTotals.set(fine.employeeCode, current);
+        }
+
+        /*
+         * ----------------------------------------------------------
+         * Upsert EmployeeMonthlyFine
+         * ----------------------------------------------------------
+         */
+
+        for (const [employeeCode, total] of employeeTotals) {
+          const employeeRules = this.workforceRules.resolve(employeeCode, monthStart);
+
+          /*
+           * Reduction is derived from:
+           *
+           * original - current payable
+           */
+          const reductionAmount = Math.max(0, total.originalAmount - total.payableAmount);
+
+          /*
+           * Monthly maximum fine applies to the
+           * final payable amount.
+           */
+          const payableAmount = Math.min(Math.max(0, total.payableAmount), employeeRules.maxFinePerMonth);
+
+          const existing = await tx.employeeMonthlyFine.findUnique({
+            where: {
+              employeeCode_month: {
+                employeeCode,
+                month: monthStart,
+              },
+            },
+          });
+
+          /*
+           * Do not modify an already completed
+           * monthly settlement.
+           */
+          if (existing?.status === 'completed') {
+            continue;
+          }
+
+          await tx.employeeMonthlyFine.upsert({
+            where: {
+              employeeCode_month: {
+                employeeCode,
+                month: monthStart,
+              },
+            },
+            create: {
+              employeeCode,
+              employeeName: total.employeeName,
+              month: monthStart,
+              originalAmount: total.originalAmount,
+              reductionAmount,
+              payableAmount,
+              currency: 'VND',
+              status: 'pending',
+            },
+            update: {
+              employeeName: total.employeeName,
+              originalAmount: total.originalAmount,
+              reductionAmount,
+              payableAmount,
+              status: 'pending',
+              paidAt: null,
+              paidBy: null,
+              paidByName: null,
+            },
+          });
+        }
+
+        /*
+         * ----------------------------------------------------------
+         * Reset pending monthly fines for employees who no longer
+         * have any Fine records after the re-import.
+         * ----------------------------------------------------------
+         */
+
+        const existingMonthlyFines = await tx.employeeMonthlyFine.findMany({
+          where: {
+            month: monthStart,
+            status: 'pending',
+          },
+          select: {
+            id: true,
+            employeeCode: true,
+          },
+        });
+
+        for (const monthlyFine of existingMonthlyFines) {
+          if (!employeeTotals.has(monthlyFine.employeeCode)) {
+            await tx.employeeMonthlyFine.update({
+              where: {
+                id: monthlyFine.id,
+              },
+              data: {
+                originalAmount: 0,
+                reductionAmount: 0,
+                payableAmount: 0,
+              },
+            });
+          }
+        }
+      }
+
+      /*
+       * ------------------------------------------------------------
+       * Update import batch
+       * ------------------------------------------------------------
+       */
+
       await (tx as any).workforceImport.update({
-        where: { id: batchId },
+        where: {
+          id: batchId,
+        },
         data: {
           totalFine: rows.reduce((sum, row) => sum + row.fineAmount, 0),
         },

@@ -1,6 +1,9 @@
 import { ConfigService } from '@nestjs/config';
 import { minutesOfDay, parseDdMmYyyy } from '../utils/time.util';
 import { TraceLogger } from '@app/modules/app/trace/trace-logger.service';
+import dayjs from 'dayjs';
+import utc from 'dayjs/plugin/utc';
+dayjs.extend(utc);
 
 /** Numeric rule fields that can be overridden per employee or by HR exceptions. */
 export interface OverridableWorkforceRules {
@@ -238,7 +241,7 @@ export function loadWorkforceRules(config: ConfigService, specificRules: Workfor
 export function effectiveRules(
   rules: WorkforceRules,
   employeeCode: string,
-  date: string,
+  date: string, // YYYY-MM-DD
   dbRules: WorkforceRuleRecord[] = [],
   logger?: TraceLogger,
 ): WorkforceRules {
@@ -265,9 +268,7 @@ export function effectiveRules(
   //   employee 533 / Friday / 16:00
   //
   // Both match, but the employee-specific rule wins.
-  if (employeeCode === '512') {
-    logger?.debug('matchingRules ' + JSON.stringify({ matchingRules, employeeOverride }));
-  }
+  logger?.debug('[Employee ' + employeeCode + '] ' + 'matchingRules ' + JSON.stringify({ date, matchingRules, employeeOverride }));
   const properties = new Set(matchingRules.map((rule) => rule.property));
 
   for (const property of properties) {
@@ -275,11 +276,13 @@ export function effectiveRules(
 
     const selected = candidates.sort(compareRuleSpecificity)[0];
 
+    logger?.debug('[Employee ' + employeeCode + '] ' + 'selected ' + JSON.stringify({ selected }));
+
     if (!selected) {
       continue;
     }
 
-    result = applyRule(result, selected);
+    result = applyRule(result, selected, logger);
   }
 
   return result;
@@ -303,11 +306,11 @@ function matchesRule(rule: WorkforceRuleRecord, employeeCode: string, date: stri
   }
 
   // Inclusive date range.
-  if (rule.startDate !== null && date < rule.startDate) {
+  if (rule.startDate !== null && dayjs.utc(date).isBefore(dayjs.utc(rule.startDate))) {
     return false;
   }
 
-  if (rule.endDate !== null && date > rule.endDate) {
+  if (rule.endDate !== null && dayjs.utc(date).isAfter(dayjs.utc(rule.endDate))) {
     return false;
   }
 
@@ -369,7 +372,7 @@ function hasDateRange(rule: WorkforceRuleRecord): boolean {
   return rule.startDate !== null || rule.endDate !== null;
 }
 
-function applyRule(rules: WorkforceRules, rule: WorkforceRuleRecord): WorkforceRules {
+function applyRule(rules: WorkforceRules, rule: WorkforceRuleRecord, logger?: TraceLogger): WorkforceRules {
   switch (rule.property) {
     case 'MORNING_START':
       return {
@@ -401,17 +404,17 @@ function applyRule(rules: WorkforceRules, rule: WorkforceRuleRecord): WorkforceR
         afternoonCheckoutDeadlineMinutes: minutesOfDay(rule.value),
       };
 
-    case 'LEAVE_DAY_START':
-      return {
-        ...rules,
-        leaveDayStartMinutes: minutesOfDay(rule.value),
-      };
+    // case 'LEAVE_DAY_START':
+    //   return {
+    //     ...rules,
+    //     leaveDayStartMinutes: minutesOfDay(rule.value),
+    //   };
 
-    case 'LEAVE_DAY_END':
-      return {
-        ...rules,
-        leaveDayEndMinutes: minutesOfDay(rule.value),
-      };
+    // case 'LEAVE_DAY_END':
+    //   return {
+    //     ...rules,
+    //     leaveDayEndMinutes: minutesOfDay(rule.value),
+    //   };
 
     case 'FINE_LATE_MORNING':
       return {
@@ -438,87 +441,8 @@ function applyRule(rules: WorkforceRules, rule: WorkforceRuleRecord): WorkforceR
       };
 
     default:
+      logger?.debug('[applyRule] Invalid rule ' + JSON.stringify({ rules, rule }));
       return rules;
-  }
-}
-
-function isRuleApplicable(rule: WorkforceRuleRecord, employeeCode: string, date: string): boolean {
-  if (rule.employeeCode && rule.employeeCode !== employeeCode) {
-    return false;
-  }
-
-  if (rule.startDate && date < rule.startDate) {
-    return false;
-  }
-
-  if (rule.endDate && date > rule.endDate) {
-    return false;
-  }
-
-  if (rule.weekday !== null) {
-    const weekday = getWeekday(date);
-
-    if (weekday !== rule.weekday) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
-function ruleSpecificity(rule: WorkforceRuleRecord, employeeCode: string): number {
-  let score = 0;
-
-  if (rule.employeeCode === employeeCode) {
-    score += 100;
-  }
-
-  if (rule.startDate && rule.endDate && rule.startDate === rule.endDate) {
-    score += 50;
-  } else if (rule.startDate || rule.endDate) {
-    score += 30;
-  }
-
-  if (rule.weekday !== null) {
-    score += 10;
-  }
-
-  return score;
-}
-
-function applySpecificRule(rules: WorkforceRules, rule: WorkforceRuleRecord): void {
-  const field = PROPERTY_TO_FIELD[rule.property];
-
-  if (field) {
-    if (field.endsWith('Minutes')) {
-      rules[field] = minutesOfDay(rule.value);
-    } else {
-      rules[field] = Number(rule.value);
-    }
-
-    return;
-  }
-
-  /**
-   * These are handled separately from numeric rules.
-   *
-   * They are currently attached to WorkforceRules dynamically so the
-   * attendance/fine calculation can use them without changing the
-   * existing numeric rule model.
-   */
-  if (rule.property === 'CHECKIN_REQUIRED') {
-    // handled by helper below
-    setBooleanOverride(rules, 'checkInRequired', rule.value);
-    return;
-  }
-
-  if (rule.property === 'CHECKOUT_REQUIRED') {
-    setBooleanOverride(rules, 'checkOutRequired', rule.value);
-    return;
-  }
-
-  if (rule.property === 'WORKING_DAY') {
-    setBooleanOverride(rules, 'workingDay', rule.value);
   }
 }
 

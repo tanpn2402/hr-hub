@@ -1,10 +1,13 @@
-import dayjs from 'dayjs';
 import { Injectable } from '@nestjs/common';
+import dayjs from 'dayjs';
+import utc from 'dayjs/plugin/utc';
+dayjs.extend(utc);
+
 import { AttendanceRecord } from './models/attendance-record.model';
 import { LeaveCoverage, LeaveCoverageMap, leaveCoverageKey } from './models/leave-coverage.model';
 import { EmployeeFineSummary, LateFineReport, LateFineRow } from './models/late-fine-report.model';
 import { WorkforceRules } from './models/workforce-rules.model';
-import { formatTimeOfDay, timeOfDayMinutes } from './utils/time.util';
+import { formatMinutesOfDay, formatTimeOfDay, timeOfDayMinutes } from './utils/time.util';
 import { WorkforceRulesService } from './workforce-rules.service';
 import { TraceLogger } from '../app/trace/trace-logger.service';
 import { TraceContextService } from '../app/trace/trace-context.service';
@@ -35,27 +38,53 @@ export class LateFineCalculatorService {
 
       const isMakeupWorkday = !!makeupWorkday;
 
-      const isRequiredWorkday = baseRules.workdays.has(String(dayjs(record.date).day())) || isMakeupWorkday;
+      const isRequiredWorkday = baseRules.workdays.has(String(dayjs.utc(record.date).day())) || isMakeupWorkday;
       if (!isRequiredWorkday) continue; // fines only apply on configured working days, plus any configured compensatory ("làm bù") dates
 
       const coverage = (makeupWorkday
         ? leave.get(leaveCoverageKey(record.employeeCode, makeupWorkday.LeaveDate))
         : leave.get(leaveCoverageKey(record.employeeCode, record.date))) ?? { morning: false, afternoon: false };
 
-      if (record.employeeCode === '510') {
-        this.logger.debug(
+      this.logger.debug(
+        '[Employee ' +
+          record.employeeCode +
+          '] ' +
           '[calc] ' +
-            JSON.stringify({
-              date: record.date,
-              isMakeupWorkday,
-              makeupWorkday,
-              coverage,
-              attendance: record,
-            }),
-        );
-      }
+          JSON.stringify({
+            date: record.date,
+            isMakeupWorkday,
+            makeupWorkday,
+            coverage,
+            attendance: record,
+          }),
+      );
+
       const rules = this.workforceRules.resolve(record.employeeCode, record.date);
+
+      this.logger.debug(
+        '[Employee ' +
+          record.employeeCode +
+          '] ' +
+          '[rules] ' +
+          JSON.stringify({
+            date: record.date,
+            rules,
+          }),
+      );
+
       const { fineAmount, note } = this.evaluateDay(record, coverage, isMakeupWorkday, rules);
+
+      this.logger.debug(
+        '[Employee ' +
+          record.employeeCode +
+          '] ' +
+          '[evaluateDay] ' +
+          JSON.stringify({
+            date: record.date,
+            fineAmount,
+            note,
+          }),
+      );
 
       rows.push({
         employeeCode: record.employeeCode,
@@ -115,7 +144,7 @@ export class LateFineCalculatorService {
       fineAmount += rules.fineLateMorning;
       fineAmount += rules.fineNoCheckoutFullDay;
 
-      notes.push('Không checkin/checkout');
+      notes.push(`Không checkin/checkout (${formatMoney(rules.fineLateMorning + rules.fineNoCheckoutFullDay)})`);
 
       return {
         fineAmount,
@@ -126,31 +155,43 @@ export class LateFineCalculatorService {
     if (!coverage.morning) {
       if (!record.checkIn) {
         fineAmount += rules.fineLateMorning;
-        notes.push('Không có giờ vào buổi sáng');
+        notes.push(`Không có giờ vào buổi sáng (${formatMoney(rules.fineLateMorning)})`);
       } else if (timeOfDayMinutes(record.checkIn) > rules.morningStartMinutes) {
         fineAmount += rules.fineLateMorning;
-        notes.push('Trễ giờ vào buổi sáng');
+        notes.push(`Trễ giờ vào buổi sáng (${formatMinutesOfDay(rules.morningStartMinutes)} - ${formatMoney(rules.fineLateMorning)})`);
       }
     } else if (!record.checkIn) {
       fineAmount += rules.fineLateAfternoon;
-      notes.push('Không có giờ vào buổi chiều');
+      notes.push(`Không có giờ vào buổi chiều (${formatMoney(rules.fineLateAfternoon)})`);
     } else if (timeOfDayMinutes(record.checkIn) > rules.afternoonStartMinutes) {
       fineAmount += rules.fineLateAfternoon;
-      notes.push('Trễ giờ vào buổi chiều');
+      notes.push(`Trễ giờ vào buổi chiều (${formatMinutesOfDay(rules.afternoonStartMinutes)} - ${formatMoney(rules.fineLateAfternoon)})`);
     }
 
     if (!isMakeupWorkday) {
       if (coverage.afternoon) {
         if (!record.checkOut || timeOfDayMinutes(record.checkOut) < rules.morningCheckoutDeadlineMinutes) {
           fineAmount += rules.fineNoCheckoutHalfDay;
-          notes.push('Checkout trước giờ quy định (nghỉ chiều)');
+          notes.push(
+            `Checkout trước giờ quy định (nghỉ chiều) (${formatMinutesOfDay(rules.morningCheckoutDeadlineMinutes)} - ${formatMoney(rules.fineNoCheckoutHalfDay)})`,
+          );
         }
       } else if (!record.checkOut || timeOfDayMinutes(record.checkOut) < rules.afternoonCheckoutDeadlineMinutes) {
         fineAmount += rules.fineNoCheckoutFullDay;
-        notes.push('Không checkout sau giờ quy định');
+        notes.push(
+          `Không checkout sau giờ quy định (${formatMinutesOfDay(rules.afternoonCheckoutDeadlineMinutes)} - ${formatMoney(rules.fineNoCheckoutFullDay)})`,
+        );
       }
     }
 
     return { fineAmount, note: notes.length > 0 ? notes.join('; ') : null };
   }
+}
+
+export function formatMoney(value: number) {
+  return new Intl.NumberFormat('vi-VN', {
+    style: 'currency',
+    currency: 'VND',
+    maximumFractionDigits: 0,
+  }).format(value);
 }

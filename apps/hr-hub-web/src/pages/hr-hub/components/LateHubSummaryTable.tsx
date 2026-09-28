@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import {
+  metaHelper,
   stockFeatures,
   tableFeatures,
   useTable,
@@ -37,7 +38,10 @@ function formatMoney(value: number) {
   }).format(value);
 }
 
-const features = tableFeatures(stockFeatures);
+const features = tableFeatures({
+  ...stockFeatures,
+  columnMeta: metaHelper<{ textRight?: boolean }>(),
+});
 
 type Props = {
   data: WorkforceImportResult;

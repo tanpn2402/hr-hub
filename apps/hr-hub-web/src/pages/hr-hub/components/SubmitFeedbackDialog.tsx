@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
 
 
@@ -84,6 +84,8 @@ export function SubmitFeedbackDialog({ feedbackEmployee, onOpenChange }: Props) 
 
   const feedbackMutation = useCreateFineFeedbackMutation();
 
+  const queryClient = useQueryClient();
+
   const handleSubmitFeedback = () => {
     if (!feedbackEmployee || !feedbackReason || !feedbackEmployee.fineId) {
       return;
@@ -100,6 +102,10 @@ export function SubmitFeedbackDialog({ feedbackEmployee, onOpenChange }: Props) 
           setFeedbackReason("");
           setFeedbackDescription("");
           onOpenChange(false);
+
+          queryClient.invalidateQueries({
+            queryKey: ["workforce", "report"]
+          })
         },
       },
     );
@@ -124,7 +130,7 @@ export function SubmitFeedbackDialog({ feedbackEmployee, onOpenChange }: Props) 
       >
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Tạo Feedback</DialogTitle>
+            <DialogTitle>New Feedback</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4 py-2">

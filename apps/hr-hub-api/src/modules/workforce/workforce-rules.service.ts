@@ -249,7 +249,7 @@ export class WorkforceRulesService implements OnModuleInit {
    * No database query is performed here.
    */
   resolve(employeeCode: string, date: string | Date): WorkforceRules {
-    this.logger.debug('DB Rules ' + JSON.stringify({ dbRules: this.dbRules }));
+    this.logger.debug('DB Rules ' + JSON.stringify({ dbRules: this.dbRules, date, employeeCode }));
 
     return effectiveRules(
       {
@@ -289,11 +289,11 @@ export class WorkforceRulesService implements OnModuleInit {
       }
     }
 
-    if (input.startDate !== undefined && input.startDate !== null && !dayjs(input.startDate).isValid()) {
+    if (input.startDate !== undefined && input.startDate !== null && !dayjs.utc(input.startDate).isValid()) {
       throw new Error(`Invalid startDate: ${input.startDate}. Expected YYYY-MM-DD`);
     }
 
-    if (input.endDate !== undefined && input.endDate !== null && !dayjs(input.endDate).isValid()) {
+    if (input.endDate !== undefined && input.endDate !== null && !dayjs.utc(input.endDate).isValid()) {
       throw new Error(`Invalid endDate: ${input.endDate}. Expected YYYY-MM-DD`);
     }
 

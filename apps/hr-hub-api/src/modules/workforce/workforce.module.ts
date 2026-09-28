@@ -13,5 +13,6 @@ import { WorkforceRulesService } from './workforce-rules.service';
   imports: [TraceModule, AuthModule],
   controllers: [WorkforceController, WorkforceRulesController],
   providers: [WorkforceRulesService, WorkforceService, LateFineCalculatorService, MonthlyReportsRepository, StageOneWorkforceService],
+  exports: [WorkforceRulesService],
 })
 export class WorkforceModule {}

@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 
 import {
+  metaHelper,
   stockFeatures,
   tableFeatures,
   TableState,
@@ -279,7 +280,10 @@ function sortReviewRows(
 /* Hook                                                                       */
 /* -------------------------------------------------------------------------- */
 
-const features = tableFeatures(stockFeatures);
+const features = tableFeatures({
+  ...stockFeatures,
+  columnMeta: metaHelper<{ textRight?: boolean }>(),
+});
 
 export type UseLateHubTableOptions = {
   data: WorkforceImportResult;

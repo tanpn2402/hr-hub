@@ -24,6 +24,7 @@
     "dayjs": "^1.11.23",
     "idenplane-sdk": "^1.0.2",
     "lucide-react": "^1.47.0",
+    "react-hook-form": "^7.89.0",
     "react-router-dom": "^7.18.3",
     "shadcn": "^4.21.0",
     "tailwindcss": "^4.3.3",

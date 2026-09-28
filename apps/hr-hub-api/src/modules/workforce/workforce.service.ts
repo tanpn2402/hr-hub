@@ -8,6 +8,8 @@ import { PrismaService } from '@app/prisma/prisma.service';
 import { Prisma } from '@prisma/client';
 import { WorkforceRules } from './models/workforce-rules.model';
 import { WorkforceRulesService } from './workforce-rules.service';
+import { TraceLogger } from '../app/trace/trace-logger.service';
+import { TraceContextService } from '../app/trace/trace-context.service';
 
 type WorkforceFileKind = 'CHECKIN_CHECKOUT' | 'LEAVE';
 
@@ -50,13 +52,18 @@ export type WorkforceMetadataQuery = Partial<Record<keyof WorkforceMetadata, boo
 
 @Injectable()
 export class WorkforceService {
+  private logger: TraceLogger;
+
   constructor(
     private readonly config: ConfigService,
     private readonly lateFineCalculator: LateFineCalculatorService,
     private readonly workforceRules: WorkforceRulesService,
     private readonly monthlyReports: MonthlyReportsRepository,
     private readonly prisma: PrismaService,
-  ) {}
+    readonly traceContext: TraceContextService,
+  ) {
+    this.logger = new TraceLogger(traceContext, WorkforceService.name);
+  }
 
   // @ts-ignore
   // async importExcelFiles(files: Express.Multer.File[]): Promise<WorkforceImportResult> {
@@ -111,6 +118,8 @@ export class WorkforceService {
 
     const monthStart = new Date(year, month - 1, 1);
     const nextMonthStart = new Date(year, month, 1);
+
+    this.logger.debug('[getMonthlyReport] ' + JSON.stringify({ monthStart, nextMonthStart, year, month }));
 
     const rows = await this.prisma.$queryRaw<
       Array<{

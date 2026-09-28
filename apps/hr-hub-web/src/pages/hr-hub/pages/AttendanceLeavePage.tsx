@@ -10,6 +10,7 @@ import {
   BadgeCheck,
   Upload,
   Users,
+  DatabaseX,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 
@@ -28,7 +29,6 @@ import {
 } from "@/components/ui/select";
 
 import { apiClient } from "@/api/client";
-import { WorkforceImportHistory } from "../components/WorkforceImportHistory";
 import { LateHubReviewDialog } from "../components/LateHubReviewDialog";
 import { WorkforceRow } from "../api/workforce";
 import { getWorkforceFeedback } from "../api/workforce";
@@ -84,6 +84,7 @@ function useMonthlyReport(
     queryKey: ["workforce", "report", currentMonth],
     queryFn: () => getMonthlyReport(currentMonth ?? ""),
     enabled: Boolean(currentMonth),
+    refetchOnWindowFocus: true,
   });
 }
 
@@ -308,13 +309,23 @@ export function AttendanceLeavePage() {
               </div>
             </div>
 
-            <Badge
-              variant="secondary"
-              className="gap-1"
-            >
-              <CheckCircle2 className="size-3.5" />
-              Imported
-            </Badge>
+            {!currentMonth ? (
+              <Badge
+                variant="secondary"
+                className="gap-1 text-destructive"
+              >
+                <DatabaseX className="size-3.5" />
+                Not yet imported
+              </Badge>
+            ) : (
+              <Badge
+                variant="secondary"
+                className="gap-1"
+              >
+                <CheckCircle2 className="size-3.5" />
+                Imported
+              </Badge>
+            )}
           </div>
 
           <div className="flex items-center justify-between px-4 py-4">
@@ -344,8 +355,6 @@ export function AttendanceLeavePage() {
             </Button>
           </div>
         </div>
-
-        <WorkforceImportHistory />
       </div>
 
       <ImportDataDialog
