@@ -1,11 +1,12 @@
 import { PrismaService } from '@app/prisma/prisma.service';
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, forwardRef, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 import { AuthenticatedUser } from '../auth/auth.types';
 import { TraceContextService } from '../app/trace/trace-context.service';
 import { TraceLogger } from '../app/trace/trace-logger.service';
 import { PaymentService } from '../payment/payment.service';
+import { TransactionPollingQueue } from './transaction-polling-queue';
 
 dayjs.extend(utc);
 
@@ -25,6 +26,7 @@ export class FinePaymentService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly paymentService: PaymentService,
+    @Inject(forwardRef(() => TransactionPollingQueue)) private readonly transactionPollingQueue: TransactionPollingQueue,
     readonly traceContext: TraceContextService,
   ) {
     this.logger = new TraceLogger(traceContext, FinePaymentService.name);
@@ -119,7 +121,14 @@ export class FinePaymentService {
       throw new NotFoundException('Fine payment not found');
     }
 
-    return payment;
+    const monthlyFineIds = this.parseMonthlyFineIds(payment.monthlyFineIds);
+
+    const monthlyFines = await this.prisma.employeeMonthlyFine.findMany({ where: { id: { in: monthlyFineIds } } });
+
+    return {
+      ...payment,
+      monthlyFines,
+    };
   }
 
   /**
@@ -282,10 +291,12 @@ export class FinePaymentService {
         await this.prisma.finePayment.update({
           where: { id: payment.id },
           data: {
+            providerPaymentId: externalPayment.publicId,
             providerMetadata: JSON.stringify(externalPayment),
             provider: externalPayment.provider,
           },
         });
+        this.transactionPollingQueue.add({ paymentId: payment.id, traceId: this.traceContext.getTraceId() });
       }
     } catch (error) {
       // Rollback payment
@@ -314,7 +325,9 @@ export class FinePaymentService {
    *
    * All operations happen in one DB transaction.
    */
-  async settle(paymentId: string) {
+  async settle(paymentId: string, metadata: { settledBy?: string } = { settledBy: 'cash' }) {
+    this.logger.log(`[SettlePayment][${paymentId}] - ${JSON.stringify(metadata)}`);
+
     return this.prisma.$transaction(async (tx) => {
       const payment = await tx.finePayment.findUnique({
         where: {
@@ -424,7 +437,7 @@ export class FinePaymentService {
        * ----------------------------------------------------------
        */
 
-      await tx.employeeMonthlyFine.updateMany({
+      const updatedEmployeeMonthlyFine = await tx.employeeMonthlyFine.updateMany({
         where: {
           id: {
             in: monthlyFineIds,
@@ -437,9 +450,13 @@ export class FinePaymentService {
 
           paidBy: payment.createdBy,
 
+          note: JSON.stringify(metadata),
+
           paidByName: payment.createdByName,
         },
       });
+
+      this.logger.log(`[SettlePayment][${paymentId}] - Updated EmployeeMonthlyFine ${updatedEmployeeMonthlyFine.count}`);
 
       /*
        * ----------------------------------------------------------
@@ -450,7 +467,7 @@ export class FinePaymentService {
        *
        * referenceId = FinePayment.id
        */
-      await tx.financialTransaction.create({
+      const financialTxn = await tx.financialTransaction.create({
         data: {
           transactionDate: paidAt,
 
@@ -474,11 +491,15 @@ export class FinePaymentService {
 
           paymentMethod: payment.paymentMethod,
 
+          metadata: JSON.stringify(metadata),
+
           status: 'completed',
 
           description: `Fine payment for ${payment.employeeCode}`,
         },
       });
+
+      this.logger.log(`[SettlePayment][${paymentId}] - Created FinancialTransaction ${JSON.stringify(financialTxn)}`);
 
       return updatedPayment;
     });

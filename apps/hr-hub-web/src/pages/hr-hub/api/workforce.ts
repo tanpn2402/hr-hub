@@ -208,6 +208,12 @@ export async function getPaymentPreview(employeeCode: string): Promise<FinePayme
   return data;
 }
 
+export async function getPaymentDetail(paymentId: string): Promise<FinePayment> {
+  const { data } = await apiClient.get<FinePayment>('/fines/payment/' + paymentId, {});
+
+  return data;
+}
+
 export async function settleFinePayment(
   payload: SettlePaymentPayload,
 ): Promise<SettlePaymentResponse> {

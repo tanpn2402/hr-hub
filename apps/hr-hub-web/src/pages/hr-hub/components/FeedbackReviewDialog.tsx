@@ -210,6 +210,7 @@ export function FeedbackReviewDialog({ open, month, initialFilter, onOpenChange 
     queryKey: ['workforce', 'feedback', month],
     queryFn: () => getWorkforceFeedback(month),
     enabled: open && Boolean(month),
+    refetchInterval: 10_000,
   });
 
   const items = feedbackQuery.data?.items ?? [];

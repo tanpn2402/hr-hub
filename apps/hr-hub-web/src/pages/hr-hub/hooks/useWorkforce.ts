@@ -7,6 +7,7 @@ export function useMonthlyReport(currentMonth: string | null) {
     queryFn: () => getMonthlyReport(currentMonth ?? ''),
     enabled: Boolean(currentMonth),
     refetchOnWindowFocus: true,
+    refetchInterval: 10_000,
   });
 }
 

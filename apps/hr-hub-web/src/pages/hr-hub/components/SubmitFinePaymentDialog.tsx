@@ -18,6 +18,7 @@ import { formatMonth } from '@/lib/time-utils';
 import { EmployeeSummary, FinePayment, FinePaymentPreviewResponse } from '../api/workforce';
 import {
   useExecuteFinePaymentMutation,
+  useFinePaymentDetail,
   useFinePaymentPreview,
   useRejectFinePaymentMutation,
 } from '../hooks/useFinePayment';
@@ -202,7 +203,11 @@ function PaymentDetailStep({ payment }: { payment: FinePayment }) {
   return (
     <div className="space-y-5">
       <div className="flex flex-col items-center">
-        {qrUrl ? (
+        {payment.status === 'settled' ? (
+          <div className="flex h-64 w-64 items-center justify-center text-sm text-muted-foreground">
+            {t('payment_qr_missing')}
+          </div>
+        ) : qrUrl ? (
           <img
             src={qrUrl}
             alt={t('payment_qr')}
@@ -222,7 +227,7 @@ function PaymentDetailStep({ payment }: { payment: FinePayment }) {
           <span className="font-mono font-bold">{formatMoney(payment.amount)}</span>
         </div>
 
-        <div className="flex items-center justify-between p-3">
+        <div className="flex items-center justify-between border-b p-3">
           <span className="text-sm text-muted-foreground">{t('month')}</span>
 
           <div className="font-normal">
@@ -234,15 +239,11 @@ function PaymentDetailStep({ payment }: { payment: FinePayment }) {
           </div>
         </div>
 
-        {payment.providerPaymentId ? (
-          <div className="flex items-center justify-between p-3">
-            <span className="text-sm text-muted-foreground">{t('provider_payment_id')}</span>
+        <div className="flex items-center justify-between p-3">
+          <span className="text-sm text-muted-foreground">{t('status')}</span>
 
-            <span className="max-w-[60%] truncate font-mono text-sm">
-              {payment.providerPaymentId}
-            </span>
-          </div>
-        ) : null}
+          <span className="font-medium">{payment.status}</span>
+        </div>
       </div>
 
       {payment.description ? (
@@ -267,9 +268,15 @@ export function SubmitFinePaymentDialog({ open, paymentEmployee, onOpenChange }:
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
-  const [paymentDetail, setPaymentDetail] = useState<FinePayment | null>(null);
+  const [paymentId, setPaymentId] = useState<string | null>(null);
 
   const previewQuery = useFinePaymentPreview(paymentEmployee?.employeeCode, !!paymentEmployee);
+
+  const { data: payment } = useFinePaymentDetail(paymentId, {
+    refetchInterval(query) {
+      return query.state.data?.status === 'settled' ? 0 : 5_000;
+    },
+  });
 
   const paymentMutation = useExecuteFinePaymentMutation();
 
@@ -308,13 +315,13 @@ export function SubmitFinePaymentDialog({ open, paymentEmployee, onOpenChange }:
   useEffect(() => {
     setStep('preview');
     setSelectedIds([]);
-    setPaymentDetail(null);
+    setPaymentId(null);
     paymentMutation.reset();
     rejectMutation.reset();
   }, [paymentEmployee?.employeeCode]);
 
   const handleViewPendingPayment = (payment: FinePayment) => {
-    setPaymentDetail(payment);
+    setPaymentId(payment.id);
     setStep('detail');
   };
 
@@ -334,7 +341,7 @@ export function SubmitFinePaymentDialog({ open, paymentEmployee, onOpenChange }:
       },
       {
         onSuccess: (payment) => {
-          setPaymentDetail(payment);
+          setPaymentId(payment.id);
           setStep('detail');
 
           queryClient.invalidateQueries({
@@ -350,13 +357,13 @@ export function SubmitFinePaymentDialog({ open, paymentEmployee, onOpenChange }:
   };
 
   const handleReject = () => {
-    if (!paymentDetail) {
+    if (!paymentId) {
       return;
     }
 
     rejectMutation.mutate(
       {
-        paymentId: paymentDetail.id,
+        paymentId,
       },
       {
         onSuccess: () => {
@@ -375,7 +382,7 @@ export function SubmitFinePaymentDialog({ open, paymentEmployee, onOpenChange }:
   };
 
   const handleBackToPreview = () => {
-    setPaymentDetail(null);
+    setPaymentId(null);
     setStep('preview');
   };
 
@@ -390,7 +397,7 @@ export function SubmitFinePaymentDialog({ open, paymentEmployee, onOpenChange }:
     onOpenChange(false);
   };
 
-  const paymentQr = paymentDetail?.qrCode ?? paymentDetail?.qrUrl;
+  const paymentQr = payment?.qrCode ?? payment?.qrUrl;
 
   return (
     <Dialog
@@ -452,7 +459,7 @@ export function SubmitFinePaymentDialog({ open, paymentEmployee, onOpenChange }:
           </>
         )}
 
-        {step === 'detail' && paymentDetail && <PaymentDetailStep payment={paymentDetail} />}
+        {step === 'detail' && paymentId && payment && <PaymentDetailStep payment={payment} />}
 
         <DialogFooter>
           {step === 'preview' && (
@@ -489,7 +496,7 @@ export function SubmitFinePaymentDialog({ open, paymentEmployee, onOpenChange }:
             </>
           )}
 
-          {step === 'detail' && paymentDetail && (
+          {step === 'detail' && paymentId && (
             <>
               <Button
                 type="button"
@@ -534,21 +541,23 @@ export function SubmitFinePaymentDialog({ open, paymentEmployee, onOpenChange }:
                 {t('close')}
               </Button>
 
-              <Button
-                type="button"
-                className="min-w-32"
-                disabled={!paymentDetail || rejectMutation.isPending}
-                onClick={handleReject}
-                variant="destructive"
-              >
-                {rejectMutation.isPending ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <CreditCardX className="mr-2 h-4 w-4" />
-                )}
+              {payment?.status === 'settled' ? null : (
+                <Button
+                  type="button"
+                  className="min-w-32"
+                  disabled={!paymentId || rejectMutation.isPending}
+                  onClick={handleReject}
+                  variant="destructive"
+                >
+                  {rejectMutation.isPending ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <CreditCardX className="mr-2 h-4 w-4" />
+                  )}
 
-                {t('reject_payment')}
-              </Button>
+                  {t('reject_payment')}
+                </Button>
+              )}
             </>
           )}
         </DialogFooter>

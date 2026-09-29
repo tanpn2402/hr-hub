@@ -7,10 +7,11 @@ import { WorkforceModule } from '../workforce/workforce.module';
 import { FinePaymentController } from './fine-payment.controller';
 import { FinePaymentService } from './fine-payment.service';
 import { PaymentModule } from '../payment/payment.module';
+import { TransactionPollingQueue } from './transaction-polling-queue';
 
 @Module({
   imports: [AuthModule, TraceModule, WorkforceModule, PaymentModule],
   controllers: [FinesController, FinePaymentController],
-  providers: [FinesService, FinePaymentService],
+  providers: [FinesService, FinePaymentService, TransactionPollingQueue],
 })
 export class FinesModule {}
