@@ -88,7 +88,7 @@ export function LateHubSummaryTable({ data, onEmployeeClick }: Props) {
                       {item.employeeCode}
                     </span>
 
-                    <span className="truncate font-medium group-hover:text-primary">
+                    <span className="truncate font-medium group-hover:text-primary text-sm">
                       {item.employeeName ?? "—"}
                     </span>
                   </button>

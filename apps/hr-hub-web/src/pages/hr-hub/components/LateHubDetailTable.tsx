@@ -109,7 +109,7 @@ export function LateHubDetailTable({ data }: Props) {
               </div>
 
               <div className="min-w-0">
-                <div className="truncate font-medium">
+                <div className="truncate font-medium text-sm">
                   {item.employeeName}
                 </div>
               </div>

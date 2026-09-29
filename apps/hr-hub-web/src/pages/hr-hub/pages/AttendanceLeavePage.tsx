@@ -28,74 +28,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-import { apiClient } from "@/api/client";
 import { LateHubReviewDialog } from "../components/LateHubReviewDialog";
-import { EmployeeSummary, WorkforceRow } from "../api/workforce";
 import { getWorkforceFeedback } from "../api/workforce";
 import { FeedbackReviewDialog } from "../components/FeedbackReviewDialog";
 import { useTranslation } from "react-i18next";
 import { formatMonth } from "@/lib/time-utils";
+import { useAvailableMonths, useMonthlyReport } from "../hooks/useWorkforce";
+import { formatMoney } from "@/lib/format-utils";
 
-/* -------------------------------------------------------------------------- */
-/* Types                                                                      */
-/* -------------------------------------------------------------------------- */
-
-type MonthlyReport = {
-  month: string;
-  employeeSummaries: EmployeeSummary[];
-  grandTotal: number;
-  paidAmount: number;
-  rows: WorkforceRow[];
-};
-
-/* -------------------------------------------------------------------------- */
-/* API                                                                        */
-/* -------------------------------------------------------------------------- */
-
-async function getAvailableMonths(): Promise<string[]> {
-  const { data } = await apiClient.get<string[]>(
-    "/workforce/reports",
-  );
-
-  return data;
-}
-
-async function getMonthlyReport(
-  month: string,
-): Promise<MonthlyReport> {
-  const { data } = await apiClient.get<MonthlyReport>(
-    `/workforce/reports/${month}`,
-  );
-
-  return data;
-}
-
-/* -------------------------------------------------------------------------- */
-/* Hook                                                                       */
-/* -------------------------------------------------------------------------- */
-
-function useMonthlyReport(
-  currentMonth: string | null
-) {
-  return useQuery({
-    queryKey: ["workforce", "report", currentMonth],
-    queryFn: () => getMonthlyReport(currentMonth ?? ""),
-    enabled: Boolean(currentMonth),
-    refetchOnWindowFocus: true,
-  });
-}
-
-/* -------------------------------------------------------------------------- */
-/* Helpers                                                                    */
-/* -------------------------------------------------------------------------- */
-
-function formatMoney(value: number) {
-  return new Intl.NumberFormat("vi-VN").format(value);
-}
-
-/* -------------------------------------------------------------------------- */
-/* Page                                                                       */
-/* -------------------------------------------------------------------------- */
 
 export function AttendanceLeavePage() {
   const { t } = useTranslation();
@@ -111,10 +51,7 @@ export function AttendanceLeavePage() {
   /* Queries                                                                */
   /* ---------------------------------------------------------------------- */
 
-  const monthsQuery = useQuery({
-    queryKey: ["workforce", "report-months"],
-    queryFn: getAvailableMonths,
-  });
+  const monthsQuery = useAvailableMonths();
 
   const months = monthsQuery.data ?? [];
 

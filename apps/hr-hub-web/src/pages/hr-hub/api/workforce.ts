@@ -148,6 +148,14 @@ export type ExecutePaymentPayload = {
   monthlyFineIds: string[];
 };
 
+export type MonthlyReport = {
+  month: string;
+  employeeSummaries: EmployeeSummary[];
+  grandTotal: number;
+  paidAmount: number;
+  rows: WorkforceRow[];
+};
+
 export async function getWorkforceFeedback(
   month: string,
 ): Promise<WorkforceFeedbackList> {
@@ -246,6 +254,20 @@ export async function executeFinePayment(
   payload: ExecutePaymentPayload,
 ): Promise<FinePayment> {
   const { data } = await apiClient.post<FinePayment>("/fines/payment", payload);
+
+  return data;
+}
+
+export async function getAvailableMonths(): Promise<string[]> {
+  const { data } = await apiClient.get<string[]>("/workforce/reports");
+
+  return data;
+}
+
+export async function getMonthlyReport(month: string): Promise<MonthlyReport> {
+  const { data } = await apiClient.get<MonthlyReport>(
+    `/workforce/reports/${month}`,
+  );
 
   return data;
 }
