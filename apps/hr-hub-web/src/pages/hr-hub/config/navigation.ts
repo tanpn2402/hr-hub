@@ -26,35 +26,35 @@ export type HRHubNavItem = {
 export const hrHubNavigation: HRHubNavItem[] = [
   {
     id: "overview",
-    label: "Overview",
+    label: "overview",
     icon: LayoutDashboard,
     path: "",
     component: OverviewPage,
   },
   {
     id: "employees",
-    label: "Employees",
+    label: "employees",
     icon: Users,
     path: "employees",
     component: EmployeesPage,
   },
   {
     id: "attendance-leave",
-    label: "Attendance & Leave",
+    label: "attendance_and_leave",
     icon: CalendarDays,
     path: "attendance",
     component: AttendanceLeavePage,
     children: [
       {
         id: "attendance-import-history",
-        label: "Import History",
+        label: "import_history",
         icon: History,
         path: "attendance/import-history",
         component: AttendanceImportHistoryPage,
       },
       {
         id: "attendance-settings",
-        label: "Settings",
+        label: "settings",
         icon: Settings,
         path: "attendance/settings",
         component: AttendanceSettingsPage,
@@ -63,7 +63,7 @@ export const hrHubNavigation: HRHubNavItem[] = [
   },
   {
     id: "documents",
-    label: "Documents",
+    label: "documents",
     icon: FileText,
     path: "documents",
     component: DocumentsPage,

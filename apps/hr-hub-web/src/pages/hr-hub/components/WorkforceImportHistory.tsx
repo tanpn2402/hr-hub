@@ -32,6 +32,10 @@ import {
 import { WorkforceImportResult } from "./LateHubReviewTable";
 import { LoadingIndicator } from "@/components/ui/loading-idicator";
 import { LateHubReviewDialog } from "./LateHubReviewDialog";
+import { useTranslation } from "react-i18next";
+import dayjs from "dayjs";
+import { formatMonth } from "@/lib/time-utils";
+import { formatMoney } from "@/lib/format-utils";
 
 /* -------------------------------------------------------------------------- */
 /* Types                                                                      */
@@ -96,33 +100,6 @@ function useImportBatchData(
 }
 
 /* -------------------------------------------------------------------------- */
-/* Helpers                                                                    */
-/* -------------------------------------------------------------------------- */
-
-function formatMonth(value: string) {
-  const [year, month] = (value ?? "2026-08").split("-").map(Number);
-
-  return new Intl.DateTimeFormat("en-US", {
-    month: "long",
-    year: "numeric",
-  }).format(new Date(year, month - 1, 1));
-}
-
-function formatDateTime(value: string) {
-  return new Intl.DateTimeFormat("en-US", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(value));
-}
-
-function formatMoney(value: number) {
-  return new Intl.NumberFormat("vi-VN").format(value);
-}
-
-/* -------------------------------------------------------------------------- */
 /* Table                                                                      */
 /* -------------------------------------------------------------------------- */
 
@@ -132,6 +109,7 @@ const features = tableFeatures({
 });
 
 export function WorkforceImportHistory() {
+  const { t } = useTranslation();
 
   const [reviewOpen, setReviewOpen] = useState(false);
 
@@ -167,18 +145,20 @@ export function WorkforceImportHistory() {
       {
         id: "createdAt",
         accessorFn: (row) => row.createdAt,
-        header: "Imported",
+        header: t("imported"),
 
         cell: ({ row }) => (
           <span className="text-muted-foreground">
-            {formatDateTime(row.original.createdAt)}
+            {dayjs(row.original.createdAt)
+              .locale("vi")
+              .format("DD MMM YYYY, HH:mm")}
           </span>
         ),
       },
       {
         id: "month",
         accessorFn: (row) => row.month,
-        header: "Month",
+        header: t("month"),
         cell: ({ row }) => (
           <span className="font-medium">
             {formatMonth(row.original.month)}
@@ -193,7 +173,7 @@ export function WorkforceImportHistory() {
         accessorFn: (row) => row.totalAttendance,
         header: () => (
           <div className="text-right">
-            Attendance
+            {t("attendance")}
           </div>
         ),
         cell: ({ row }) => (
@@ -210,7 +190,7 @@ export function WorkforceImportHistory() {
         accessorFn: (row) => row.totalLeave,
         header: () => (
           <div className="text-right">
-            Leave
+            {t("leave")}
           </div>
         ),
         cell: ({ row }) => (
@@ -227,19 +207,19 @@ export function WorkforceImportHistory() {
         accessorFn: (row) => row.totalFine,
         header: () => (
           <div className="text-right">
-            Total fines
+            {t("total_fines")}
           </div>
         ),
         cell: ({ row }) => (
           <div className="text-right font-mono font-medium">
-            {formatMoney(row.original.totalFine)} ₫
+            {formatMoney(row.original.totalFine)}
           </div>
         ),
       },
       {
         id: "status",
         accessorFn: (row) => row.status,
-        header: "Status",
+        header: t("status"),
         cell: ({ row }) => {
           const status = row.original.status;
 
@@ -250,7 +230,7 @@ export function WorkforceImportHistory() {
                 className="gap-1"
               >
                 <span className="size-1.5 rounded-full bg-emerald-500" />
-                Confirmed
+                {t("confirmed")}
               </Badge>
             );
           }
@@ -261,7 +241,7 @@ export function WorkforceImportHistory() {
               className="gap-1"
             >
               <span className="size-1.5 rounded-full bg-amber-500" />
-              Preview
+              {t("preview")}
             </Badge>
           );
         },
@@ -280,14 +260,14 @@ export function WorkforceImportHistory() {
                 onClick={() => !isLoading && handleViewImport(row.original.id)}
               >
                 {isLoading ? <LoadingIndicator size="sm" className="mr-2" /> : <Eye className="mr-2 size-4" />}
-                View
+                {t("view")}
               </Button>
             </div>
           )
         },
       },
     ],
-    [handleViewImport, importBatchData, reviewBatchId],
+    [handleViewImport, importBatchData, reviewBatchId, t],
   );
 
   const table = useTable({
@@ -308,16 +288,16 @@ export function WorkforceImportHistory() {
       <div className="mt-4 overflow-hidden rounded-xl border bg-card">
         {historyQuery.isLoading ? (
           <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
-            Loading import history...
+            {t("loading_import_history")}
           </div>
         ) : historyQuery.isError ? (
           <div className="flex h-32 items-center justify-center gap-2 text-sm text-destructive">
             <AlertCircle className="size-4" />
-            Failed to load import history.
+            {t("failed_to_load_import_history")}
           </div>
         ) : !data.length ? (
           <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
-            No import history yet.
+            {t("no_import_history_yet")}
           </div>
         ) : (
           <Table>

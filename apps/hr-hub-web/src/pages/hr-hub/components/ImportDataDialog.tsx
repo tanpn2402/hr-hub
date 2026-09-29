@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { FileSpreadsheet, Loader2, Upload, X } from "lucide-react";
+import { FileSpreadsheet, Loader2, Upload } from "lucide-react";
 import { z } from "zod";
 
 import {
@@ -15,18 +15,20 @@ import { useImportWorkforce } from "../hooks/useImportWorkforce";
 import { WorkforceImportResult } from "./LateHubReviewTable";
 import { LateHubReviewDialog } from "./LateHubReviewDialog";
 import { useQueryClient } from "@tanstack/react-query";
+import i18n from "@/locates";
+import { useTranslation } from "react-i18next";
 
 const excelFileSchema = z
   .instanceof(File)
   .refine(
     (file) =>
       /\.(xlsx|xls)$/i.test(file.name),
-    "Only Excel files (.xlsx, .xls) are supported.",
+    i18n.t("only_excel_files_xlsx_xls_are_supported"),
   );
 
 const importFilesSchema = z
   .array(excelFileSchema)
-  .min(2, "Please select at least 2 Excel files.");
+  .min(2, i18n.t("please_select_at_least_2_excel_files"));
 
 type ImportFiles = {
   attendance: File;
@@ -42,6 +44,7 @@ export function ImportDataDialog({
   open,
   onOpenChange,
 }: Props) {
+  const { t } = useTranslation();
   const inputRef = useRef<HTMLInputElement>(null);
 
   const queryClient = useQueryClient();
@@ -183,17 +186,16 @@ export function ImportDataDialog({
       >
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>
-              Import HR data
+              <DialogTitle>
+              {t("import_hr_data")}
             </DialogTitle>
 
             <DialogDescription>
-              Select at least two Excel files. The file containing
+              {t("select_at_least_two_excel_files_the_file_containing")}
               <span className="mx-1 font-medium text-foreground">
                 BCC
               </span>
-              will be treated as attendance details. The other file
-              will be treated as leave details.
+              {t("will_be_treated_as_attendance_details_the_other_file_will_be_treated_as_leave_details")}
             </DialogDescription>
           </DialogHeader>
 
@@ -229,15 +231,15 @@ export function ImportDataDialog({
                 </div>
 
                 <div className="mt-3 text-sm font-medium">
-                  Choose Excel files
+                  {t("choose_excel_files")}
                 </div>
 
                 <div className="mt-1 text-xs text-muted-foreground">
-                  Select attendance and leave files
+                  {t("select_attendance_and_leave_files")}
                 </div>
 
                 <div className="mt-3 rounded-md border px-3 py-1.5 text-xs font-medium">
-                  Browse files
+                  {t("browse_files")}
                 </div>
               </label>
             </div>
@@ -253,7 +255,7 @@ export function ImportDataDialog({
             {files.length > 0 && (
               <div className="space-y-2">
                 <div className="text-xs font-medium text-muted-foreground">
-                  Selected files
+                  {t("selected_files")}
                 </div>
 
                 {files.map((file) => {
@@ -288,8 +290,8 @@ export function ImportDataDialog({
                         ].join(" ")}
                       >
                         {isAttendance
-                          ? "Attendance"
-                          : "Leave"}
+                          ? t("attendance")
+                          : t("leave")}
                       </span>
                     </div>
                   );
@@ -301,13 +303,13 @@ export function ImportDataDialog({
             {classifiedFiles && (
               <div className="rounded-lg bg-muted/50 p-3">
                 <div className="text-xs font-medium text-muted-foreground">
-                  Import mapping
+                  {t("import_mapping")}
                 </div>
 
                 <div className="mt-2 space-y-2 text-sm">
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-muted-foreground">
-                      Attendance
+                      {t("attendance")}
                     </span>
 
                     <span className="truncate font-medium">
@@ -317,7 +319,7 @@ export function ImportDataDialog({
 
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-muted-foreground">
-                      Leave
+                      {t("leave")}
                     </span>
 
                     <span className="truncate font-medium">
@@ -336,7 +338,7 @@ export function ImportDataDialog({
               onClick={() => handleOpenChange(false)}
               disabled={importMutation.isPending}
             >
-              Cancel
+              {t("cancel")}
             </Button>
 
             <Button
@@ -350,7 +352,7 @@ export function ImportDataDialog({
                 <Upload className="mr-2 size-4" />
               )}
 
-              Import data
+              {t("import_data")}
             </Button>
           </DialogFooter>
         </DialogContent>

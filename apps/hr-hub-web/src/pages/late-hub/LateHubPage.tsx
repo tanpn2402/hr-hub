@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { AppSwitcher } from "../../apps/AppSwitcher";
+import { useTranslation } from "react-i18next";
 
 type LateStatus =
   | "unpaid"
@@ -128,7 +129,7 @@ function formatDate(value: string) {
 
 function getInitials(name: string) {
   return name
-    .split(" ")
+    .split("")
     .slice(-2)
     .map((part) => part[0])
     .join("")
@@ -140,24 +141,25 @@ function StatusBadge({
 }: {
   status: LateStatus;
 }) {
+  const { t } = useTranslation();
   const config = {
     unpaid: {
-      label: "Chưa thanh toán",
+      label: t("unpaid"),
       className:
         "border-amber-200 bg-amber-50 text-amber-700",
     },
     paid: {
-      label: "Đã thanh toán",
+      label: t("paid"),
       className:
         "border-emerald-200 bg-emerald-50 text-emerald-700",
     },
     reviewing: {
-      label: "Đang phúc khảo",
+      label: t("reviewing"),
       className:
         "border-blue-200 bg-blue-50 text-blue-700",
     },
     approved: {
-      label: "Đã duyệt",
+      label: t("approved"),
       className:
         "border-violet-200 bg-violet-50 text-violet-700",
     },
@@ -178,6 +180,7 @@ function RowActions({
 }: {
   row: LateRow;
 }) {
+  const { t } = useTranslation();
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -196,7 +199,7 @@ function RowActions({
           }
         >
           <Clock3 />
-          Xem chi tiết
+          {t("view_details")}
         </DropdownMenuItem>
 
         <DropdownMenuItem
@@ -205,7 +208,7 @@ function RowActions({
           }
         >
           <Flag />
-          Phúc khảo
+          {t("appeal")}
         </DropdownMenuItem>
 
         {row.status === "unpaid" && (
@@ -218,7 +221,7 @@ function RowActions({
               }
             >
               <CreditCard />
-              Thanh toán
+              {t("payment")}
             </DropdownMenuItem>
 
             <DropdownMenuItem
@@ -230,7 +233,7 @@ function RowActions({
               }
             >
               <Wallet />
-              Lịch sử thanh toán
+              {t("payment_history")}
             </DropdownMenuItem>
           </>
         )}
@@ -240,6 +243,7 @@ function RowActions({
 }
 
 export function LateHubPage() {
+  const { t } = useTranslation();
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<
     LateStatus | "all"
@@ -286,7 +290,7 @@ export function LateHubPage() {
     () => [
       {
         accessorKey: "employeeName",
-        header: "Nhân viên",
+        header: t("employee"),
 
         cell: ({ row }) => (
           <div className="flex items-center gap-3">
@@ -316,17 +320,17 @@ export function LateHubPage() {
 
       {
         accessorKey: "department",
-        header: "Phòng ban",
+        header: t("department"),
         cell: ({ row }) => (
           <span className="text-sm text-muted-foreground">
-            {row.original.department}
+            {t(row.original.department)}
           </span>
         ),
       },
 
       {
         accessorKey: "date",
-        header: "Ngày",
+        header: t("date"),
         cell: ({ row }) => (
           <span className="font-mono text-sm">
             {formatDate(
@@ -338,7 +342,7 @@ export function LateHubPage() {
 
       {
         accessorKey: "checkIn",
-        header: "Check-in",
+        header: t("check_in"),
         cell: ({ row }) => (
           <span
             className={[
@@ -356,7 +360,7 @@ export function LateHubPage() {
 
       {
         accessorKey: "checkOut",
-        header: "Check-out",
+        header: t("check_out"),
         cell: ({ row }) => (
           <span className="font-mono text-sm">
             {row.original.checkOut}
@@ -368,7 +372,7 @@ export function LateHubPage() {
         accessorKey: "lateMinutes",
         header: () => (
           <div className="text-right">
-            Đi trễ
+            {t("late")}
           </div>
         ),
 
@@ -386,7 +390,7 @@ export function LateHubPage() {
             </span>
 
             <span className="ml-1 text-xs text-muted-foreground">
-              phút
+              {t("minutes")}
             </span>
           </div>
         ),
@@ -396,7 +400,7 @@ export function LateHubPage() {
         accessorKey: "fine",
         header: () => (
           <div className="text-right">
-            Tiền phạt
+            {t("fine")}
           </div>
         ),
 
@@ -411,7 +415,7 @@ export function LateHubPage() {
 
       {
         accessorKey: "status",
-        header: "Trạng thái",
+        header: t("status"),
         cell: ({ row }) => (
           <StatusBadge
             status={row.original.status}
@@ -432,7 +436,7 @@ export function LateHubPage() {
         ),
       },
     ],
-    [],
+    [t],
   );
 
   const table = useTable({
@@ -452,11 +456,11 @@ export function LateHubPage() {
 
           <div className="flex items-center gap-2">
             <h1 className="text-base font-semibold">
-              Late Hub
+              {t("late_hub")}
             </h1>
 
             <span className="text-sm text-muted-foreground">
-              Attendance
+              {t("attendance")}
             </span>
           </div>
         </div>
@@ -465,7 +469,7 @@ export function LateHubPage() {
           <CalendarDays className="size-4 text-muted-foreground" />
 
           <span className="font-medium">
-            September 2026
+            {new Intl.DateTimeFormat("vi-VN", { month: "long", year: "numeric" }).format(new Date(2026, 8, 1))}
           </span>
         </div>
       </header>
@@ -483,7 +487,7 @@ export function LateHubPage() {
                   event.target.value,
                 )
               }
-              placeholder="Search employees..."
+              placeholder={t("search_employees")}
               className="h-9 border-0 bg-muted/60 pl-9 shadow-none focus-visible:ring-1"
             />
           </div>
@@ -491,10 +495,10 @@ export function LateHubPage() {
           {/* Status filter */}
           <div className="flex items-center rounded-lg border bg-background p-0.5">
             {[
-              ["all", "All"],
-              ["unpaid", "Unpaid"],
-              ["reviewing", "Reviewing"],
-              ["paid", "Paid"],
+              ["all", t("all")],
+              ["unpaid", t("unpaid")],
+              ["reviewing", t("reviewing")],
+              ["paid", t("paid")],
             ].map(
               ([value, label]) => (
                 <button
@@ -522,7 +526,7 @@ export function LateHubPage() {
         </div>
 
         <span className="text-xs text-muted-foreground">
-          {filteredData.length} employees
+          {t("count_employees", { count: filteredData.length })}
         </span>
       </div>
 
@@ -559,7 +563,7 @@ export function LateHubPage() {
                               type="button"
                               onClick={header.column.getToggleSortingHandler()}
                               className="flex items-center gap-1 transition-colors hover:text-foreground"
-                              aria-label={`Sort by ${header.column.id}`}
+                              aria-label={t("sort_by_column", { column: t(header.column.id.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`)) })}
                             >
                               <table.FlexRender header={header} />
 
@@ -590,7 +594,7 @@ export function LateHubPage() {
                   colSpan={columns.length}
                   className="h-32 text-center text-sm text-muted-foreground"
                 >
-                  Loading...
+                  {t("loading")}
                 </td>
               </tr>
             ) : (
@@ -640,7 +644,7 @@ export function LateHubPage() {
                     colSpan={columns.length}
                     className="h-32 text-center text-sm text-muted-foreground"
                   >
-                    No employees found.
+                    {t("no_employees_found")}
                   </td>
                 </tr>
               )}

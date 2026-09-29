@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import axios from "axios";
 import {
@@ -8,10 +7,10 @@ import {
 
 import type {
   EmployeeSummary,
-  WorkforceImportResult,
 } from "./LateHubReviewTable";
 
 import { Button } from "@/components/ui/button";
+import { useTranslation } from "react-i18next";
 import {
   Dialog,
   DialogContent,
@@ -61,6 +60,7 @@ function useCreatePaymentQrCodeMutation() {
 }
 
 export function SubmitFinePaymentDialog({ paymentEmployee, onOpenChange }: Props) {
+  const { t } = useTranslation();
   const paymentMutation = useCreatePaymentQrCodeMutation();
 
   const paymentQr = paymentMutation.data?.qrCode ?? paymentMutation.data?.qrUrl;
@@ -77,7 +77,7 @@ export function SubmitFinePaymentDialog({ paymentEmployee, onOpenChange }: Props
     >
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Thanh toán tiền phạt</DialogTitle>
+          <DialogTitle>{t("fine_payment")}</DialogTitle>
 
           <DialogDescription>
             {paymentEmployee?.employeeName} (
@@ -88,14 +88,14 @@ export function SubmitFinePaymentDialog({ paymentEmployee, onOpenChange }: Props
         <div className="flex min-h-56 flex-col items-center justify-center py-4">
           {paymentMutation.isPending && (
             <div className="text-sm text-muted-foreground">
-              Đang tạo mã QR...
+              {t("creating_payment_qr")}
             </div>
           )}
 
           {paymentMutation.isError && (
             <div className="space-y-3 text-center">
               <p className="text-sm text-destructive">
-                Không thể tạo mã QR thanh toán.
+                {t("payment_qr_failed")}
               </p>
 
               <Button
@@ -108,7 +108,7 @@ export function SubmitFinePaymentDialog({ paymentEmployee, onOpenChange }: Props
                   });
                 }}
               >
-                Thử lại
+                {t("retry")}
               </Button>
             </div>
           )}
@@ -120,7 +120,7 @@ export function SubmitFinePaymentDialog({ paymentEmployee, onOpenChange }: Props
                 <div className="flex justify-center">
                   <img
                     src={paymentQr}
-                    alt="QR thanh toán"
+                    alt={t("payment_qr")}
                     className="h-64 w-64 rounded-lg border object-contain"
                   />
                 </div>
@@ -143,7 +143,7 @@ export function SubmitFinePaymentDialog({ paymentEmployee, onOpenChange }: Props
             !paymentMutation.isError &&
             !paymentQr && (
               <div className="text-sm text-muted-foreground">
-                API không trả về mã QR.
+                {t("payment_qr_missing")}
               </div>
             )}
         </div>
@@ -154,7 +154,7 @@ export function SubmitFinePaymentDialog({ paymentEmployee, onOpenChange }: Props
             variant="outline"
             onClick={() => onOpenChange(false)}
           >
-            Đóng
+            {t("close")}
           </Button>
 
           {paymentQr && (
@@ -166,7 +166,7 @@ export function SubmitFinePaymentDialog({ paymentEmployee, onOpenChange }: Props
               }}
             >
               <Copy className="mr-2 h-4 w-4" />
-              Copy QR URL
+              {t("copy_qr_url")}
             </Button>
           )}
 

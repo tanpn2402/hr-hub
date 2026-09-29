@@ -5,6 +5,7 @@ import dayjs from "dayjs";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "react-i18next";
 import {
   approveWorkforceFeedback,
   rejectWorkforceFeedback,
@@ -45,7 +46,7 @@ function formatMoney(value: number) {
 }
 
 function formatDate(value: string) {
-  return new Intl.DateTimeFormat("en-GB", {
+  return new Intl.DateTimeFormat("vi-VN", {
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -53,15 +54,13 @@ function formatDate(value: string) {
 }
 
 function label(value: string) {
-  return value
-    .replaceAll("_", " ")
-    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+  return value.replaceAll(" ", "_").toLowerCase();
 }
 
-function errorMessage(error: unknown) {
+function errorMessage(error: unknown, fallback: string) {
   return error instanceof Error
     ? error.message
-    : "Unable to review feedback. Please try again.";
+    : fallback;
 }
 
 export function FeedbackDetail({
@@ -70,6 +69,7 @@ export function FeedbackDetail({
   detail,
   onReviewed,
 }: Props) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
 
   const [reduction, setReduction] = useState("0");
@@ -136,58 +136,58 @@ export function FeedbackDetail({
       </p>
 
       <h4 className="mt-7 text-lg font-medium">
-        {label(selected.reason)}
+        {t(label(selected.reason))}
       </h4>
 
       <hr className="my-6" />
 
-      <h5 className="font-medium">Attendance</h5>
+      <h5 className="font-medium">{t("attendance_details")}</h5>
 
       <dl className="mt-3 grid grid-cols-2 gap-3 text-sm">
-        <dt className="text-muted-foreground">Check-in</dt>
+        <dt className="text-muted-foreground">{t("check_in")}</dt>
         <dd>
           {detail.attendance?.checkIn
             ? dayjs.utc(detail.attendance.checkIn).format("HH:mm")
             : "—"}
         </dd>
 
-        <dt className="text-muted-foreground">Check-out</dt>
+        <dt className="text-muted-foreground">{t("check_out")}</dt>
         <dd>
           {detail.attendance?.checkOut
             ? dayjs.utc(detail.attendance.checkOut).format("HH:mm")
             : "—"}
         </dd>
 
-        <dt className="text-muted-foreground">Leave</dt>
+        <dt className="text-muted-foreground">{t("leave")}</dt>
         <dd>
-          {detail.leave ? label(detail.leave.type) : "—"}
+          {detail.leave ? t(label(detail.leave.type)) : "—"}
         </dd>
 
-        <dt className="text-muted-foreground">Note</dt>
+        <dt className="text-muted-foreground">{t("note")}</dt>
         <dd>{fine.reason || "—"}</dd>
       </dl>
 
       <hr className="my-6" />
 
-      <h5 className="font-medium">Employee feedback</h5>
+      <h5 className="font-medium">{t("employee_feedback")}</h5>
 
       <p className="mt-3 whitespace-pre-wrap text-sm">
-        {selected.description || "No additional description provided."}
+        {selected.description || t("no_additional_description_provided")}
       </p>
 
       <hr className="my-6" />
 
-      <h5 className="font-medium">Fine</h5>
+      <h5 className="font-medium">{t("fine_category")}</h5>
 
       <dl className="mt-3 grid grid-cols-2 gap-3 text-sm">
-        <dt className="text-muted-foreground">Original fine</dt>
+        <dt className="text-muted-foreground">{t("original_fine")}</dt>
         <dd>{formatMoney(fine.amount)}</dd>
 
-        <dt className="text-muted-foreground">Adjusted mount</dt>
+        <dt className="text-muted-foreground">{t("adjusted_amount")}</dt>
         <dd>{!fine.adjustedAmount ? formatMoney(0) : formatMoney(fine.adjustedAmount)}</dd>
 
         <dt className="self-center text-muted-foreground">
-          Reduction amount
+          {t("reduction_amount")}
         </dt>
 
         <dd>
@@ -221,7 +221,7 @@ export function FeedbackDetail({
           </div>
         </dd>
 
-        <dt className="text-muted-foreground">Final fine</dt>
+        <dt className="text-muted-foreground">{t("final_fine")}</dt>
         <dd>
           {selected.status === "pending" ?
             formatMoney(
@@ -235,23 +235,23 @@ export function FeedbackDetail({
         <>
           <p className="mt-2 text-xs text-destructive">
             {!validReduction
-              ? "Reduction must be a whole amount between 0 and the current fine."
+              ? t("reduction_must_be_a_whole_amount_between_0_and_the_current_fine")
               : approve.isError || reject.isError
-                ? errorMessage(approve.error ?? reject.error)
+                ? errorMessage(approve.error ?? reject.error, t("unable_to_review_feedback_please_try_again"))
                 : ""}
           </p>
 
           {rejecting && (
             <div className="mt-5 rounded-lg border p-3">
               <label className="text-sm font-medium">
-                Reject feedback
+                {t("reject_feedback")}
               </label>
 
               <textarea
                 value={reason}
                 onChange={(event) => setReason(event.target.value)}
                 className="mt-2 min-h-20 w-full rounded-md border p-2"
-                placeholder="Reason (optional)"
+                placeholder={t("reason_optional")}
                 disabled={pending}
               />
             </div>
@@ -268,7 +268,7 @@ export function FeedbackDetail({
               {reject.isPending && (
                 <Loader2 className="animate-spin" />
               )}
-              {rejecting ? "Cancel" : "Reject"}
+              {rejecting ? t("cancel") : t("reject")}
             </Button>
 
             {rejecting ? (
@@ -281,7 +281,7 @@ export function FeedbackDetail({
                 {reject.isPending && (
                   <Loader2 className="animate-spin" />
                 )}
-                Reject
+                {t("reject")}
               </Button>
             ) : (
               <Button
@@ -292,15 +292,17 @@ export function FeedbackDetail({
                 {approve.isPending && (
                   <Loader2 className="animate-spin" />
                 )}
-                Approve
+                {t("approve")}
               </Button>
             )}
           </div>
         </>
       ) : (
         <p className="mt-6 text-sm text-muted-foreground">
-          This feedback was {selected.status}
-          {selected.reviewNote ? `: ${selected.reviewNote}` : "."}
+          {t("feedback_status_note", {
+            status: t(label(selected.status)),
+            note: selected.reviewNote ? `: ${selected.reviewNote}` : ".",
+          })}
         </p>
       )}
     </div>

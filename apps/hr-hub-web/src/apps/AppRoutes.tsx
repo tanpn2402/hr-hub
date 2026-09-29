@@ -4,6 +4,7 @@ import { ProtectedRoute } from "@/auth/ProtectedRoute";
 import { OpenIDConnectCallbackPage } from "@/auth/OpenIDConnectCallbackPage";
 
 import { apps } from "./app-registry";
+import { useTranslation } from "react-i18next";
 
 function appRoute(app: (typeof apps)[number]) {
   const Component = app.component;
@@ -25,6 +26,7 @@ function appRoute(app: (typeof apps)[number]) {
 }
 
 export function AppRoutes() {
+  const { t } = useTranslation();
   return (
     <Routes>
       {/* Authentication infrastructure */}
@@ -37,7 +39,7 @@ export function AppRoutes() {
 
       <Route
         path="*"
-        element={<div>Apps not found</div>}
+        element={<div>{t("apps_not_found")}</div>}
       />
     </Routes>
   );

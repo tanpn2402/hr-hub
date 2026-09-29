@@ -35,6 +35,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import dayjs from "dayjs";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { useTranslation } from "react-i18next";
 
 type WorkforceRule = {
   id: string;
@@ -67,23 +68,23 @@ type RuleFormValues = {
 const RULE_PROPERTIES = [
   {
     value: "MORNING_START",
-    label: "Giờ bắt đầu buổi sáng",
+    label: "morning_start",
   },
   {
     value: "MORNING_END",
-    label: "Giờ kết thúc buổi sáng",
+    label: "morning_end",
   },
   {
     value: "MORNING_CHECKOUT_DEADLINE",
-    label: "Hạn chấm công buổi sáng",
+    label: "morning_checkout_deadline",
   },
   {
     value: "AFTERNOON_START",
-    label: "Giờ bắt đầu buổi chiều",
+    label: "afternoon_start",
   },
   {
     value: "AFTERNOON_CHECKOUT_DEADLINE",
-    label: "Hạn chấm công buổi chiều",
+    label: "afternoon_checkout_deadline",
   },
   // {
   //   value: "LEAVE_DAY_START",
@@ -95,19 +96,19 @@ const RULE_PROPERTIES = [
   // },
   {
     value: "FINE_LATE_MORNING",
-    label: "Phạt đi muộn buổi sáng",
+    label: "fine_late_morning",
   },
   {
     value: "FINE_LATE_AFTERNOON",
-    label: "Phạt đi muộn buổi chiều",
+    label: "fine_late_afternoon",
   },
   {
     value: "FINE_NO_CHECKOUT_HALF_DAY",
-    label: "Phạt thiếu chấm công ra về (nửa ngày)",
+    label: "fine_no_checkout_half_day",
   },
   {
     value: "FINE_NO_CHECKOUT_FULL_DAY",
-    label: "Phạt thiếu chấm công ra về (cả ngày)",
+    label: "fine_no_checkout_full_day",
   },
 
   // {
@@ -125,13 +126,14 @@ const RULE_PROPERTIES = [
 ] as const;
 
 const WEEKDAYS = [
-  { value: "1", label: "Monday" },
-  { value: "2", label: "Tuesday" },
-  { value: "3", label: "Wednesday" },
-  { value: "4", label: "Thursday" },
-  { value: "5", label: "Friday" },
-  { value: "6", label: "Saturday" },
-  { value: "7", label: "Sunday" },
+  { value: "none", label: "every_day" },
+  { value: "1", label: "monday" },
+  { value: "2", label: "tuesday" },
+  { value: "3", label: "wednesday" },
+  { value: "4", label: "thursday" },
+  { value: "5", label: "friday" },
+  { value: "6", label: "saturday" },
+  { value: "7", label: "sunday" },
 ];
 
 async function getWorkforceRules() {
@@ -152,6 +154,7 @@ function useWorkforceRules() {
 }
 
 export function AttendanceSettingsPage() {
+  const { t } = useTranslation();
   const [editingRule, setEditingRule] = useState<WorkforceRule | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteRule, setDeleteRule] = useState<WorkforceRule | null>(null);
@@ -161,7 +164,7 @@ export function AttendanceSettingsPage() {
 
   const queryClient = useQueryClient();
 
-  const ruleLabel = useMemo(() => new Map<string, string>(RULE_PROPERTIES.map(({ label, value }) => [value, label])), [RULE_PROPERTIES]);
+  const ruleLabel = useMemo(() => new Map<string, string>(RULE_PROPERTIES.map(({ label, value }) => [value, t(label)])), [t]);
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
@@ -215,53 +218,51 @@ export function AttendanceSettingsPage() {
     () => [
       {
         accessorKey: "property",
-        header: "Rule",
+        header: t("rule"),
         cell: ({ row }) => ruleLabel.get(row.original.property) ?? row.original.property,
       },
       {
         accessorKey: "value",
-        header: "Value",
+        header: t("value"),
       },
       {
         accessorKey: "employeeCode",
-        header: "Employee",
-        cell: ({ row }) => row.original.employeeCode ?? "All employees",
+        header: t("employee"),
+        cell: ({ row }) => row.original.employeeCode ?? t("all_employees"),
       },
       {
         accessorKey: "weekday",
-        header: "Weekday",
+        header: t("weekday"),
         cell: ({ row }) => {
           const weekday = row.original.weekday;
 
           if (!weekday) {
-            return "Every day";
+            return t("every_day");
           }
 
-          return (
-            WEEKDAYS.find((item) => item.value === String(weekday))
-              ?.label ?? weekday
-          );
+          const dayLabel = WEEKDAYS.find((item) => item.value === String(weekday))?.label;
+          return dayLabel ? t(dayLabel) : weekday;
         },
       },
       {
         accessorKey: "startDate",
-        header: "Start",
+        header: t("start"),
         cell: ({ row }) =>
           !row.original.startDate ? "—" : dayjs.utc(row.original.startDate).format("DD-MM-YYYY"),
       },
       {
         accessorKey: "endDate",
-        header: "End",
+        header: t("end"),
         cell: ({ row }) =>
           !row.original.endDate ? "—" : dayjs.utc(row.original.endDate).format("DD-MM-YYYY"),
       },
       {
         accessorKey: "priority",
-        header: "Priority",
+        header: t("priority"),
       },
       {
         accessorKey: "enabled",
-        header: "Status",
+        header: t("status"),
 
         cell: ({ row }) => {
           const enabled = row.original.enabled;
@@ -273,7 +274,7 @@ export function AttendanceSettingsPage() {
                 className="gap-1"
               >
                 <span className="size-1.5 rounded-full bg-emerald-500" />
-                Enabled
+                {t("enabled")}
               </Badge>
             );
           }
@@ -284,7 +285,7 @@ export function AttendanceSettingsPage() {
               className="gap-1"
             >
               <span className="size-1.5 rounded-full bg-red-500" />
-              Disabled
+              {t("disabled")}
             </Badge>
           );
         },
@@ -300,6 +301,7 @@ export function AttendanceSettingsPage() {
               <Button
                 variant="ghost"
                 size="icon"
+                aria-label={t("clone_rule")}
                 onClick={() => handleClone(rule)}
                 disabled={deleteMutation.isPending}
               >
@@ -309,6 +311,7 @@ export function AttendanceSettingsPage() {
               <Button
                 variant="ghost"
                 size="icon"
+                aria-label={t("edit_rule")}
                 onClick={() => handleEdit(rule)}
                 disabled={deleteMutation.isPending}
               >
@@ -326,6 +329,7 @@ export function AttendanceSettingsPage() {
                 <PopoverTrigger render={<Button
                   variant="ghost"
                   size="icon"
+                  aria-label={t("delete_rule")}
                   onClick={() => handleDelete(rule)}
                   disabled={deleteMutation.isPending}
                 >
@@ -340,11 +344,11 @@ export function AttendanceSettingsPage() {
                   <div className="space-y-3">
                     <div>
                       <p className="text-sm font-medium">
-                        Delete this rule?
+                        {t("delete_this_rule")}
                       </p>
 
                       <p className="mt-1 text-xs text-muted-foreground">
-                        This action cannot be undone.
+                        {t("this_action_cannot_be_undone")}
                       </p>
                     </div>
 
@@ -355,7 +359,7 @@ export function AttendanceSettingsPage() {
                         onClick={() => setDeleteRule(null)}
                         disabled={deleteMutation.isPending}
                       >
-                        Cancel
+                        {t("cancel")}
                       </Button>
 
                       <Button
@@ -365,8 +369,8 @@ export function AttendanceSettingsPage() {
                         disabled={deleteMutation.isPending}
                       >
                         {deleteMutation.isPending
-                          ? "Deleting..."
-                          : "Delete"}
+                          ? t("deleting")
+                          : t("delete")}
                       </Button>
                     </div>
                   </div>
@@ -377,7 +381,7 @@ export function AttendanceSettingsPage() {
         },
       },
     ],
-    [deleteMutation.isPending, deleteRule?.id],
+    [deleteMutation.isPending, deleteRule?.id, ruleLabel, t],
   );
 
   const table = useTable({
@@ -390,8 +394,8 @@ export function AttendanceSettingsPage() {
     <div>
 
       <HRPageHeader
-        title="Attendance & Leave  >  Settings"
-        description="Attendance & Leave Settings"
+        title={t("attendance_and_leave_settings_breadcrumb")}
+        description={t("attendance_and_leave_settings")}
       />
 
       <div className="px-6 pb-8">
@@ -402,7 +406,7 @@ export function AttendanceSettingsPage() {
               type="button"
               className="relative h-full px-1 text-sm font-medium"
             >
-              Rules
+              {t("rules")}
               <span className="absolute inset-x-0 bottom-0 h-0.5 bg-primary" />
             </button>
           </div>
@@ -412,22 +416,22 @@ export function AttendanceSettingsPage() {
         <div className="flex min-h-0 flex-1 flex-col gap-4 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-semibold">Workforce Rules</h2>
+              <h2 className="text-lg font-semibold">{t("workforce_rules")}</h2>
               <p className="text-sm text-muted-foreground">
-                Configure attendance exceptions and overrides.
+                {t("configure_attendance_exceptions_and_overrides")}
               </p>
             </div>
 
             <Button onClick={handleAdd}>
               <Plus className="mr-2 size-4" />
-              Add Rule
+              {t("add_rule")}
             </Button>
           </div>
 
           <div className="min-h-0 flex-1 overflow-auto rounded-md border">
             {isLoading ? (
               <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
-                Loading rules...
+                {t("loading_rules")}
               </div>
             ) : (
               <Table>
@@ -523,6 +527,7 @@ function RuleDialog({
   clone,
   onOpenChange,
 }: RuleDialogProps) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
 
   const isEdit = !!rule && !clone;
@@ -607,10 +612,10 @@ function RuleDialog({
         <DialogHeader>
           <DialogTitle>
             {clone
-              ? "Clone Workforce Rule"
+              ? t("clone_workforce_rule")
               : isEdit
-                ? "Edit Workforce Rule"
-                : "Add Workforce Rule"}
+                ? t("edit_workforce_rule")
+                : t("add_workforce_rule")}
           </DialogTitle>
         </DialogHeader>
 
@@ -619,21 +624,21 @@ function RuleDialog({
           className="space-y-4"
         >
           <div className="space-y-2">
-            <Label>Rule</Label>
+            <Label>{t("rule")}</Label>
 
             <Select
               value={watch("property")}
-              items={RULE_PROPERTIES}
+              items={RULE_PROPERTIES.map(({ value, label }) => ({ value, label: t(label) }))}
               onValueChange={(value) => setValue("property", value ?? "")}
             >
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select rule" />
+                <SelectValue placeholder={t("select_rule")} />
               </SelectTrigger>
 
               <SelectContent>
                 {RULE_PROPERTIES.map(({ label, value }) => (
                   <SelectItem key={value} value={value}>
-                    {label}
+                    {t(label)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -641,43 +646,41 @@ function RuleDialog({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="value">Value</Label>
+            <Label htmlFor="value">{t("value")}</Label>
             <Input
               id="value"
-              placeholder="08:30 / 30000 / true"
+              placeholder={t("rule_value_example")}
               {...register("value", { required: true })}
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="employeeCode">Employee</Label>
+            <Label htmlFor="employeeCode">{t("employee")}</Label>
             <Input
               id="employeeCode"
-              placeholder="Leave empty for all employees"
+              placeholder={t("leave_empty_for_all_employees")}
               {...register("employeeCode")}
             />
           </div>
 
           <div className="space-y-2">
-            <Label>Weekday</Label>
+            <Label>{t("weekday")}</Label>
 
             <Select
               value={weekday || "none"}
-              items={WEEKDAYS}
+              items={WEEKDAYS.map(({ value, label }) => ({ value, label: t(label) }))}
               onValueChange={(value) =>
                 setValue("weekday", value === "none" ? "" : (value ?? ""))
               }
             >
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="Every day" />
+                <SelectValue placeholder={t("every_day")} />
               </SelectTrigger>
 
               <SelectContent>
-                <SelectItem value="none">Every day</SelectItem>
-
                 {WEEKDAYS.map((day) => (
                   <SelectItem key={day.value} value={day.value}>
-                    {day.label}
+                    {t(day.label)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -686,7 +689,7 @@ function RuleDialog({
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label htmlFor="startDate">Start date</Label>
+              <Label htmlFor="startDate">{t("start_date")}</Label>
               <Input
                 id="startDate"
                 type="date"
@@ -695,7 +698,7 @@ function RuleDialog({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="endDate">End date</Label>
+              <Label htmlFor="endDate">{t("end_date")}</Label>
               <Input
                 id="endDate"
                 type="date"
@@ -705,7 +708,7 @@ function RuleDialog({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="priority">Priority</Label>
+            <Label htmlFor="priority">{t("priority")}</Label>
             <Input
               id="priority"
               type="number"
@@ -714,10 +717,10 @@ function RuleDialog({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="reason">Reason</Label>
+            <Label htmlFor="reason">{t("reason")}</Label>
             <Input
               id="reason"
-              placeholder="Optional reason"
+              placeholder={t("optional_reason")}
               {...register("reason")}
             />
           </div>
@@ -729,7 +732,7 @@ function RuleDialog({
               onCheckedChange={(event) =>
                 setValue("enabled", event)
               } />
-            <Label htmlFor="terms-checkbox">Enabled</Label>
+            <Label htmlFor="terms-checkbox">{t("enabled_label")}</Label>
           </Field>
 
           <div className="flex justify-end gap-2 pt-2">
@@ -738,15 +741,15 @@ function RuleDialog({
               variant="outline"
               onClick={() => onOpenChange(false)}
             >
-              Cancel
+              {t("cancel")}
             </Button>
 
             <Button type="submit" disabled={isSubmitting}>
               {isSubmitting
-                ? "Saving..."
+                ? t("saving")
                 : isEdit
-                  ? "Save changes"
-                  : "Add rule"}
+                  ? t("save_changes")
+                  : t("add_rule")}
             </Button>
           </div>
         </form>

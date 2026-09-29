@@ -1,6 +1,7 @@
 import { LogOut, User } from "lucide-react";
 
 import { useAuth } from "@/auth/useAuth";
+import { useTranslation } from "react-i18next";
 
 import {
   DropdownMenu,
@@ -15,16 +16,17 @@ type Props = {
 };
 
 export function HRHubUserMenu({ onLogout }: Props) {
+  const { t } = useTranslation();
   const { user } = useAuth();
 
   const displayName =
     user?.name ||
     user?.preferred_username ||
     user?.email ||
-    "User";
+    t("user");
 
   const initials = displayName
-    .split(" ")
+    .split("")
     .map((part) => part[0])
     .join("")
     .slice(0, 2)
@@ -74,7 +76,7 @@ export function HRHubUserMenu({ onLogout }: Props) {
 
         <DropdownMenuItem disabled>
           <User className="mr-2 size-4" />
-          Profile
+          {t("profile")}
         </DropdownMenuItem>
 
         <DropdownMenuSeparator />
@@ -84,7 +86,7 @@ export function HRHubUserMenu({ onLogout }: Props) {
           className="text-destructive focus:text-destructive"
         >
           <LogOut className="mr-2 size-4" />
-          Logout
+          {t("logout")}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

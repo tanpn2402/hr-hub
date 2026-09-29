@@ -22,8 +22,8 @@ type AppItem = {
 export const apps: AppItem[] = [
   {
     id: "hr-hub",
-    name: "HR Hub",
-    description: "Employee workspace",
+    name: "hr_hub",
+    description: "employee_workspace",
     icon: LayoutDashboard,
     href: "/hr-hub",
     nested: true,
@@ -35,8 +35,8 @@ export const apps: AppItem[] = [
   },
   {
     id: "late-hub",
-    name: "Late Hub",
-    description: "Attendance & late hours",
+    name: "late_hub",
+    description: "attendance_and_late_hours",
     icon: Clock3,
     href: "/apps/late-hub",
     nested: true,
@@ -44,8 +44,8 @@ export const apps: AppItem[] = [
   },
   {
     id: "app-1",
-    name: "App 1",
-    description: "Application",
+    name: "app_1",
+    description: "application",
     icon: Building2,
     href: "/apps/app-1",
     access: {
@@ -56,8 +56,8 @@ export const apps: AppItem[] = [
   },
   {
     id: "app-2",
-    name: "App 2",
-    description: "Application",
+    name: "app_2",
+    description: "application",
     icon: Grid2X2,
     href: "/apps/app-2",
     component: HRHubPage,

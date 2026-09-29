@@ -24,6 +24,7 @@ import {
 } from "./LateHubReviewTable";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/api/client";
+import { useTranslation } from "react-i18next";
 
 type Props = {
   open: boolean;
@@ -61,6 +62,7 @@ export function LateHubReviewDialog({
   data,
   onOpenChange,
 }: Props) {
+  const { t } = useTranslation();
   const [fullscreen, setFullscreen] = useState(true);
 
   const isReviewing = useMemo(() => data?.batchId !== "", [data]);
@@ -135,11 +137,11 @@ export function LateHubReviewDialog({
 
               <div className="min-w-0">
                 <DialogTitle className="truncate">
-                  {isReviewing ? "Review imported attendance" : "Attendance view"}
+                  {isReviewing ? t("review_imported_attendance") : t("attendance_view")}
                 </DialogTitle>
 
                 <DialogDescription className="mt-0.5 text-xs">
-                  {isReviewing ? "Review attendance violations and calculated fines before continuing." : ""}
+                  {isReviewing ? t("review_attendance_violations_and_calculated_fines_before_continuing") : ""}
                 </DialogDescription>
               </div>
             </div>
@@ -155,8 +157,8 @@ export function LateHubReviewDialog({
                 }
                 title={
                   fullscreen
-                    ? "Exit full screen"
-                    : "Full screen"
+                    ? t("exit_full_screen")
+                    : t("full_screen")
                 }
               >
                 {fullscreen ? (
@@ -171,7 +173,7 @@ export function LateHubReviewDialog({
                 size="icon"
                 className="size-8"
                 onClick={() => handleOpenChange(false)}
-                title="Close"
+                title={t("close")}
               >
                 <X className="size-4" />
               </Button>
@@ -188,7 +190,7 @@ export function LateHubReviewDialog({
           <Button variant="outline"
             className="min-w-32"
             onClick={handleClose} disabled={isConfirming}>
-            Close
+            {t("close")}
           </Button>
 
           {isReviewing ? (
@@ -202,7 +204,7 @@ export function LateHubReviewDialog({
               ) : (
                 <CheckCircle2 className="size-4" />
               )}
-              Confirm Import
+              {t("confirm_import")}
             </Button>
           ) : null}
         </DialogFooter>

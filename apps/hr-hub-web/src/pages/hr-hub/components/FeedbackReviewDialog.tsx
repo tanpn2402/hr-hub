@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { LoadingIndicator } from "@/components/ui/loading-idicator";
 import { cn } from "@/lib/utils";
+import i18n from "@/locates";
 
 import {
   getWorkforceFeedback,
@@ -45,15 +46,15 @@ const statusConfig: Record<
   }
 > = {
   pending: {
-    label: "Pending",
+    label: i18n.t("pending"),
     variant: "secondary",
   },
   approved: {
-    label: "Approved",
+    label: i18n.t("approved"),
     variant: "default",
   },
   rejected: {
-    label: "Rejected",
+    label: i18n.t("rejected"),
     variant: "destructive",
   },
 };
@@ -67,15 +68,13 @@ function formatMonth(value: string) {
 }
 
 function label(value: string) {
-  return value
-    .replaceAll("_", " ")
-    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+  return i18n.t(value.replaceAll(" ", "_").toLowerCase());
 }
 
 function errorMessage(error: unknown) {
   return error instanceof Error
     ? error.message
-    : "Unable to review feedback. Please try again.";
+    : i18n.t("unable_to_review_feedback_please_try_again");
 }
 
 function FeedbackStatusBadge({
@@ -105,7 +104,7 @@ function FeedbackListItem({
     <button
       type="button"
       className={cn(
-        "w-full border-b p-4 text-left transition-colors",
+        "w-full border-b px-4 py-2 text-left transition-colors",
         "hover:bg-muted/50",
         selected && "bg-muted",
       )}
@@ -153,7 +152,7 @@ function FeedbackListContent({
     return (
       <LoadingIndicator
         className="h-full"
-        label="Loading feedback"
+        label={i18n.t("loading_feedback")}
       />
     );
   }
@@ -170,8 +169,8 @@ function FeedbackListContent({
     return (
       <p className="p-4 text-sm text-muted-foreground">
         {items.length
-          ? `No ${filter} feedback.`
-          : `No feedback for ${formatMonth(month)}.`}
+          ? i18n.t("no_filter_feedback", { filter: label(filter) })
+          : i18n.t("no_feedback_for_month", { month: formatMonth(month) })}
       </p>
     );
   }
@@ -204,7 +203,7 @@ function FeedbackDetailContent({
   if (!selected) {
     return (
       <div className="flex h-full items-center justify-center text-muted-foreground">
-        Select a feedback item to review.
+        {i18n.t("select_a_feedback_item_to_review")}
       </div>
     );
   }
@@ -213,7 +212,7 @@ function FeedbackDetailContent({
     return (
       <LoadingIndicator
         className="h-full"
-        label="Loading details"
+        label={i18n.t("loading_details")}
       />
     );
   }
@@ -229,7 +228,7 @@ function FeedbackDetailContent({
   if (!query.data) {
     return (
       <div className="text-sm text-muted-foreground">
-        Feedback details are unavailable.
+        {i18n.t("feedback_details_are_unavailable")}
       </div>
     );
   }
@@ -342,7 +341,7 @@ export function FeedbackReviewDialog({
         <DialogHeader className="shrink-0 border-b px-5 py-4">
           <div className="flex items-center justify-between gap-3">
             <DialogTitle>
-              Feedback · {formatMonth(month)}
+              {i18n.t("feedback_month", { month: formatMonth(month) })}
             </DialogTitle>
 
             <div className="flex gap-1">
@@ -352,7 +351,7 @@ export function FeedbackReviewDialog({
                 onClick={() =>
                   setFullscreen((value) => !value)
                 }
-                title="Fullscreen"
+                title={i18n.t("fullscreen")}
               >
                 {fullscreen ? <Minimize2 /> : <Maximize2 />}
               </Button>
@@ -361,7 +360,7 @@ export function FeedbackReviewDialog({
                 variant="ghost"
                 size="icon"
                 onClick={() => onOpenChange(false)}
-                title="Close"
+                title={i18n.t("close")}
               >
                 <X />
               </Button>
@@ -378,22 +377,25 @@ export function FeedbackReviewDialog({
                 : "flex flex-col",
             )}
           >
-            <div className="flex shrink-0 gap-1 overflow-x-auto border-b p-3">
-              {filters.map((value) => (
-                <Button
-                  key={value}
-                  size="sm"
-                  variant={
-                    filter === value
-                      ? "secondary"
-                      : "ghost"
-                  }
-                  className={cn(filter === value ? "border-ring" : "")}
-                  onClick={() => setFilter(value)}
-                >
-                  {label(value)}
-                </Button>
-              ))}
+
+            <div className="flex items-center rounded-lg border bg-background p-0.5 m-2 w-fit">
+              {filters.map(
+                (value) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setFilter(value)}
+                    className={[
+                      "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+                      filter === value
+                        ? "bg-muted text-foreground"
+                        : "text-muted-foreground hover:text-foreground",
+                    ].join(" ")}
+                  >
+                    {label(value)}
+                  </button>
+                ),
+              )}
             </div>
 
             <div className="min-h-0 flex-1 overflow-y-auto">
@@ -424,7 +426,7 @@ export function FeedbackReviewDialog({
                 className="m-2 md:hidden"
                 onClick={() => setMobileDetail(false)}
               >
-                ← Feedback list
+                {i18n.t("feedback_list")}
               </Button>
             )}
 

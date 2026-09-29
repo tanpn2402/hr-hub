@@ -33,6 +33,9 @@ import { LateHubReviewDialog } from "../components/LateHubReviewDialog";
 import { WorkforceRow } from "../api/workforce";
 import { getWorkforceFeedback } from "../api/workforce";
 import { FeedbackReviewDialog } from "../components/FeedbackReviewDialog";
+import { useTranslation } from "react-i18next";
+import dayjs from "dayjs";
+import { formatMonth } from "@/lib/time-utils";
 
 /* -------------------------------------------------------------------------- */
 /* Types                                                                      */
@@ -92,15 +95,6 @@ function useMonthlyReport(
 /* Helpers                                                                    */
 /* -------------------------------------------------------------------------- */
 
-function formatMonth(value: string) {
-  const [year, month] = (value ?? "2026-08").split("-").map(Number);
-
-  return new Intl.DateTimeFormat("en-US", {
-    month: "long",
-    year: "numeric",
-  }).format(new Date(year, month - 1, 1));
-}
-
 function formatMoney(value: number) {
   return new Intl.NumberFormat("vi-VN").format(value);
 }
@@ -110,6 +104,7 @@ function formatMoney(value: number) {
 /* -------------------------------------------------------------------------- */
 
 export function AttendanceLeavePage() {
+  const { t } = useTranslation();
   const [importOpen, setImportOpen] = useState(false);
 
   const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
@@ -196,12 +191,12 @@ export function AttendanceLeavePage() {
   return (
     <div>
       <HRPageHeader
-        title="Attendance & Leave"
-        description="Review employee attendance, late hours, and leave records."
+        title={t("attendance_and_leave")}
+        description={t("review_employee_attendance_late_hours_and_leave_records")}
         actions={
           <Button onClick={() => setImportOpen(true)}>
             <Upload className="mr-2 size-4" />
-            Import data
+            {t("import_data")}
           </Button>
         }
       />
@@ -214,11 +209,11 @@ export function AttendanceLeavePage() {
         <div className="mt-6 flex items-center justify-between">
           <div>
             <h2 className="text-sm font-semibold">
-              Attendance overview
+              {t("attendance_overview")}
             </h2>
 
             <p className="mt-1 text-xs text-muted-foreground">
-              Monthly attendance and leave summary
+              {t("monthly_attendance_and_leave_summary")}
             </p>
           </div>
 
@@ -226,9 +221,13 @@ export function AttendanceLeavePage() {
             value={currentMonth}
             onValueChange={setSelectedMonth}
             disabled={!months.length}
+            items={months.map(month => ({
+              value: month,
+              label: formatMonth(month),
+            }))}
           >
             <SelectTrigger className="w-47.5">
-              <SelectValue placeholder="Select month" />
+              <SelectValue placeholder={t("select_month")} />
             </SelectTrigger>
 
             <SelectContent>
@@ -247,45 +246,45 @@ export function AttendanceLeavePage() {
 
         <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
           <HRMetricCard
-            title="Employees"
+            title={t("employees")}
             value={stats.employees.toLocaleString()}
-            description="Employees in this report"
+            description={t("employees_in_this_report")}
             icon={Users}
           />
 
           <HRMetricCard
-            title="Attendance records"
+            title={t("attendance_records")}
             value={stats.attendance.toLocaleString()}
-            description="Imported attendance records"
+            description={t("imported_attendance_records")}
             icon={CalendarCheck}
           />
 
           <HRMetricCard
-            title="Late employees"
+            title={t("late_employees")}
             value={stats.late.toLocaleString()}
-            description="Employees with late records"
+            description={t("employees_with_late_records")}
             icon={Clock3}
           />
 
           <HRMetricCard
-            title="Total fines"
+            title={t("total_fines")}
             value={`${formatMoney(stats.fines)} ₫`}
-            description="Total attendance fines"
+            description={t("total_attendance_fines")}
             icon={Banknote}
           />
 
           <HRMetricCard
-            title="Feedback"
+            title={t("feedback")}
             value={`${feedbackSummary?.reviewed ?? 0} / ${feedbackTotal}`}
-            description={`${reviewedPercent}% reviewed`}
+            description={t("percent_reviewed", { percent: reviewedPercent })}
             icon={MessageSquareText}
             onClick={() => openFeedbackDialog("all")}
           />
 
           <HRMetricCard
-            title="Approved Feedback"
+            title={t("approved_feedback")}
             value={`${feedbackSummary?.approved ?? 0} / ${feedbackTotal}`}
-            description={`${approvedPercent}% approved`}
+            description={t("percent_approved", { percent: approvedPercent })}
             icon={BadgeCheck}
             onClick={() => openFeedbackDialog("approved")}
           />
@@ -301,11 +300,11 @@ export function AttendanceLeavePage() {
               <div className="text-sm font-semibold">
                 {currentMonth
                   ? formatMonth(currentMonth)
-                  : "Attendance report"}
+                  : t("attendance_report")}
               </div>
 
               <div className="mt-1 text-xs text-muted-foreground">
-                Attendance and leave data
+                {t("attendance_and_leave_data")}
               </div>
             </div>
 
@@ -315,7 +314,7 @@ export function AttendanceLeavePage() {
                 className="gap-1 text-destructive"
               >
                 <DatabaseX className="size-3.5" />
-                Not yet imported
+                {t("not_yet_imported")}
               </Badge>
             ) : (
               <Badge
@@ -323,7 +322,7 @@ export function AttendanceLeavePage() {
                 className="gap-1"
               >
                 <CheckCircle2 className="size-3.5" />
-                Imported
+                {t("data_imported")}
               </Badge>
             )}
           </div>
@@ -336,11 +335,11 @@ export function AttendanceLeavePage() {
 
               <div>
                 <div className="text-sm font-medium">
-                  Review employee attendance
+                  {t("review_employee_attendance")}
                 </div>
 
                 <div className="text-xs text-muted-foreground">
-                  Open the detailed Late Hub review for this month.
+                  {t("open_the_detailed_late_hub_review_for_this_month")}
                 </div>
               </div>
             </div>
@@ -351,7 +350,7 @@ export function AttendanceLeavePage() {
               disabled={!currentMonth}
             >
               <Eye className="mr-2 size-4" />
-              View details
+              {t("view_details")}
             </Button>
           </div>
         </div>

@@ -33,6 +33,7 @@ import { formatMoney } from "@/lib/format-utils";
 import { cn } from "cn";
 import { WorkforceFeedback } from "../api/workforce";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useTranslation } from "react-i18next";
 
 /* -------------------------------------------------------------------------- */
 /* Types                                                                      */
@@ -90,9 +91,7 @@ function formatDate(value: string) {
 }
 
 function feedbackLabel(value: string) {
-  return value
-    .replaceAll("_", " ")
-    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+  return value.replaceAll(" ", "_").toLowerCase();
 }
 
 /* -------------------------------------------------------------------------- */
@@ -114,6 +113,7 @@ const GRID_COLUMNS_NO_ACTION =
   "minmax(220px, 2fr) minmax(120px, 1fr) minmax(100px, 0.8fr) minmax(100px, 0.8fr) minmax(220px, 2fr) minmax(140px, 1fr)";
 
 export function LateHubDetailTable({ data }: Props) {
+  const { t } = useTranslation();
 
   const isReviewing = useMemo(() => data.batchId !== "", [data]);
 
@@ -128,7 +128,7 @@ export function LateHubDetailTable({ data }: Props) {
       {
         id: "employeeName",
         accessorFn: (row) => row.employeeName,
-        header: "Nhân viên",
+        header: t("employee"),
 
         cell: ({ row }) => {
           const item = row.original;
@@ -137,7 +137,7 @@ export function LateHubDetailTable({ data }: Props) {
 
             return (
               <div className="text-xs text-muted-foreground">
-                Tổng tiền phạt
+                {t("total_fine")}
               </div>
             );
           }
@@ -161,7 +161,7 @@ export function LateHubDetailTable({ data }: Props) {
       {
         id: "date",
         accessorFn: (row) => row.rowType === "detail" ? row.date : "",
-        header: "Ngày",
+        header: t("date"),
 
         cell: ({ row }) => {
           const item = row.original;
@@ -188,7 +188,7 @@ export function LateHubDetailTable({ data }: Props) {
         id: "checkIn",
         accessorFn: (row) =>
           row.rowType === "detail" ? row.checkIn : "",
-        header: "Check-in",
+        header: t("check_in"),
 
         cell: ({ row }) => {
           const item = row.original;
@@ -208,7 +208,7 @@ export function LateHubDetailTable({ data }: Props) {
       {
         id: "checkOut",
         accessorFn: (row) => row.rowType === "detail" ? row.checkOut : "",
-        header: "Check-out",
+        header: t("check_out"),
 
         cell: ({ row }) => {
           const item = row.original;
@@ -229,7 +229,7 @@ export function LateHubDetailTable({ data }: Props) {
         id: "note",
         accessorFn: (row) =>
           row.rowType === "detail" ? row.note : "",
-        header: "Ghi chú",
+        header: t("note"),
 
         cell: ({ row }) => {
           const item = row.original;
@@ -264,7 +264,7 @@ export function LateHubDetailTable({ data }: Props) {
 
         header: () => (
           <div className="text-right">
-            Tiền phạt
+            {t("fine")}
           </div>
         ),
 
@@ -288,7 +288,11 @@ export function LateHubDetailTable({ data }: Props) {
                   <Tooltip key={id}>
                     <TooltipTrigger render={<Flag className={cn("size-3.5", status === "approved" ? "text-primary" : status === "rejected" ? "text-destructive" : "")} />} />
                     <TooltipContent>
-                      <p>{feedbackLabel(status)} feedback: {feedbackLabel(reason)} {status === "approved" ? `(-${formatMoney(reductionAmount ?? 0)})` : ""}</p>
+                      <p>{t("status_feedback_reason_reduction", {
+                        status: t(feedbackLabel(status)),
+                        reason: t(feedbackLabel(reason)),
+                        reduction: status === "approved" ? `(-${formatMoney(reductionAmount ?? 0)})` : "",
+                      })}</p>
                     </TooltipContent>
                   </Tooltip>
                 ))
@@ -328,7 +332,7 @@ export function LateHubDetailTable({ data }: Props) {
                 >
                   <MoreVertical className="h-4 w-4" />
                   <span className="sr-only">
-                    Thao tác với {employee.employeeName}
+                    {t("actions_for_employee", { name: employee.employeeName })}
                   </span>
                 </Button>}
                 />
@@ -341,7 +345,7 @@ export function LateHubDetailTable({ data }: Props) {
                       }}
                     >
                       <Flag className="mr-2 h-4 w-4" />
-                      Feedback
+                      {t("feedback")}
                     </DropdownMenuItem>
                   )}
 
@@ -352,7 +356,7 @@ export function LateHubDetailTable({ data }: Props) {
                       }}
                     >
                       <QrCode className="mr-2 h-4 w-4" />
-                      Thanh toán
+                      {t("payment")}
                     </DropdownMenuItem>
                   )}
                 </DropdownMenuContent>
@@ -362,11 +366,12 @@ export function LateHubDetailTable({ data }: Props) {
         },
       },
     ],
-    [],
+    [t],
   );
 
-  const { table, toggleSort, getSortDirection, } = useLateHubTable({
-    data, columns,
+  const { table, sortedData, toggleSort, getSortDirection, } = useLateHubTable({
+    data,
+    columns,
     initialState: {
       columnVisibility: {
         actions: !isReviewing,
@@ -387,8 +392,8 @@ export function LateHubDetailTable({ data }: Props) {
   const rowVirtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => scrollRef.current,
-    estimateSize: () => 57,
-    overscan: 10,
+    estimateSize: (index) => sortedData[index].rowType === "summary" ? 54 : (60 + (sortedData[index].feedback || []).length * 12),
+    overscan: 15,
   });
 
   const virtualRows = rowVirtualizer.getVirtualItems();
@@ -504,7 +509,7 @@ export function LateHubDetailTable({ data }: Props) {
         <div className="border-t-2 bg-muted/95">
           <div className="flex min-w-225 items-center justify-end px-4 py-3">
             <div className="mr-8 text-sm font-semibold">
-              Tổng cộng
+              {t("grand_total")}
             </div>
 
             <div className="w-32 text-right font-mono text-sm font-bold">

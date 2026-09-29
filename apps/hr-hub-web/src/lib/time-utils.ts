@@ -13,3 +13,10 @@ export function dateOfWeek(value: string) {
 
   return dayNames[dayjs(value).day()];
 }
+
+export function formatMonth(month: string) {
+  return dayjs(month)
+    .locale("vi")
+    .format("MMMM")
+    .replace(/^./, (char) => char.toUpperCase());
+}

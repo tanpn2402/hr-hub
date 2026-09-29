@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 
 import { idenplane } from "@/lib/idenplane";
+import { useTranslation } from "react-i18next";
 
 export function OpenIDConnectCallbackPage() {
+  const { t } = useTranslation();
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -17,7 +19,7 @@ export function OpenIDConnectCallbackPage() {
         }
 
         if (!success) {
-          setError("Authentication failed.");
+          setError(t("authentication_failed_message"));
           return;
         }
 
@@ -36,7 +38,7 @@ export function OpenIDConnectCallbackPage() {
         console.error("Idenplane callback failed:", err);
 
         if (!cancelled) {
-          setError("Authentication failed.");
+          setError(t("authentication_failed_message"));
         }
       }
     }
@@ -46,14 +48,14 @@ export function OpenIDConnectCallbackPage() {
     return () => {
       cancelled = true;
     };
-  }, [idenplane]);
+  }, [idenplane, t]);
 
   if (error) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">
           <h1 className="text-lg font-semibold">
-            Authentication failed
+            {t("authentication_failed")}
           </h1>
 
           <p className="mt-2 text-sm text-muted-foreground">
@@ -67,7 +69,7 @@ export function OpenIDConnectCallbackPage() {
   return (
     <div className="flex min-h-screen items-center justify-center">
       <p className="text-sm text-muted-foreground">
-        Signing you in...
+        {t("signing_you_in")}
       </p>
     </div>
   );

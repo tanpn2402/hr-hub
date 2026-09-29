@@ -23,28 +23,29 @@ import { WorkforceRow } from "../api/workforce";
 import dayjs from "dayjs";
 import { dateOfWeek } from "@/lib/time-utils";
 import { formatMoney } from "@/lib/format-utils";
+import { useTranslation } from "react-i18next";
 
 
 const FEEDBACK_REASONS = [
   {
     value: "early_leave_permission",
-    label: "Có phép về sớm",
+    label: "early_leave_permission",
   },
   {
     value: "late_permission",
-    label: "Có phép đi muộn",
+    label: "late_permission",
   },
   {
     value: "wrong_time",
-    label: "Sai thời gian chấm công",
+    label: "wrong_time",
   },
   {
     value: "wrong_fine",
-    label: "Sai tiền phạt",
+    label: "wrong_fine",
   },
   {
     value: "other",
-    label: "Khác",
+    label: "other",
   },
 ] as const;
 
@@ -77,6 +78,7 @@ function useCreateFineFeedbackMutation() {
 }
 
 export function ConfirmFinePaymentDialog({ feedbackEmployee, onOpenChange }: Props) {
+  const { t } = useTranslation();
   const [feedbackReason, setFeedbackReason] = useState<FeedbackReason | "">("");
   const [feedbackDescription, setFeedbackDescription] = useState("");
 
@@ -122,7 +124,7 @@ export function ConfirmFinePaymentDialog({ feedbackEmployee, onOpenChange }: Pro
       >
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Tạo Feedback</DialogTitle>
+            <DialogTitle>{t("new_feedback")}</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
@@ -137,27 +139,27 @@ export function ConfirmFinePaymentDialog({ feedbackEmployee, onOpenChange }: Pro
 
               <hr className="my-6" />
 
-              <h5 className="font-medium">Attendance</h5>
+              <h5 className="font-medium">{t("attendance_details")}</h5>
 
               <dl className="mt-3 grid grid-cols-2 gap-3 text-sm">
-                <dt className="text-muted-foreground">Check-in</dt>
+                <dt className="text-muted-foreground">{t("check_in")}</dt>
                 <dd>
                   {feedbackEmployee?.checkIn
                     ? feedbackEmployee?.checkIn
                     : "—"}
                 </dd>
 
-                <dt className="text-muted-foreground">Check-out</dt>
+                <dt className="text-muted-foreground">{t("check_out")}</dt>
                 <dd>
                   {feedbackEmployee?.checkOut
                     ? feedbackEmployee?.checkOut
                     : "—"}
                 </dd>
 
-                <dt className="text-muted-foreground">Note</dt>
+                <dt className="text-muted-foreground">{t("note")}</dt>
                 <dd>{feedbackEmployee?.note || "—"}</dd>
 
-                <dt className="text-muted-foreground">Fine Amount</dt>
+                <dt className="text-muted-foreground">{t("fine_amount")}</dt>
                 <dd>
                   {feedbackEmployee?.fineAmount
                     ? formatMoney(feedbackEmployee.fineAmount)
@@ -167,9 +169,9 @@ export function ConfirmFinePaymentDialog({ feedbackEmployee, onOpenChange }: Pro
 
               <hr className="my-6" />
 
-              <h5 className="font-medium mb-4">Employee feedback</h5>
+              <h5 className="font-medium mb-4">{t("employee_feedback")}</h5>
 
-              <Label className="text-muted-foreground">Reason</Label>
+              <Label className="text-muted-foreground">{t("reason")}</Label>
 
               <Select
                 value={feedbackReason}
@@ -188,7 +190,7 @@ export function ConfirmFinePaymentDialog({ feedbackEmployee, onOpenChange }: Pro
                       key={reason.value}
                       value={reason.value}
                     >
-                      {reason.label}
+                      {t(reason.label)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -196,7 +198,7 @@ export function ConfirmFinePaymentDialog({ feedbackEmployee, onOpenChange }: Pro
             </div>
 
             <div className="space-y-2">
-              <Label className="text-muted-foreground">Description</Label>
+              <Label className="text-muted-foreground">{t("description")}</Label>
 
               <Textarea
                 value={feedbackDescription}
@@ -211,7 +213,7 @@ export function ConfirmFinePaymentDialog({ feedbackEmployee, onOpenChange }: Pro
 
             {feedbackMutation.isError && (
               <p className="text-sm text-destructive">
-                Không thể gửi feedback. Vui lòng thử lại.
+                {t("feedback_submit_failed")}
               </p>
             )}
           </div>
@@ -223,7 +225,7 @@ export function ConfirmFinePaymentDialog({ feedbackEmployee, onOpenChange }: Pro
               onClick={() => onOpenChange(false)}
               disabled={feedbackMutation.isPending}
             >
-              Hủy
+              {t("cancel")}
             </Button>
 
             <Button
@@ -237,8 +239,8 @@ export function ConfirmFinePaymentDialog({ feedbackEmployee, onOpenChange }: Pro
               }
             >
               {feedbackMutation.isPending
-                ? "Đang gửi..."
-                : "Gửi Feedback"}
+                ? t("sending")
+                : t("send_feedback")}
             </Button>
           </DialogFooter>
         </DialogContent>

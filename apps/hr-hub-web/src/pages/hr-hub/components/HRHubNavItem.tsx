@@ -4,6 +4,7 @@ import { Link, useLocation } from "react-router-dom";
 
 import type { HRHubNavItem as NavItem } from "../config/navigation";
 import { Button } from "@/components/ui/button";
+import { useTranslation } from "react-i18next";
 
 type Props = {
   item: NavItem;
@@ -16,6 +17,7 @@ export function HRHubNavItem({
   collapsed,
   level = 0,
 }: Props) {
+  const { t } = useTranslation();
   const location = useLocation();
 
   const hasChildren = !!item.children?.length;
@@ -75,14 +77,14 @@ export function HRHubNavItem({
         {!collapsed && (
           <>
             <span className="flex-1 truncate">
-              {item.label}
+              {t(item.label)}
             </span>
 
             {hasChildren && (
               <Button
                 variant="ghost"
                 size="icon"
-                aria-label="Toggle sub items"
+                aria-label={t("toggle_sub_items")}
                 onClick={(ev) => {
                   ev.stopPropagation();
                   ev.preventDefault();

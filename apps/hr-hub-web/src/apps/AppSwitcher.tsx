@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 
 import { apps } from "./app-registry";
+import { useTranslation } from "react-i18next";
 
 type AppSwitcherProps = {
   currentApp?: string;
@@ -25,6 +26,7 @@ type AppSwitcherProps = {
 export function AppSwitcher({
   currentApp = "late-hub",
 }: AppSwitcherProps) {
+  const { t } = useTranslation();
 
   const handleNavigate = (href: string) => {
     window.location.href = href;
@@ -36,7 +38,7 @@ export function AppSwitcher({
         variant="ghost"
         size="icon"
         className="size-9 rounded-lg"
-        aria-label="Applications"
+        aria-label={t("applications")}
       >
         <Grid2X2 className="size-4.5" />
       </Button>} />
@@ -48,7 +50,7 @@ export function AppSwitcher({
       >
         <DropdownMenuGroup>
           <DropdownMenuLabel className="px-2 py-2">
-            Applications
+            {t("applications")}
           </DropdownMenuLabel>
 
           <DropdownMenuSeparator />
@@ -79,12 +81,12 @@ export function AppSwitcher({
 
                     <div className="min-w-0 flex-1">
                       <div className="text-sm font-medium">
-                        {app.name}
+                        {t(app.name)}
                       </div>
 
                       {app.description && (
                         <div className="truncate text-xs text-muted-foreground">
-                          {app.description}
+                          {t(app.description)}
                         </div>
                       )}
                     </div>

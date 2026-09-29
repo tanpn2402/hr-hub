@@ -8,6 +8,7 @@ import {
   useTable,
   type ColumnDef,
 } from "@tanstack/react-table";
+import { WorkforceFeedback } from "../api/workforce";
 
 /* -------------------------------------------------------------------------- */
 /* Types                                                                      */
@@ -40,6 +41,7 @@ export type WorkforceImportResult = {
 export type ReviewDetailRow = WorkforceRow & {
   rowType: "detail";
   id: string;
+  feedback?: WorkforceFeedback[];
 };
 
 export type ReviewSummaryRow = {

@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import App from './App';
 import { AuthProvider } from './auth/AuthProvider';
+import './locates';
 
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';

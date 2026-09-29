@@ -29,6 +29,8 @@ import {
 import { SubmitFinePaymentDialog } from "./SubmitFinePaymentDialog";
 import { useAuth } from "@/auth/useAuth";
 import { cn } from "cn";
+import { useTranslation } from "react-i18next";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 function formatMoney(value: number) {
   return new Intl.NumberFormat("vi-VN", {
@@ -45,9 +47,11 @@ const features = tableFeatures({
 
 type Props = {
   data: WorkforceImportResult;
+  onEmployeeClick: (employeeCode: string) => void;
 };
 
-export function LateHubSummaryTable({ data }: Props) {
+export function LateHubSummaryTable({ data, onEmployeeClick }: Props) {
+  const { t } = useTranslation();
   const parentRef = useRef<HTMLDivElement>(null);
 
   const isReviewing = useMemo(() => data.batchId !== "", [data]);
@@ -63,21 +67,35 @@ export function LateHubSummaryTable({ data }: Props) {
       {
         id: "employeeName",
         accessorFn: (row) => row.employeeName ?? "",
-        header: "Nhân viên",
+        header: t("employee"),
 
         cell: ({ row }) => {
           const item = row.original;
 
           return (
-            <div className="flex min-w-0 items-center gap-2">
-              <div className="shrink-0 font-mono text-xs font-medium text-primary">
-                {item.employeeCode}
-              </div>
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <button
+                    type="button"
+                    onClick={() => onEmployeeClick(item.employeeCode)}
+                    className="group flex min-w-0 items-center gap-2 rounded-md px-1 py-0.5 text-left transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <span className="shrink-0 font-mono text-xs font-medium text-primary">
+                      {item.employeeCode}
+                    </span>
 
-              <div className="truncate font-medium">
-                {item.employeeName ?? "—"}
-              </div>
-            </div>
+                    <span className="truncate font-medium group-hover:text-primary">
+                      {item.employeeName ?? "—"}
+                    </span>
+                  </button>
+                }
+              />
+
+              <TooltipContent>
+                <p>{t("click_on_employee_to_view_attendance_detail")}</p>
+              </TooltipContent>
+            </Tooltip>
           );
         },
       },
@@ -85,7 +103,8 @@ export function LateHubSummaryTable({ data }: Props) {
       {
         id: "totalFine",
         accessorKey: "totalFine",
-        header: "Tổng tiền phạt",
+        header: t("total_fine"),
+        meta: { textRight: true },
 
         cell: ({ row }) => (
           <div className="text-right font-mono text-sm font-semibold">
@@ -114,7 +133,7 @@ export function LateHubSummaryTable({ data }: Props) {
                 >
                   <MoreVertical className="h-4 w-4" />
                   <span className="sr-only">
-                    Thao tác với {employee.employeeName}
+                    {t("actions_for_employee", { name: employee.employeeName })}
                   </span>
                 </Button>}
                 />
@@ -126,7 +145,7 @@ export function LateHubSummaryTable({ data }: Props) {
                     }}
                   >
                     <QrCode className="mr-2 h-4 w-4" />
-                    Thanh toán
+                    {t("payment")}
                   </DropdownMenuItem>
                   {!hasPermission("hr") ? null : (
                     <DropdownMenuItem
@@ -135,7 +154,7 @@ export function LateHubSummaryTable({ data }: Props) {
                       }}
                     >
                       <CheckIcon className="mr-2 h-4 w-4" />
-                      Xác nhận thanh toán
+                      {t("confirm_payment")}
                     </DropdownMenuItem>
                   )}
                 </DropdownMenuContent>
@@ -145,7 +164,7 @@ export function LateHubSummaryTable({ data }: Props) {
         },
       },
     ],
-    [],
+    [t, hasPermission],
   );
 
   const table = useTable({
@@ -194,7 +213,10 @@ export function LateHubSummaryTable({ data }: Props) {
             {table.getHeaderGroups()[0].headers.map((header) => (
               <div
                 key={header.id}
-                className="flex h-10 items-center px-4 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
+                className={cn(
+                  "flex h-10 items-center px-4 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground",
+                  header.column.columnDef.meta?.textRight ? "justify-end" : ""
+                )}
               >
                 <table.FlexRender header={header} />
               </div>
