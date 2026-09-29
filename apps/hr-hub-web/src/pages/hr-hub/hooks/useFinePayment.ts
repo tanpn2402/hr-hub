@@ -1,17 +1,14 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from '@tanstack/react-query';
 import {
   executeFinePayment,
   getPaymentPreview,
   rejectFinePayment,
   settleFinePayment,
-} from "../api/workforce";
+} from '../api/workforce';
 
-export function useFinePaymentPreview(
-  employeeCode: string | null | undefined,
-  enabled: boolean,
-) {
+export function useFinePaymentPreview(employeeCode: string | null | undefined, enabled: boolean) {
   return useQuery({
-    queryKey: ["fine-payment-preview", employeeCode],
+    queryKey: ['fine-payment-preview', employeeCode],
     queryFn: () => getPaymentPreview(employeeCode!),
     enabled: !!employeeCode && enabled,
   });

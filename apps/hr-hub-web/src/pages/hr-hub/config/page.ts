@@ -1,3 +1,3 @@
 export const config = {
-  path: "/hr-hub/",
+  path: '/hr-hub/',
 };

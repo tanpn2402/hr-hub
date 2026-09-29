@@ -1,11 +1,11 @@
-import { idenplane } from "@/lib/idenplane";
-import axios from "axios";
+import { idenplane } from '@/lib/idenplane';
+import axios from 'axios';
 
 export const apiClient = axios.create({
-  baseURL: "/api",
+  baseURL: '/api',
   timeout: 30_000,
   headers: {
-    Accept: "application/json",
+    Accept: 'application/json',
   },
 });
 

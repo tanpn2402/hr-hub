@@ -1,12 +1,6 @@
-import { useMemo, useState } from "react";
-import {
-  ArrowDown,
-  ArrowUp,
-  ArrowUpDown,
-  AlertCircle,
-  Eye,
-} from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { useMemo, useState } from 'react';
+import { ArrowDown, ArrowUp, ArrowUpDown, AlertCircle, Eye } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 
 import {
   metaHelper,
@@ -15,12 +9,12 @@ import {
   useTable,
   type ColumnDef,
   type SortingState,
-} from "@tanstack/react-table";
+} from '@tanstack/react-table';
 
-import { apiClient } from "@/api/client";
+import { apiClient } from '@/api/client';
 
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
   Table,
   TableBody,
@@ -28,14 +22,14 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
-import { WorkforceImportResult } from "./LateHubReviewTable";
-import { LoadingIndicator } from "@/components/ui/loading-idicator";
-import { LateHubReviewDialog } from "./LateHubReviewDialog";
-import { useTranslation } from "react-i18next";
-import dayjs from "dayjs";
-import { formatMonth } from "@/lib/time-utils";
-import { formatMoney } from "@/lib/format-utils";
+} from '@/components/ui/table';
+import { WorkforceImportResult } from './LateHubReviewTable';
+import { LoadingIndicator } from '@/components/ui/loading-idicator';
+import { LateHubReviewDialog } from './LateHubReviewDialog';
+import { useTranslation } from 'react-i18next';
+import dayjs from 'dayjs';
+import { formatMonth } from '@/lib/time-utils';
+import { formatMoney } from '@/lib/format-utils';
 
 /* -------------------------------------------------------------------------- */
 /* Types                                                                      */
@@ -49,30 +43,21 @@ export type WorkforceImportHistoryItem = {
   totalAttendance: number;
   totalLeave: number;
   totalFine: number;
-  status: "confirmed" | "preview";
+  status: 'confirmed' | 'preview';
 };
 
 /* -------------------------------------------------------------------------- */
 /* API                                                                        */
 /* -------------------------------------------------------------------------- */
 
-async function getImportHistory(): Promise<
-  WorkforceImportHistoryItem[]
-> {
-  const { data } = await apiClient.get<
-    WorkforceImportHistoryItem[]
-  >("/workforce/imports");
+async function getImportHistory(): Promise<WorkforceImportHistoryItem[]> {
+  const { data } = await apiClient.get<WorkforceImportHistoryItem[]>('/workforce/imports');
 
   return data;
 }
 
-
-async function getImportBatch(
-  batchId: string,
-): Promise<WorkforceImportResult> {
-  const { data } = await apiClient.get<WorkforceImportResult>(
-    `/workforce/imports/${batchId}`,
-  );
+async function getImportBatch(batchId: string): Promise<WorkforceImportResult> {
+  const { data } = await apiClient.get<WorkforceImportResult>(`/workforce/imports/${batchId}`);
 
   return data;
 }
@@ -83,16 +68,14 @@ async function getImportBatch(
 
 function useImportHistory() {
   return useQuery({
-    queryKey: ["workforce", "import-history"],
+    queryKey: ['workforce', 'import-history'],
     queryFn: getImportHistory,
   });
 }
 
-function useImportBatchData(
-  batchId: string | null
-) {
+function useImportBatchData(batchId: string | null) {
   return useQuery({
-    queryKey: ["workforce", "import-batch-data", batchId],
+    queryKey: ['workforce', 'import-batch-data', batchId],
     queryFn: () => getImportBatch(batchId!),
     enabled: Boolean(batchId),
     staleTime: 30_000,
@@ -105,7 +88,7 @@ function useImportBatchData(
 
 const features = tableFeatures({
   ...stockFeatures,
-  columnMeta: metaHelper<{ textRight?: boolean }>()
+  columnMeta: metaHelper<{ textRight?: boolean }>(),
 });
 
 export function WorkforceImportHistory() {
@@ -121,7 +104,7 @@ export function WorkforceImportHistory() {
 
   const [sorting, setSorting] = useState<SortingState>([
     {
-      id: "createdAt",
+      id: 'createdAt',
       desc: true,
     },
   ]);
@@ -133,83 +116,54 @@ export function WorkforceImportHistory() {
 
   const data = historyQuery.data ?? [];
 
-  const columns = useMemo<
-    Array<
-      ColumnDef<
-        typeof features,
-        WorkforceImportHistoryItem
-      >
-    >
-  >(
+  const columns = useMemo<Array<ColumnDef<typeof features, WorkforceImportHistoryItem>>>(
     () => [
       {
-        id: "createdAt",
+        id: 'createdAt',
         accessorFn: (row) => row.createdAt,
-        header: t("imported"),
+        header: t('imported'),
 
         cell: ({ row }) => (
           <span className="text-muted-foreground">
-            {dayjs(row.original.createdAt)
-              .locale("vi")
-              .format("DD MMM YYYY, HH:mm")}
+            {dayjs(row.original.createdAt).locale('vi').format('DD MMM YYYY, HH:mm')}
           </span>
         ),
       },
       {
-        id: "month",
+        id: 'month',
         accessorFn: (row) => row.month,
-        header: t("month"),
-        cell: ({ row }) => (
-          <span className="font-medium">
-            {formatMonth(row.original.month)}
-          </span>
-        ),
+        header: t('month'),
+        cell: ({ row }) => <span className="font-medium">{formatMonth(row.original.month)}</span>,
       },
       {
-        id: "totalAttendance",
+        id: 'totalAttendance',
         meta: {
           textRight: true,
         },
         accessorFn: (row) => row.totalAttendance,
-        header: () => (
-          <div className="text-right">
-            {t("attendance")}
-          </div>
-        ),
+        header: () => <div className="text-right">{t('attendance')}</div>,
         cell: ({ row }) => (
-          <div className="text-right">
-            {row.original.totalAttendance.toLocaleString()}
-          </div>
+          <div className="text-right">{row.original.totalAttendance.toLocaleString()}</div>
         ),
       },
       {
-        id: "totalLeave",
+        id: 'totalLeave',
         meta: {
           textRight: true,
         },
         accessorFn: (row) => row.totalLeave,
-        header: () => (
-          <div className="text-right">
-            {t("leave")}
-          </div>
-        ),
+        header: () => <div className="text-right">{t('leave')}</div>,
         cell: ({ row }) => (
-          <div className="text-right">
-            {row.original.totalLeave.toLocaleString()}
-          </div>
+          <div className="text-right">{row.original.totalLeave.toLocaleString()}</div>
         ),
       },
       {
-        id: "totalFine",
+        id: 'totalFine',
         meta: {
           textRight: true,
         },
         accessorFn: (row) => row.totalFine,
-        header: () => (
-          <div className="text-right">
-            {t("total_fines")}
-          </div>
-        ),
+        header: () => <div className="text-right">{t('total_fines')}</div>,
         cell: ({ row }) => (
           <div className="text-right font-mono font-medium">
             {formatMoney(row.original.totalFine)}
@@ -217,38 +171,32 @@ export function WorkforceImportHistory() {
         ),
       },
       {
-        id: "status",
+        id: 'status',
         accessorFn: (row) => row.status,
-        header: t("status"),
+        header: t('status'),
         cell: ({ row }) => {
           const status = row.original.status;
 
-          if (status === "confirmed") {
+          if (status === 'confirmed') {
             return (
-              <Badge
-                variant="secondary"
-                className="gap-1"
-              >
+              <Badge variant="secondary" className="gap-1">
                 <span className="size-1.5 rounded-full bg-emerald-500" />
-                {t("confirmed")}
+                {t('confirmed')}
               </Badge>
             );
           }
 
           return (
-            <Badge
-              variant="outline"
-              className="gap-1"
-            >
+            <Badge variant="outline" className="gap-1">
               <span className="size-1.5 rounded-full bg-amber-500" />
-              {t("preview")}
+              {t('preview')}
             </Badge>
           );
         },
       },
       {
-        id: "actions",
-        header: "",
+        id: 'actions',
+        header: '',
 
         cell: ({ row }) => {
           const isLoading = row.original.id === reviewBatchId && importBatchData.isLoading;
@@ -259,11 +207,15 @@ export function WorkforceImportHistory() {
                 size="sm"
                 onClick={() => !isLoading && handleViewImport(row.original.id)}
               >
-                {isLoading ? <LoadingIndicator size="sm" className="mr-2" /> : <Eye className="mr-2 size-4" />}
-                {t("view")}
+                {isLoading ? (
+                  <LoadingIndicator size="sm" className="mr-2" />
+                ) : (
+                  <Eye className="mr-2 size-4" />
+                )}
+                {t('view')}
               </Button>
             </div>
-          )
+          );
         },
       },
     ],
@@ -288,16 +240,16 @@ export function WorkforceImportHistory() {
       <div className="mt-4 overflow-hidden rounded-xl border bg-card">
         {historyQuery.isLoading ? (
           <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
-            {t("loading_import_history")}
+            {t('loading_import_history')}
           </div>
         ) : historyQuery.isError ? (
           <div className="flex h-32 items-center justify-center gap-2 text-sm text-destructive">
             <AlertCircle className="size-4" />
-            {t("failed_to_load_import_history")}
+            {t('failed_to_load_import_history')}
           </div>
         ) : !data.length ? (
           <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
-            {t("no_import_history_yet")}
+            {t('no_import_history_yet')}
           </div>
         ) : (
           <Table>
@@ -305,36 +257,32 @@ export function WorkforceImportHistory() {
               {table.getHeaderGroups().map((headerGroup) => (
                 <TableRow key={headerGroup.id}>
                   {headerGroup.headers.map((header) => (
-                    <TableHead
-                      key={header.id}
-                      className="whitespace-nowrap"
-                    >
+                    <TableHead key={header.id} className="whitespace-nowrap">
                       {header.isPlaceholder ? null : (
-                        <div className={"flex items-center " + (header.column.columnDef.meta?.textRight ? " justify-end" : "")}>
+                        <div
+                          className={
+                            'flex items-center ' +
+                            (header.column.columnDef.meta?.textRight ? ' justify-end' : '')
+                          }
+                        >
                           {header.column.getCanSort() ? (
                             <button
                               type="button"
                               onClick={header.column.getToggleSortingHandler()}
                               className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground"
                             >
-                              <table.FlexRender
-                                header={header}
-                              />
+                              <table.FlexRender header={header} />
 
-                              {header.column.getIsSorted() ===
-                                "asc" ? (
+                              {header.column.getIsSorted() === 'asc' ? (
                                 <ArrowUp className="size-3" />
-                              ) : header.column.getIsSorted() ===
-                                "desc" ? (
+                              ) : header.column.getIsSorted() === 'desc' ? (
                                 <ArrowDown className="size-3" />
                               ) : (
                                 <ArrowUpDown className="size-3 opacity-40" />
                               )}
                             </button>
                           ) : (
-                            <table.FlexRender
-                              header={header}
-                            />
+                            <table.FlexRender header={header} />
                           )}
                         </div>
                       )}
@@ -349,9 +297,7 @@ export function WorkforceImportHistory() {
                 <TableRow key={row.id}>
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>
-                      <table.FlexRender
-                        cell={cell}
-                      />
+                      <table.FlexRender cell={cell} />
                     </TableCell>
                   ))}
                 </TableRow>

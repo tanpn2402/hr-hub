@@ -1,13 +1,20 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState } from 'react';
 
-import { LateHubSummaryTable } from "./LateHubSummaryTable";
-import { LateHubDetailTable } from "./LateHubDetailTable";
-import { useTranslation } from "react-i18next";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Button } from "@/components/ui/button";
-import { Check, ChevronsUpDown, X } from "lucide-react";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { EmployeeSummary, WorkforceRow } from "../api/workforce";
+import { LateHubSummaryTable } from './LateHubSummaryTable';
+import { LateHubDetailTable } from './LateHubDetailTable';
+import { useTranslation } from 'react-i18next';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Button } from '@/components/ui/button';
+import { Check, ChevronsUpDown, X } from 'lucide-react';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
+import { EmployeeSummary, WorkforceRow } from '../api/workforce';
 
 /* -------------------------------------------------------------------------- */
 /* Types                                                                      */
@@ -16,7 +23,7 @@ import { EmployeeSummary, WorkforceRow } from "../api/workforce";
 export type WorkforceImportResult = {
   batchId: string;
   month: string;
-  status?: "preview" | "confirmed";
+  status?: 'preview' | 'confirmed';
   rows: WorkforceRow[];
   employeeSummaries: EmployeeSummary[];
   grandTotal: number;
@@ -29,7 +36,8 @@ type Props = {
 
 export function LateHubReviewTable({ data }: Props) {
   const { t } = useTranslation();
-  const [viewMode, setViewMode] = useState<string>("detail");
+  const [viewMode, setViewMode] = useState<string>('detail');
+  const [paymentStatus, setPaymentStatus] = useState<string>('all');
 
   const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]);
   const [employeePickerOpen, setEmployeePickerOpen] = useState(false);
@@ -42,8 +50,8 @@ export function LateHubReviewTable({ data }: Props) {
     }
 
     return Array.from(map.values()).sort((a, b) =>
-      `${a.employeeName ?? ""} ${a.employeeCode}`.localeCompare(
-        `${b.employeeName ?? ""} ${b.employeeCode}`,
+      `${a.employeeName ?? ''} ${a.employeeCode}`.localeCompare(
+        `${b.employeeName ?? ''} ${b.employeeCode}`,
       ),
     );
   }, [data.employeeSummaries]);
@@ -61,103 +69,119 @@ export function LateHubReviewTable({ data }: Props) {
   };
 
   const aggregatedData = useMemo(() => {
-    let rows = selectedEmployees.length ? data.rows.filter(row => selectedEmployees.includes(row.employeeCode)) : data.rows;
+    const employeeSummaries =
+      paymentStatus === 'all'
+        ? data.employeeSummaries
+        : data.employeeSummaries.filter(
+            ({ monthFinePaidStatus }) => monthFinePaidStatus === paymentStatus,
+          );
+    let rows =
+      paymentStatus === 'all'
+        ? data.rows
+        : data.rows.filter(({ monthFinePaidStatus }) => monthFinePaidStatus === paymentStatus);
+    rows = selectedEmployees.length
+      ? rows.filter((row) => selectedEmployees.includes(row.employeeCode))
+      : rows;
+
     return {
       ...data,
+      employeeSummaries,
       rows,
-    }
-  }, [data, selectedEmployees])
+    };
+  }, [data, selectedEmployees, paymentStatus, viewMode]);
 
   return (
     <>
       <div className="flex items-center mb-2 gap-4">
         <div className="flex items-center rounded-lg border bg-background p-0.5">
           {[
-            ["detail", t("detail")],
-            ["summary", t("summary")],
-          ].map(
-            ([value, label]) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => setViewMode(value)}
-                className={[
-                  "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
-                  viewMode === value
-                    ? "bg-muted text-foreground"
-                    : "text-muted-foreground hover:text-foreground",
-                ].join(" ")}
-              >
-                {label}
-              </button>
-            ),
-          )}
+            ['detail', t('detail')],
+            ['summary', t('summary')],
+          ].map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setViewMode(value)}
+              className={[
+                'rounded-md px-3 py-1.5 text-xs font-medium transition-colors',
+                viewMode === value
+                  ? 'bg-muted text-foreground'
+                  : 'text-muted-foreground hover:text-foreground',
+              ].join(' ')}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex items-center rounded-lg border bg-background p-0.5">
+          {[
+            ['all', t('all')],
+            ['completed', t('payment_completed')],
+            ['pending', t('payment_pending')],
+          ].map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setPaymentStatus(value)}
+              className={[
+                'rounded-md px-3 py-1.5 text-xs font-medium transition-colors',
+                paymentStatus === value
+                  ? 'bg-muted text-foreground'
+                  : 'text-muted-foreground hover:text-foreground',
+              ].join(' ')}
+            >
+              {label}
+            </button>
+          ))}
         </div>
 
         {/* Employee filter */}
         <div className="flex items-center gap-1">
-          <Popover
-            open={employeePickerOpen}
-            onOpenChange={setEmployeePickerOpen}
-          >
-            <PopoverTrigger render={(
-              <Button
-                variant="outline"
-                role="combobox"
-                aria-expanded={employeePickerOpen}
-                className="h-8 min-w-55 justify-between text-xs"
-              >
-                <span className="truncate">
-                  {selectedEmployees.length === 0
-                    ? t("select_employee")
-                    : `${selectedEmployees.length} ${t("employees_selected")}`}
-                </span>
+          <Popover open={employeePickerOpen} onOpenChange={setEmployeePickerOpen}>
+            <PopoverTrigger
+              render={
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={employeePickerOpen}
+                  className="h-8 min-w-55 justify-between text-xs"
+                >
+                  <span className="truncate">
+                    {selectedEmployees.length === 0
+                      ? t('select_employee')
+                      : `${selectedEmployees.length} ${t('employees_selected')}`}
+                  </span>
 
-                <ChevronsUpDown className="ml-2 h-3.5 w-3.5 shrink-0 opacity-50" />
-              </Button>
-            )}
+                  <ChevronsUpDown className="ml-2 h-3.5 w-3.5 shrink-0 opacity-50" />
+                </Button>
+              }
             />
 
-            <PopoverContent
-              className="w-[320px] p-0"
-              align="start"
-            >
+            <PopoverContent className="w-[320px] p-0" align="start">
               <Command>
-                <CommandInput
-                  placeholder={t("search_employee")}
-                  className="h-9"
-                />
+                <CommandInput placeholder={t('search_employee')} className="h-9" />
 
                 <CommandList>
-                  <CommandEmpty>
-                    {t("no_employee_found")}
-                  </CommandEmpty>
+                  <CommandEmpty>{t('no_employee_found')}</CommandEmpty>
 
                   <CommandGroup>
                     {employees.map((employee) => {
-                      const selected = selectedEmployees.includes(
-                        employee.employeeCode,
-                      );
+                      const selected = selectedEmployees.includes(employee.employeeCode);
 
                       return (
                         <CommandItem
                           key={employee.employeeCode}
-                          value={`${employee.employeeCode} ${employee.employeeName ?? ""}`}
-                          onSelect={() =>
-                            toggleEmployee(employee.employeeCode)
-                          }
+                          value={`${employee.employeeCode} ${employee.employeeName ?? ''}`}
+                          onSelect={() => toggleEmployee(employee.employeeCode)}
                         >
                           <div
                             className={[
-                              "mr-2 flex size-4.5 items-center justify-center rounded-sm border p-1",
-                              selected
-                                ? "bg-primary text-primary-foreground"
-                                : "opacity-50",
-                            ].join(" ")}
+                              'mr-2 flex size-4.5 items-center justify-center rounded-sm border p-1',
+                              selected ? 'bg-primary text-primary-foreground' : 'opacity-50',
+                            ].join(' ')}
                           >
-                            {selected && (
-                              <Check className="size-3" />
-                            )}
+                            {selected && <Check className="size-3" />}
                           </div>
 
                           <div className="flex min-w-0 items-center gap-1">
@@ -166,8 +190,7 @@ export function LateHubReviewTable({ data }: Props) {
                             </span>
 
                             <span className="truncate text-sm">
-                              {employee.employeeName ||
-                                employee.employeeCode}
+                              {employee.employeeName || employee.employeeCode}
                             </span>
                           </div>
                         </CommandItem>
@@ -181,26 +204,24 @@ export function LateHubReviewTable({ data }: Props) {
 
           {/* Clear filter */}
           {selectedEmployees.length > 0 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 px-2 text-xs"
-              onClick={clearEmployees}
-            >
+            <Button variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={clearEmployees}>
               <X className="mr-1 h-3.5 w-3.5" />
-              {t("clear")}
+              {t('clear')}
             </Button>
           )}
         </div>
       </div>
 
-      {viewMode === "detail" ? (
+      {viewMode === 'detail' ? (
         <LateHubDetailTable data={aggregatedData} />
       ) : (
-        <LateHubSummaryTable data={aggregatedData} onEmployeeClick={employeeCode => {
-          setSelectedEmployees([employeeCode]);
-          setViewMode("detail");
-        }} />
+        <LateHubSummaryTable
+          data={aggregatedData}
+          onEmployeeClick={(employeeCode) => {
+            setSelectedEmployees([employeeCode]);
+            setViewMode('detail');
+          }}
+        />
       )}
     </>
   );

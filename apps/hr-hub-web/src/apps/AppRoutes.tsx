@@ -1,10 +1,10 @@
-import { Route, Routes } from "react-router-dom";
+import { Route, Routes } from 'react-router-dom';
 
-import { ProtectedRoute } from "@/auth/ProtectedRoute";
-import { OpenIDConnectCallbackPage } from "@/auth/OpenIDConnectCallbackPage";
+import { ProtectedRoute } from '@/auth/ProtectedRoute';
+import { OpenIDConnectCallbackPage } from '@/auth/OpenIDConnectCallbackPage';
 
-import { apps } from "./app-registry";
-import { useTranslation } from "react-i18next";
+import { apps } from './app-registry';
+import { useTranslation } from 'react-i18next';
 
 function appRoute(app: (typeof apps)[number]) {
   const Component = app.component;
@@ -14,13 +14,7 @@ function appRoute(app: (typeof apps)[number]) {
     <Route
       key={app.id}
       path={app.nested ? `${app.href}/*` : app.href}
-      element={
-        app.access?.authenticated ? (
-          <ProtectedRoute>{page}</ProtectedRoute>
-        ) : (
-          page
-        )
-      }
+      element={app.access?.authenticated ? <ProtectedRoute>{page}</ProtectedRoute> : page}
     />
   );
 }
@@ -30,17 +24,11 @@ export function AppRoutes() {
   return (
     <Routes>
       {/* Authentication infrastructure */}
-      <Route
-        path="/auth/openid_connect/callback"
-        element={<OpenIDConnectCallbackPage />}
-      />
+      <Route path="/auth/openid_connect/callback" element={<OpenIDConnectCallbackPage />} />
 
       {apps.map(appRoute)}
 
-      <Route
-        path="*"
-        element={<div>{t("apps_not_found")}</div>}
-      />
+      <Route path="*" element={<div>{t('apps_not_found')}</div>} />
     </Routes>
   );
 }

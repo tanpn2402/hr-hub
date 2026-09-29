@@ -1,4 +1,4 @@
-import { apiClient } from "@/api/client";
+import { apiClient } from '@/api/client';
 
 export type WorkforceRow = {
   employeeCode: string;
@@ -33,7 +33,7 @@ export type ImportWorkforceFilesParams = {
   leaveFile: File;
 };
 
-export type FeedbackStatus = "pending" | "approved" | "rejected";
+export type FeedbackStatus = 'pending' | 'approved' | 'rejected';
 
 export type WorkforceFeedback = {
   id: string;
@@ -156,22 +156,15 @@ export type MonthlyReport = {
   rows: WorkforceRow[];
 };
 
-export async function getWorkforceFeedback(
-  month: string,
-): Promise<WorkforceFeedbackList> {
-  const { data } = await apiClient.get<WorkforceFeedbackList>(
-    "/fine-feedback",
-    { params: { month } },
-  );
+export async function getWorkforceFeedback(month: string): Promise<WorkforceFeedbackList> {
+  const { data } = await apiClient.get<WorkforceFeedbackList>('/fine-feedback', {
+    params: { month },
+  });
   return data;
 }
 
-export async function getWorkforceFeedbackDetail(
-  id: string,
-): Promise<WorkforceFeedbackDetail> {
-  const { data } = await apiClient.get<WorkforceFeedbackDetail>(
-    `/fine-feedback/${id}`,
-  );
+export async function getWorkforceFeedbackDetail(id: string): Promise<WorkforceFeedbackDetail> {
+  const { data } = await apiClient.get<WorkforceFeedbackDetail>(`/fine-feedback/${id}`);
   return data;
 }
 
@@ -179,21 +172,12 @@ export async function approveWorkforceFeedback(
   id: string,
   payload: { reductionAmount: number; reviewNote?: string },
 ) {
-  const { data } = await apiClient.post<WorkforceFeedback>(
-    `/fine-feedback/${id}/approve`,
-    payload,
-  );
+  const { data } = await apiClient.post<WorkforceFeedback>(`/fine-feedback/${id}/approve`, payload);
   return data;
 }
 
-export async function rejectWorkforceFeedback(
-  id: string,
-  payload: { reviewNote?: string },
-) {
-  const { data } = await apiClient.post<WorkforceFeedback>(
-    `/fine-feedback/${id}/reject`,
-    payload,
-  );
+export async function rejectWorkforceFeedback(id: string, payload: { reviewNote?: string }) {
+  const { data } = await apiClient.post<WorkforceFeedback>(`/fine-feedback/${id}/reject`, payload);
   return data;
 }
 
@@ -203,28 +187,23 @@ export async function importWorkforceFiles({
 }: ImportWorkforceFilesParams): Promise<ImportWorkforceResponse> {
   const formData = new FormData();
 
-  formData.append("files", attendanceFile);
-  formData.append("files", leaveFile);
+  formData.append('files', attendanceFile);
+  formData.append('files', leaveFile);
 
   const { data } = await apiClient.post<ImportWorkforceResponse>(
-    "/workforce/import/preview",
+    '/workforce/import/preview',
     formData,
   );
 
   return data;
 }
 
-export async function getPaymentPreview(
-  employeeCode: string,
-): Promise<FinePaymentPreviewResponse> {
-  const { data } = await apiClient.get<FinePaymentPreviewResponse>(
-    "/fines/payment/preview",
-    {
-      params: {
-        employeeCode,
-      },
+export async function getPaymentPreview(employeeCode: string): Promise<FinePaymentPreviewResponse> {
+  const { data } = await apiClient.get<FinePaymentPreviewResponse>('/fines/payment/preview', {
+    params: {
+      employeeCode,
     },
-  );
+  });
 
   return data;
 }
@@ -240,34 +219,26 @@ export async function settleFinePayment(
   return data;
 }
 
-export async function rejectFinePayment(
-  payload: RejectFinePaymentPayload,
-): Promise<FinePayment> {
-  const { data } = await apiClient.delete<FinePayment>(
-    `/fines/payment/${payload.paymentId}`,
-  );
+export async function rejectFinePayment(payload: RejectFinePaymentPayload): Promise<FinePayment> {
+  const { data } = await apiClient.delete<FinePayment>(`/fines/payment/${payload.paymentId}`);
 
   return data;
 }
 
-export async function executeFinePayment(
-  payload: ExecutePaymentPayload,
-): Promise<FinePayment> {
-  const { data } = await apiClient.post<FinePayment>("/fines/payment", payload);
+export async function executeFinePayment(payload: ExecutePaymentPayload): Promise<FinePayment> {
+  const { data } = await apiClient.post<FinePayment>('/fines/payment', payload);
 
   return data;
 }
 
 export async function getAvailableMonths(): Promise<string[]> {
-  const { data } = await apiClient.get<string[]>("/workforce/reports");
+  const { data } = await apiClient.get<string[]>('/workforce/reports');
 
   return data;
 }
 
 export async function getMonthlyReport(month: string): Promise<MonthlyReport> {
-  const { data } = await apiClient.get<MonthlyReport>(
-    `/workforce/reports/${month}`,
-  );
+  const { data } = await apiClient.get<MonthlyReport>(`/workforce/reports/${month}`);
 
   return data;
 }

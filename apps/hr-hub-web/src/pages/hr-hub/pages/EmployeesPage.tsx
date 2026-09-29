@@ -1,3 +1,3 @@
 export function EmployeesPage() {
-  return <div></div>
+  return <div></div>;
 }

@@ -1,8 +1,7 @@
-import react from "@vitejs/plugin-react";
+import react from '@vitejs/plugin-react';
 // import { federation } from "@module-federation/vite";
-import { defineConfig } from "vite";
-import tailwindcss from "@tailwindcss/vite";
-import path from "node:path";
+import { defineConfig } from 'vite';
+import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
   plugins: [
@@ -22,7 +21,7 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
-      "@": `${import.meta.dirname}/src`,
+      '@': `${import.meta.dirname}/src`,
     },
   },
   server: {
@@ -30,10 +29,10 @@ export default defineConfig({
     strictPort: true,
 
     proxy: {
-      "/api": {
-        target: "http://localhost:3003",
+      '/api': {
+        target: 'http://localhost:3003',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, ""),
+        rewrite: (path) => path.replace(/^\/api/, ''),
       },
     },
   },

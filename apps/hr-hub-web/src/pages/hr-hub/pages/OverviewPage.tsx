@@ -1,3 +1,3 @@
 export function OverviewPage() {
-  return <div></div>
+  return <div></div>;
 }

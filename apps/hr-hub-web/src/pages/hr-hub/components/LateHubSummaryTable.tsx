@@ -1,43 +1,36 @@
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   metaHelper,
   stockFeatures,
   tableFeatures,
   useTable,
   type ColumnDef,
-} from "@tanstack/react-table";
-import { useVirtualizer } from "@tanstack/react-virtual";
-import {
-  CheckIcon,
-  ListTree,
-  MoreVertical,
-  QrCode,
-} from "lucide-react";
+} from '@tanstack/react-table';
+import { useVirtualizer } from '@tanstack/react-virtual';
+import { ListTree, MoreVertical, QrCode } from 'lucide-react';
 
-import type {
-  WorkforceImportResult,
-} from "./LateHubReviewTable";
+import type { WorkforceImportResult } from './LateHubReviewTable';
 
-import { Button } from "@/components/ui/button";
+import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+} from '@/components/ui/dropdown-menu';
 
-import { SubmitFinePaymentDialog } from "./SubmitFinePaymentDialog";
-import { useAuth } from "@/auth/useAuth";
-import { cn } from "cn";
-import { useTranslation } from "react-i18next";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { ConfirmFinePaymentDialog } from "./ConfirmFinePaymentDialog";
-import { EmployeeSummary } from "../api/workforce";
+import { SubmitFinePaymentDialog } from './SubmitFinePaymentDialog';
+import { useAuth } from '@/auth/useAuth';
+import { cn } from 'cn';
+import { useTranslation } from 'react-i18next';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { ConfirmFinePaymentDialog } from './ConfirmFinePaymentDialog';
+import { EmployeeSummary } from '../api/workforce';
 
 function formatMoney(value: number) {
-  return new Intl.NumberFormat("vi-VN", {
-    style: "currency",
-    currency: "VND",
+  return new Intl.NumberFormat('vi-VN', {
+    style: 'currency',
+    currency: 'VND',
     maximumFractionDigits: 0,
   }).format(value);
 }
@@ -56,21 +49,34 @@ export function LateHubSummaryTable({ data, onEmployeeClick }: Props) {
   const { t } = useTranslation();
   const parentRef = useRef<HTMLDivElement>(null);
 
-  const isReviewing = useMemo(() => data.batchId !== "", [data]);
+  const isReviewing = useMemo(() => data.batchId !== '', [data]);
 
   const { hasPermission } = useAuth();
 
+  const [openPaymentDialog, setOpenPaymentDialog] = useState<boolean>(false);
   const [paymentEmployee, setPaymentEmployee] = useState<EmployeeSummary | null>(null);
-  const [confirmPaymentEmployee, setConfirmPaymentEmployee] = useState<EmployeeSummary | null>(null);
 
-  const columns = useMemo<
-    Array<ColumnDef<typeof features, EmployeeSummary>>
-  >(
+  const [openConfirmPaymentDialog, setOpenConfirmPaymentDialog] = useState<boolean>(false);
+  const [confirmPaymentEmployee, setConfirmPaymentEmployee] = useState<EmployeeSummary | null>(
+    null,
+  );
+
+  const handleOpenPaymentDialog = useCallback((employee: EmployeeSummary) => {
+    setOpenPaymentDialog(true);
+    setPaymentEmployee(employee);
+  }, []);
+
+  const handleOpenConfirmPaymentDialog = useCallback((employee: EmployeeSummary) => {
+    setOpenConfirmPaymentDialog(true);
+    setConfirmPaymentEmployee(employee);
+  }, []);
+
+  const columns = useMemo<Array<ColumnDef<typeof features, EmployeeSummary>>>(
     () => [
       {
-        id: "employeeName",
-        accessorFn: (row) => row.employeeName ?? "",
-        header: t("employee"),
+        id: 'employeeName',
+        accessorFn: (row) => row.employeeName ?? '',
+        header: t('employee'),
 
         cell: ({ row }) => {
           const item = row.original;
@@ -89,14 +95,14 @@ export function LateHubSummaryTable({ data, onEmployeeClick }: Props) {
                     </span>
 
                     <span className="truncate font-medium group-hover:text-primary text-sm">
-                      {item.employeeName ?? "—"}
+                      {item.employeeName ?? '—'}
                     </span>
                   </button>
                 }
               />
 
               <TooltipContent>
-                <p>{t("click_on_employee_to_view_attendance_detail")}</p>
+                <p>{t('click_on_employee_to_view_attendance_detail')}</p>
               </TooltipContent>
             </Tooltip>
           );
@@ -104,21 +110,23 @@ export function LateHubSummaryTable({ data, onEmployeeClick }: Props) {
       },
 
       {
-        id: "totalFine",
-        accessorKey: "totalFine",
-        header: t("total_fine"),
+        id: 'totalFine',
+        accessorKey: 'totalFine',
+        header: t('total_fine'),
         meta: { textRight: true },
 
         cell: ({ row }) => (
-          <div className="text-right font-mono text-sm font-semibold">
-            {formatMoney(row.original.monthFinePaidStatus === "completed" ? 0 : row.original.totalFine)}
+          <div className="text-right font-mono text-sm">
+            {formatMoney(
+              row.original.monthFinePaidStatus === 'completed' ? 0 : row.original.totalFine,
+            )}
           </div>
         ),
       },
 
       {
-        id: "actions",
-        header: "",
+        id: 'actions',
+        header: '',
 
         cell: ({ row }) => {
           const employee = row.original;
@@ -128,36 +136,34 @@ export function LateHubSummaryTable({ data, onEmployeeClick }: Props) {
           return (
             <div className="flex justify-end relative -top-1.5">
               <DropdownMenu>
-                <DropdownMenuTrigger render={<Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                >
-                  <MoreVertical className="h-4 w-4" />
-                  <span className="sr-only">
-                    {t("actions_for_employee", { name: employee.employeeName })}
-                  </span>
-                </Button>}
+                <DropdownMenuTrigger
+                  render={
+                    <Button type="button" variant="ghost" size="icon" className="h-8 w-8">
+                      <MoreVertical className="h-4 w-4" />
+                      <span className="sr-only">
+                        {t('actions_for_employee', { name: employee.employeeName })}
+                      </span>
+                    </Button>
+                  }
                 />
 
                 <DropdownMenuContent align="end" className="w-44">
                   <DropdownMenuItem
                     onClick={() => {
-                      setPaymentEmployee(employee);
+                      handleOpenPaymentDialog(employee);
                     }}
                   >
                     <QrCode className="mr-2 h-4 w-4" />
-                    {t("payment")}
+                    {t('payment')}
                   </DropdownMenuItem>
-                  {!hasPermission("hr") ? null : (
+                  {!hasPermission('hr') ? null : (
                     <DropdownMenuItem
                       onClick={() => {
-                        setConfirmPaymentEmployee(employee);
+                        handleOpenConfirmPaymentDialog(employee);
                       }}
                     >
                       <ListTree className="mr-2 h-4 w-4" />
-                      {t("list_payment")}
+                      {t('list_payment')}
                     </DropdownMenuItem>
                   )}
                 </DropdownMenuContent>
@@ -167,7 +173,7 @@ export function LateHubSummaryTable({ data, onEmployeeClick }: Props) {
         },
       },
     ],
-    [t, hasPermission],
+    [t, hasPermission, handleOpenPaymentDialog, handleOpenConfirmPaymentDialog],
   );
 
   const table = useTable({
@@ -177,8 +183,8 @@ export function LateHubSummaryTable({ data, onEmployeeClick }: Props) {
     initialState: {
       columnVisibility: {
         actions: !isReviewing,
-      }
-    }
+      },
+    },
   });
 
   const rows = table.getRowModel().rows;
@@ -195,30 +201,29 @@ export function LateHubSummaryTable({ data, onEmployeeClick }: Props) {
   return (
     <>
       <div className="overflow-hidden rounded-lg border flex-1">
-
         {/* ------------------------------------------------------------------ */}
         {/* Scroll container                                                   */}
         {/* ------------------------------------------------------------------ */}
 
-        <div
-          ref={parentRef}
-          className="max-h-[calc(100%-40px)] overflow-auto"
-        >
+        <div ref={parentRef} className="max-h-[calc(100%-40px)] overflow-auto">
           {/* -------------------------------------------------------------- */}
           {/* Header                                                         */}
           {/* -------------------------------------------------------------- */}
 
-          <div className={
-            cn("sticky top-0 z-20 grid border-b bg-muted/95",
-              isReviewing ? "grid-cols-[minmax(300px,2fr)_minmax(180px,1fr)]" : "grid-cols-[minmax(300px,2fr)_minmax(180px,1fr)_52px]"
-            )
-          }>
+          <div
+            className={cn(
+              'sticky top-0 z-20 grid border-b bg-muted/95',
+              isReviewing
+                ? 'grid-cols-[minmax(300px,2fr)_minmax(180px,1fr)]'
+                : 'grid-cols-[minmax(300px,2fr)_minmax(180px,1fr)_52px]',
+            )}
+          >
             {table.getHeaderGroups()[0].headers.map((header) => (
               <div
                 key={header.id}
                 className={cn(
-                  "flex h-10 items-center px-4 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground",
-                  header.column.columnDef.meta?.textRight ? "justify-end" : ""
+                  'flex h-8 items-center px-4 text-[10px] font-semibold tracking-wider text-muted-foreground',
+                  header.column.columnDef.meta?.textRight ? 'justify-end' : '',
                 )}
               >
                 <table.FlexRender header={header} />
@@ -242,21 +247,19 @@ export function LateHubSummaryTable({ data, onEmployeeClick }: Props) {
               return (
                 <div
                   key={row.id}
-                  className={
-                    cn("absolute left-0 right-0 grid border-b transition-colors hover:bg-muted/20",
-                      isReviewing ? "grid-cols-[minmax(300px,2fr)_minmax(180px,1fr)]" : "grid-cols-[minmax(300px,2fr)_minmax(180px,1fr)_52px]"
-                    )
-                  }
+                  className={cn(
+                    'absolute left-0 right-0 grid border-b transition-colors hover:bg-muted',
+                    isReviewing
+                      ? 'grid-cols-[minmax(300px,2fr)_minmax(180px,1fr)]'
+                      : 'grid-cols-[minmax(300px,2fr)_minmax(180px,1fr)_52px]',
+                  )}
                   style={{
                     height: `${virtualRow.size}px`,
                     transform: `translateY(${virtualRow.start}px)`,
                   }}
                 >
                   {row.getVisibleCells().map((cell) => (
-                    <div
-                      key={cell.id}
-                      className="min-w-0 px-4 py-2.5"
-                    >
+                    <div key={cell.id} className="min-w-0 px-4 py-2.5">
                       <table.FlexRender cell={cell} />
                     </div>
                   ))}
@@ -266,15 +269,20 @@ export function LateHubSummaryTable({ data, onEmployeeClick }: Props) {
           </div>
         </div>
 
+        {rows.length === 0 ? (
+          <div className="h-[calc(100%-73px)]">
+            <p className="text-center py-4 text-sm italic">{t('no_records_found')}</p>
+          </div>
+        ) : null}
+
         {/* Grand total */}
-        <div className="border-t-2 bg-muted/95">
+        <div className="border-t bg-muted/95">
           <div className="flex items-center justify-end px-4 py-3">
-            <div className="mr-8 text-sm font-semibold">
-              Tổng cộng
-            </div>
+            <div className="mr-8 text-sm font-semibold">Tổng cộng</div>
 
             <div className="text-right font-mono text-sm font-bold">
-              {isReviewing ? "" : (formatMoney(data.paidAmount) + " / ")}{formatMoney(data.grandTotal)}
+              {isReviewing ? '' : formatMoney(data.paidAmount) + ' / '}
+              {formatMoney(data.grandTotal)}
             </div>
 
             {isReviewing ? null : <div className="w-16.5" />}
@@ -284,11 +292,13 @@ export function LateHubSummaryTable({ data, onEmployeeClick }: Props) {
 
       {/* Payment Dialog */}
       <SubmitFinePaymentDialog
+        open={openPaymentDialog}
         paymentEmployee={paymentEmployee}
-        onOpenChange={() => setPaymentEmployee(null)}
+        onOpenChange={() => setOpenPaymentDialog(false)}
       />
 
       <ConfirmFinePaymentDialog
+        open={openConfirmPaymentDialog}
         paymentEmployee={confirmPaymentEmployee}
         onOpenChange={() => setConfirmPaymentEmployee(null)}
       />

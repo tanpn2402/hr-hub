@@ -1,6 +1,6 @@
-import { Building2, Clock3, Grid2X2, LayoutDashboard } from "lucide-react";
-import { HRHubPage } from "../pages/hr-hub/HRHubPage";
-import { LateHubPage } from "../pages/late-hub/LateHubPage";
+import { Building2, Clock3, Grid2X2, LayoutDashboard } from 'lucide-react';
+import { HRHubPage } from '../pages/hr-hub/HRHubPage';
+import { LateHubPage } from '../pages/late-hub/LateHubPage';
 
 type AppItem = {
   id: string;
@@ -21,45 +21,45 @@ type AppItem = {
 
 export const apps: AppItem[] = [
   {
-    id: "hr-hub",
-    name: "hr_hub",
-    description: "employee_workspace",
+    id: 'hr-hub',
+    name: 'hr_hub',
+    description: 'employee_workspace',
     icon: LayoutDashboard,
-    href: "/hr-hub",
+    href: '/hr-hub',
     nested: true,
     access: {
       authenticated: true,
-      roles: ["HR", "ADMIN"],
+      roles: ['HR', 'ADMIN'],
     },
     component: HRHubPage,
   },
   {
-    id: "late-hub",
-    name: "late_hub",
-    description: "attendance_and_late_hours",
+    id: 'late-hub',
+    name: 'late_hub',
+    description: 'attendance_and_late_hours',
     icon: Clock3,
-    href: "/apps/late-hub",
+    href: '/apps/late-hub',
     nested: true,
     component: LateHubPage,
   },
   {
-    id: "app-1",
-    name: "app_1",
-    description: "application",
+    id: 'app-1',
+    name: 'app_1',
+    description: 'application',
     icon: Building2,
-    href: "/apps/app-1",
+    href: '/apps/app-1',
     access: {
       authenticated: true,
-      roles: ["SYSTEM"],
+      roles: ['SYSTEM'],
     },
     component: HRHubPage,
   },
   {
-    id: "app-2",
-    name: "app_2",
-    description: "application",
+    id: 'app-2',
+    name: 'app_2',
+    description: 'application',
     icon: Grid2X2,
-    href: "/apps/app-2",
+    href: '/apps/app-2',
     component: HRHubPage,
   },
 ];

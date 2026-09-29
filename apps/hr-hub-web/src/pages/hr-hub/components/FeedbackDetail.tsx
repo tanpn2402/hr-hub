@@ -1,16 +1,16 @@
-import { useEffect, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2 } from "lucide-react";
-import dayjs from "dayjs";
+import { useEffect, useState } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { Loader2 } from 'lucide-react';
+import dayjs from 'dayjs';
 
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
-import { useTranslation } from "react-i18next";
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+import { useTranslation } from 'react-i18next';
 import {
   approveWorkforceFeedback,
   rejectWorkforceFeedback,
   type WorkforceFeedback,
-} from "../api/workforce";
+} from '../api/workforce';
 
 type Props = {
   month: string;
@@ -42,58 +42,56 @@ const FEEDBACK_REDUCTION_AMOUNTS: Record<string, number> = {
 };
 
 function formatMoney(value: number) {
-  return `${new Intl.NumberFormat("vi-VN").format(value)} ₫`;
+  return `${new Intl.NumberFormat('vi-VN').format(value)} ₫`;
 }
 
 function formatDate(value: string) {
-  return new Intl.DateTimeFormat("vi-VN", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
+  return new Intl.DateTimeFormat('vi-VN', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
   }).format(new Date(value));
 }
 
 function label(value: string) {
-  return value.replaceAll(" ", "_").toLowerCase();
+  return value.replaceAll(' ', '_').toLowerCase();
 }
 
 function errorMessage(error: unknown, fallback: string) {
-  return error instanceof Error
-    ? error.message
-    : fallback;
+  return error instanceof Error ? error.message : fallback;
 }
 
-export function FeedbackDetail({
-  month,
-  selected,
-  detail,
-  onReviewed,
-}: Props) {
+export function FeedbackDetail({ month, selected, detail, onReviewed }: Props) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
 
-  const [reduction, setReduction] = useState("0");
+  const [reduction, setReduction] = useState('0');
   const [rejecting, setRejecting] = useState(false);
-  const [reason, setReason] = useState("");
+  const [reason, setReason] = useState('');
 
   const fine = detail.fine;
 
   useEffect(() => {
-    setReduction(String(selected.reductionAmount ?? (selected.status === "pending" ? (FEEDBACK_REDUCTION_AMOUNTS[selected.reason] ?? 0) : 0)));
-    setReason("");
+    setReduction(
+      String(
+        selected.reductionAmount ??
+          (selected.status === 'pending' ? (FEEDBACK_REDUCTION_AMOUNTS[selected.reason] ?? 0) : 0),
+      ),
+    );
+    setReason('');
     setRejecting(false);
   }, [selected.id, selected.reductionAmount]);
 
   const refresh = async () => {
     await Promise.all([
       queryClient.invalidateQueries({
-        queryKey: ["workforce", "feedback", month],
+        queryKey: ['workforce', 'feedback', month],
       }),
       queryClient.invalidateQueries({
-        queryKey: ["workforce", "report", month],
+        queryKey: ['workforce', 'report', month],
       }),
       queryClient.invalidateQueries({
-        queryKey: ["workforce", "feedback-detail", selected.id],
+        queryKey: ['workforce', 'feedback-detail', selected.id],
       }),
     ]);
 
@@ -127,78 +125,65 @@ export function FeedbackDetail({
 
   return (
     <div className="mx-auto max-w-2xl">
-      <h3 className="text-xl font-semibold">
-        {selected.employeeName ?? selected.employeeCode}
-      </h3>
+      <h3 className="text-xl font-semibold">{selected.employeeName ?? selected.employeeCode}</h3>
 
       <p className="mt-1 text-sm text-muted-foreground">
         {selected.employeeCode} · {formatDate(fine.date)}
       </p>
 
-      <h4 className="mt-7 text-lg font-medium">
-        {t(label(selected.reason))}
-      </h4>
+      <h4 className="mt-7 text-lg font-medium">{t(label(selected.reason))}</h4>
 
       <hr className="my-6" />
 
-      <h5 className="font-medium">{t("attendance_details")}</h5>
+      <h5 className="font-medium">{t('attendance_details')}</h5>
 
       <dl className="mt-3 grid grid-cols-2 gap-3 text-sm">
-        <dt className="text-muted-foreground">{t("check_in")}</dt>
+        <dt className="text-muted-foreground">{t('check_in')}</dt>
         <dd>
-          {detail.attendance?.checkIn
-            ? dayjs.utc(detail.attendance.checkIn).format("HH:mm")
-            : "—"}
+          {detail.attendance?.checkIn ? dayjs.utc(detail.attendance.checkIn).format('HH:mm') : '—'}
         </dd>
 
-        <dt className="text-muted-foreground">{t("check_out")}</dt>
+        <dt className="text-muted-foreground">{t('check_out')}</dt>
         <dd>
           {detail.attendance?.checkOut
-            ? dayjs.utc(detail.attendance.checkOut).format("HH:mm")
-            : "—"}
+            ? dayjs.utc(detail.attendance.checkOut).format('HH:mm')
+            : '—'}
         </dd>
 
-        <dt className="text-muted-foreground">{t("leave")}</dt>
-        <dd>
-          {detail.leave ? t(label(detail.leave.type)) : "—"}
-        </dd>
+        <dt className="text-muted-foreground">{t('leave')}</dt>
+        <dd>{detail.leave ? t(label(detail.leave.type)) : '—'}</dd>
 
-        <dt className="text-muted-foreground">{t("note")}</dt>
-        <dd>{fine.reason || "—"}</dd>
+        <dt className="text-muted-foreground">{t('note')}</dt>
+        <dd>{fine.reason || '—'}</dd>
       </dl>
 
       <hr className="my-6" />
 
-      <h5 className="font-medium">{t("employee_feedback")}</h5>
+      <h5 className="font-medium">{t('employee_feedback')}</h5>
 
       <p className="mt-3 whitespace-pre-wrap text-sm">
-        {selected.description || t("no_additional_description_provided")}
+        {selected.description || t('no_additional_description_provided')}
       </p>
 
       <hr className="my-6" />
 
-      <h5 className="font-medium">{t("fine_category")}</h5>
+      <h5 className="font-medium">{t('fine_category')}</h5>
 
       <dl className="mt-3 grid grid-cols-2 gap-3 text-sm">
-        <dt className="text-muted-foreground">{t("original_fine")}</dt>
+        <dt className="text-muted-foreground">{t('original_fine')}</dt>
         <dd>{formatMoney(fine.amount)}</dd>
 
-        <dt className="text-muted-foreground">{t("adjusted_amount")}</dt>
+        <dt className="text-muted-foreground">{t('adjusted_amount')}</dt>
         <dd>{!fine.adjustedAmount ? formatMoney(0) : formatMoney(fine.adjustedAmount)}</dd>
 
-        <dt className="self-center text-muted-foreground">
-          {t("reduction_amount")}
-        </dt>
+        <dt className="self-center text-muted-foreground">{t('reduction_amount')}</dt>
 
         <dd>
           <div className="flex flex-wrap gap-2">
             {[10000, 20000, 30000].map((amount) => {
               const maxAmount = fine.adjustedAmount ?? fine.amount;
 
-              const disabled =
-                selected.status !== "pending" ||
-                pending ||
-                amount > maxAmount;
+              const disabled = selected.status !== 'pending' || pending || amount > maxAmount;
 
               return (
                 <button
@@ -207,51 +192,52 @@ export function FeedbackDetail({
                   disabled={disabled}
                   onClick={() => setReduction(String(amount))}
                   className={cn(
-                    "rounded-full border px-3 py-1 text-xs font-medium",
-                    "bg-background hover:bg-muted",
+                    'rounded-full border px-3 py-1 text-xs font-medium',
+                    'bg-background hover:bg-muted',
                     reduction === String(amount) &&
-                    "border-primary bg-primary text-primary-foreground hover:bg-primary/90",
-                    "disabled:pointer-events-none disabled:opacity-50",
+                      'border-primary bg-primary text-primary-foreground hover:bg-primary/90',
+                    'disabled:pointer-events-none disabled:opacity-50',
                   )}
                 >
-                  {amount.toLocaleString("vi-VN")} ₫
+                  {amount.toLocaleString('vi-VN')} ₫
                 </button>
               );
             })}
           </div>
         </dd>
 
-        <dt className="text-muted-foreground">{t("final_fine")}</dt>
+        <dt className="text-muted-foreground">{t('final_fine')}</dt>
         <dd>
-          {selected.status === "pending" ?
-            formatMoney(
-              (fine.adjustedAmount ?? fine.amount) -
-              (validReduction ? reductionValue : 0),
-            ) : formatMoney(fine.adjustedAmount ?? fine.amount)}
+          {selected.status === 'pending'
+            ? formatMoney(
+                (fine.adjustedAmount ?? fine.amount) - (validReduction ? reductionValue : 0),
+              )
+            : formatMoney(fine.adjustedAmount ?? fine.amount)}
         </dd>
       </dl>
 
-      {selected.status === "pending" ? (
+      {selected.status === 'pending' ? (
         <>
           <p className="mt-2 text-xs text-destructive">
             {!validReduction
-              ? t("reduction_must_be_a_whole_amount_between_0_and_the_current_fine")
+              ? t('reduction_must_be_a_whole_amount_between_0_and_the_current_fine')
               : approve.isError || reject.isError
-                ? errorMessage(approve.error ?? reject.error, t("unable_to_review_feedback_please_try_again"))
-                : ""}
+                ? errorMessage(
+                    approve.error ?? reject.error,
+                    t('unable_to_review_feedback_please_try_again'),
+                  )
+                : ''}
           </p>
 
           {rejecting && (
             <div className="mt-5 rounded-lg border p-3">
-              <label className="text-sm font-medium">
-                {t("reject_feedback")}
-              </label>
+              <label className="text-sm font-medium">{t('reject_feedback')}</label>
 
               <textarea
                 value={reason}
                 onChange={(event) => setReason(event.target.value)}
                 className="mt-2 min-h-20 w-full rounded-md border p-2"
-                placeholder={t("reason_optional")}
+                placeholder={t('reason_optional')}
                 disabled={pending}
               />
             </div>
@@ -265,10 +251,8 @@ export function FeedbackDetail({
               // onClick={() => setRejecting((value) => !value)}
               onClick={() => reject.mutate()}
             >
-              {reject.isPending && (
-                <Loader2 className="animate-spin" />
-              )}
-              {rejecting ? t("cancel") : t("reject")}
+              {reject.isPending && <Loader2 className="animate-spin" />}
+              {rejecting ? t('cancel') : t('reject')}
             </Button>
 
             {rejecting ? (
@@ -278,10 +262,8 @@ export function FeedbackDetail({
                 disabled={pending}
                 onClick={() => reject.mutate()}
               >
-                {reject.isPending && (
-                  <Loader2 className="animate-spin" />
-                )}
-                {t("reject")}
+                {reject.isPending && <Loader2 className="animate-spin" />}
+                {t('reject')}
               </Button>
             ) : (
               <Button
@@ -289,19 +271,17 @@ export function FeedbackDetail({
                 disabled={!validReduction || pending}
                 onClick={() => approve.mutate()}
               >
-                {approve.isPending && (
-                  <Loader2 className="animate-spin" />
-                )}
-                {t("approve")}
+                {approve.isPending && <Loader2 className="animate-spin" />}
+                {t('approve')}
               </Button>
             )}
           </div>
         </>
       ) : (
         <p className="mt-6 text-sm text-muted-foreground">
-          {t("feedback_status_note", {
+          {t('feedback_status_note', {
             status: t(label(selected.status)),
-            note: selected.reviewNote ? `: ${selected.reviewNote}` : ".",
+            note: selected.reviewNote ? `: ${selected.reviewNote}` : '.',
           })}
         </p>
       )}
