@@ -10,6 +10,7 @@ import { WorkforceRules } from './models/workforce-rules.model';
 import { WorkforceRulesService } from './workforce-rules.service';
 import { TraceLogger } from '../app/trace/trace-logger.service';
 import { TraceContextService } from '../app/trace/trace-context.service';
+import dayjs from 'dayjs';
 
 type WorkforceFileKind = 'CHECKIN_CHECKOUT' | 'LEAVE';
 
@@ -113,13 +114,11 @@ export class WorkforceService {
     return rows.map((row) => row.month);
   }
 
-  async getMonthlyReport(value: string): Promise<any> {
-    const [year, month] = value.split('-').map(Number);
+  async getMonthlyReport(month: string): Promise<any> {
+    const monthStart = dayjs(`${month}-01`).startOf('month').format('YYYY-MM-DD');
+    const nextMonthStart = dayjs(monthStart).add(1, 'month').startOf('month').format('YYYY-MM-DD');
 
-    const monthStart = new Date(year, month - 1, 1);
-    const nextMonthStart = new Date(year, month, 1);
-
-    this.logger.debug('[getMonthlyReport] ' + JSON.stringify({ monthStart, nextMonthStart, year, month }));
+    this.logger.debug('[getMonthlyReport] ' + JSON.stringify({ monthStart, nextMonthStart, month }));
 
     const rows = await this.prisma.$queryRaw<
       Array<{
@@ -135,6 +134,9 @@ export class WorkforceService {
         originalFineAmount: number | null;
         adjustedAmount: number | null;
         fineAmount: number;
+
+        monthFinePaidAmount: number;
+        monthFinePaidStatus: string;
 
         feedback: string;
       }>
@@ -156,6 +158,12 @@ export class WorkforceService {
               WHEN f.status = 'cancelled' THEN 0
               ELSE COALESCE(f.adjustedAmount, f.amount, 0)
           END AS fineAmount,
+
+          emf.status as monthFinePaidStatus,
+          CASE
+              WHEN emf.status = 'completed' THEN emf.payableAmount
+              ELSE 0
+          END AS monthFinePaidAmount,
 
           COALESCE(
               (
@@ -185,6 +193,10 @@ export class WorkforceService {
           ON f.employeeCode = a.employeeCode
           AND date(f.date) = date(a.date)
 
+      LEFT JOIN EmployeeMonthlyFine emf
+        ON emf.employeeCode = a.employeeCode
+        AND date(emf.month) = date(${monthStart})
+
       WHERE
           a.date >= ${monthStart}
           AND a.date < ${nextMonthStart}
@@ -201,6 +213,7 @@ export class WorkforceService {
         employeeName: string | null;
         totalFine: number;
         attendanceCount: number;
+        monthFinePaidStatus: string;
       }
     >();
 
@@ -213,6 +226,7 @@ export class WorkforceService {
           employeeName: row.employeeName,
           totalFine: 0,
           attendanceCount: 0,
+          monthFinePaidStatus: row.monthFinePaidStatus,
         };
 
         employeeSummaries.set(row.employeeCode, employee);
@@ -224,7 +238,7 @@ export class WorkforceService {
     }
 
     return {
-      month: value,
+      month,
       employeeSummaries: Array.from(employeeSummaries.values()),
       grandTotal: Array.from(employeeSummaries.values()).reduce((sum, employee) => sum + employee.totalFine, 0),
       rows: rows.map((row) => ({

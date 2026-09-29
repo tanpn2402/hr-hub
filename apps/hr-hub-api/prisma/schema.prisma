@@ -228,6 +228,50 @@ model EmployeeMonthlyFine {
   @@index([employeeCode, status])
 }
 
+model FinePayment {
+  id String @id @default(cuid())
+
+  employeeCode String
+  employeeName String?
+
+  /// Monthly fine IDs included in this payment.
+  /// JSON array of EmployeeMonthlyFine.id values.
+  monthlyFineIds String
+
+  /// Total amount being paid.
+  amount Int
+
+  currency String @default("VND")
+
+  /// pending / paid / cancelled / expired
+  status String @default("pending")
+
+  /// qr / bank_transfer / cash
+  paymentMethod String?
+
+  /// APIPAY / PAYOS / ...
+  provider String?
+
+  /// Provider order/payment ID.
+  providerPaymentId String?
+
+  providerMetadata String?
+
+  paidAt DateTime?
+
+  createdBy     String?
+  createdByName String?
+
+  expiresAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([employeeCode, status])
+  @@index([status])
+  @@index([providerPaymentId])
+}
+
 model FinancialTransaction {
   id String @id @default(cuid())
 

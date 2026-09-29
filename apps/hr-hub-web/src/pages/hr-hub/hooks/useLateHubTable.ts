@@ -21,13 +21,17 @@ export type WorkforceRow = {
   checkIn: string;
   checkOut: string;
   note: string;
+  fineId?: string;
   fineAmount: number;
+  monthFinePaidAmount: number;
+  monthFinePaidStatus: string;
 };
 
 export type EmployeeSummary = {
   employeeCode: string;
   employeeName?: string | null;
   totalFine: number;
+  monthFinePaidStatus: string;
 };
 
 export type WorkforceImportResult = {
@@ -51,6 +55,7 @@ export type ReviewSummaryRow = {
   employeeName: string;
   totalFine: number;
   violationCount: number;
+  monthFinePaidStatus: string;
 };
 
 export type ReviewTableRow = ReviewDetailRow | ReviewSummaryRow;
@@ -104,6 +109,7 @@ function buildReviewRows(result: WorkforceImportResult): ReviewTableRow[] {
         summary?.totalFine ??
         rows.reduce((total, row) => total + row.fineAmount, 0),
       violationCount: rows.length,
+      monthFinePaidStatus: rows[0].monthFinePaidStatus,
     });
   }
 

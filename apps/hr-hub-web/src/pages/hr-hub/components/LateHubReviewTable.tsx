@@ -7,26 +7,11 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Button } from "@/components/ui/button";
 import { Check, ChevronsUpDown, X } from "lucide-react";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { EmployeeSummary, WorkforceRow } from "../hooks/useLateHubTable";
 
 /* -------------------------------------------------------------------------- */
 /* Types                                                                      */
 /* -------------------------------------------------------------------------- */
-
-export type WorkforceRow = {
-  employeeCode: string;
-  employeeName: string;
-  date: string;
-  checkIn: string;
-  checkOut: string;
-  note: string;
-  fineAmount: number;
-};
-
-export type EmployeeSummary = {
-  employeeCode: string;
-  employeeName?: string | null;
-  totalFine: number;
-};
 
 export type WorkforceImportResult = {
   batchId: string;

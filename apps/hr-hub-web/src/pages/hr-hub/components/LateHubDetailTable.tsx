@@ -24,7 +24,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-import { useLateHubTable } from "../hooks/useLateHubTable";
+import { ReviewDetailRow, ReviewSummaryRow, useLateHubTable, WorkforceImportResult } from "../hooks/useLateHubTable";
 import { Button } from "@/components/ui/button";
 import { SubmitFeedbackDialog } from "./SubmitFeedbackDialog";
 import { SubmitFinePaymentDialog } from "./SubmitFinePaymentDialog";
@@ -39,45 +39,6 @@ import { useTranslation } from "react-i18next";
 /* Types                                                                      */
 /* -------------------------------------------------------------------------- */
 
-export type WorkforceRow = {
-  employeeCode: string;
-  employeeName: string;
-  date: string;
-  checkIn: string;
-  checkOut: string;
-  note: string;
-  fineAmount: number;
-  fineId?: string;
-};
-
-export type EmployeeSummary = {
-  employeeCode: string;
-  employeeName?: string | null;
-  totalFine: number;
-};
-
-export type WorkforceImportResult = {
-  batchId: string;
-  status?: "preview" | "confirmed";
-  rows: WorkforceRow[];
-  employeeSummaries: EmployeeSummary[];
-  grandTotal: number;
-};
-
-type ReviewDetailRow = WorkforceRow & {
-  rowType: "detail";
-  id: string;
-  feedback?: WorkforceFeedback[];
-};
-
-type ReviewSummaryRow = {
-  rowType: "summary";
-  id: string;
-  employeeCode: string;
-  employeeName: string;
-  totalFine: number;
-  violationCount: number;
-};
 
 type ReviewTableRow = ReviewDetailRow | ReviewSummaryRow;
 
@@ -274,7 +235,7 @@ export function LateHubDetailTable({ data }: Props) {
           if (item.rowType === "summary") {
             return (
               <div className="text-right font-mono text-sm font-semibold">
-                {formatMoney(item.totalFine)}
+                {formatMoney(item.monthFinePaidStatus === "completed" ? 0 : item.totalFine)}
               </div>
             );
           }
@@ -297,7 +258,7 @@ export function LateHubDetailTable({ data }: Props) {
                   </Tooltip>
                 ))
               ) : null}
-              <div className="text-right font-mono text-sm">
+              <div className={cn("text-right font-mono text-sm", item.monthFinePaidStatus === "completed" ? "line-through" : "")}>
                 {formatMoney(item.fineAmount)}
               </div>
             </div>

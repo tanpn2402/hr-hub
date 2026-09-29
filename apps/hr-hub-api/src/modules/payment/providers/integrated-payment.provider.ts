@@ -11,6 +11,7 @@ export interface GenerateQrResult {
   accountNumber: string;
   amount: number;
   content: string;
+  provider: string;
 }
 
 export interface IntegratedPaymentProvider {

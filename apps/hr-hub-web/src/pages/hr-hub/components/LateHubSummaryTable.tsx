@@ -14,7 +14,6 @@ import {
 } from "lucide-react";
 
 import type {
-  EmployeeSummary,
   WorkforceImportResult,
 } from "./LateHubReviewTable";
 
@@ -31,6 +30,8 @@ import { useAuth } from "@/auth/useAuth";
 import { cn } from "cn";
 import { useTranslation } from "react-i18next";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { ConfirmFinePaymentDialog } from "./ConfirmFinePaymentDialog";
+import { EmployeeSummary } from "../hooks/useLateHubTable";
 
 function formatMoney(value: number) {
   return new Intl.NumberFormat("vi-VN", {
@@ -59,6 +60,7 @@ export function LateHubSummaryTable({ data, onEmployeeClick }: Props) {
   const { hasPermission } = useAuth();
 
   const [paymentEmployee, setPaymentEmployee] = useState<EmployeeSummary | null>(null);
+  const [confirmPaymentEmployee, setConfirmPaymentEmployee] = useState<EmployeeSummary | null>(null);
 
   const columns = useMemo<
     Array<ColumnDef<typeof features, EmployeeSummary>>
@@ -108,7 +110,7 @@ export function LateHubSummaryTable({ data, onEmployeeClick }: Props) {
 
         cell: ({ row }) => (
           <div className="text-right font-mono text-sm font-semibold">
-            {formatMoney(row.original.totalFine)}
+            {formatMoney(row.original.monthFinePaidStatus === "completed" ? 0 : row.original.totalFine)}
           </div>
         ),
       },
@@ -150,7 +152,7 @@ export function LateHubSummaryTable({ data, onEmployeeClick }: Props) {
                   {!hasPermission("hr") ? null : (
                     <DropdownMenuItem
                       onClick={() => {
-                        setPaymentEmployee(employee);
+                        setConfirmPaymentEmployee(employee);
                       }}
                     >
                       <CheckIcon className="mr-2 h-4 w-4" />
@@ -281,6 +283,11 @@ export function LateHubSummaryTable({ data, onEmployeeClick }: Props) {
       <SubmitFinePaymentDialog
         paymentEmployee={paymentEmployee}
         onOpenChange={() => setPaymentEmployee(null)}
+      />
+
+      <ConfirmFinePaymentDialog
+        paymentEmployee={confirmPaymentEmployee}
+        onOpenChange={() => setConfirmPaymentEmployee(null)}
       />
     </>
   );

@@ -13,7 +13,7 @@ export type WorkforceRow = {
 
 export type EmployeeSummary = {
   employeeCode: string;
-  employeeName: string;
+  employeeName?: string | null;
   totalFine: number;
 };
 
@@ -80,6 +80,51 @@ export type WorkforceFeedbackDetail = {
     note: string | null;
   } | null;
   leave: { type: string; reason: string | null; status: string } | null;
+};
+
+export type MonthlyFine = {
+  id: string;
+  employeeCode: string;
+  employeeName?: string | null;
+  month: string;
+  originalAmount: number;
+  reductionAmount: number;
+  payableAmount: number;
+  currency: string;
+  status: string;
+};
+
+export type FinePayment = {
+  id: string;
+  employeeCode: string;
+  employeeName?: string | null;
+
+  monthlyFineIds: string;
+  monthlyFines: MonthlyFine[] | null | undefined;
+
+  amount: number;
+  currency: string;
+
+  status: string;
+
+  paymentMethod?: string | null;
+  provider?: string | null;
+  providerPaymentId?: string | null;
+  providerMetadata?: string | null;
+
+  qrCode?: string | null;
+  qrUrl?: string | null;
+
+  description?: string | null;
+
+  createdAt: string;
+  expiresAt?: string | null;
+};
+
+export type FinePaymentPreviewResponse = {
+  employeeCode: string;
+  pendingTransactions: FinePayment[];
+  availableMonthlyFines: MonthlyFine[];
 };
 
 export async function getWorkforceFeedback(

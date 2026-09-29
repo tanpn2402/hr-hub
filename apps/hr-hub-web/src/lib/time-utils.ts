@@ -14,9 +14,15 @@ export function dateOfWeek(value: string) {
   return dayNames[dayjs(value).day()];
 }
 
-export function formatMonth(month: string) {
+/**
+ *
+ * @param month
+ * @param format MMMM | MMMM, YYYY
+ * @returns
+ */
+export function formatMonth(month: string, format = "MMMM, YYYY") {
   return dayjs(month)
     .locale("vi")
-    .format("MMMM")
+    .format(format)
     .replace(/^./, (char) => char.toUpperCase());
 }
