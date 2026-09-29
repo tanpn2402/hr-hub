@@ -30,27 +30,21 @@ import {
 
 import { apiClient } from "@/api/client";
 import { LateHubReviewDialog } from "../components/LateHubReviewDialog";
-import { WorkforceRow } from "../api/workforce";
+import { EmployeeSummary, WorkforceRow } from "../api/workforce";
 import { getWorkforceFeedback } from "../api/workforce";
 import { FeedbackReviewDialog } from "../components/FeedbackReviewDialog";
 import { useTranslation } from "react-i18next";
-import dayjs from "dayjs";
 import { formatMonth } from "@/lib/time-utils";
 
 /* -------------------------------------------------------------------------- */
 /* Types                                                                      */
 /* -------------------------------------------------------------------------- */
 
-type EmployeeSummary = {
-  employeeCode: string;
-  name: string;
-  totalFine: number;
-  attendanceCount?: number;
-};
-
 type MonthlyReport = {
+  month: string;
   employeeSummaries: EmployeeSummary[];
   grandTotal: number;
+  paidAmount: number;
   rows: WorkforceRow[];
 };
 
@@ -365,9 +359,11 @@ export function AttendanceLeavePage() {
         open={reviewOpen}
         data={reportQuery.data ? {
           batchId: "",
+          month: reportQuery.data.month,
           status: "confirmed",
           employeeSummaries: reportQuery.data.employeeSummaries,
           grandTotal: reportQuery.data.grandTotal,
+          paidAmount: reportQuery.data.paidAmount,
           rows: reportQuery.data.rows,
         } : null}
         onOpenChange={setReviewOpen}

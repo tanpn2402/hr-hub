@@ -39,6 +39,8 @@ export const resources = {
       feedback: "Phản hồi",
       payment: "Thanh toán",
       confirm_payment: "Xác nhận thanh toán",
+      reject_payment: "Hủy thanh toán",
+      list_payment: "DS Thanh toán",
       detail: "Chi tiết",
       summary: "Tóm tắt",
       fine_payment: "Thanh toán tiền phạt",

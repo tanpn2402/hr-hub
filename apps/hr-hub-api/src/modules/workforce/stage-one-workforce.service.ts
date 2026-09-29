@@ -724,6 +724,7 @@ export class StageOneWorkforceService {
 
     return {
       batchId: result.id,
+      month: result.month,
       status: result.status,
       employeeSummaries: Array.from(employeeSummaries.values()),
       rows: previewData.rows,

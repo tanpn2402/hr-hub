@@ -241,6 +241,10 @@ export class WorkforceService {
       month,
       employeeSummaries: Array.from(employeeSummaries.values()),
       grandTotal: Array.from(employeeSummaries.values()).reduce((sum, employee) => sum + employee.totalFine, 0),
+      paidAmount: Array.from(employeeSummaries.values()).reduce(
+        (sum, employee) => sum + (employee.monthFinePaidStatus === 'completed' ? employee.totalFine : 0),
+        0,
+      ),
       rows: rows.map((row) => ({
         ...row,
         feedback: typeof row.feedback === 'string' ? JSON.parse(row.feedback) : row.feedback,

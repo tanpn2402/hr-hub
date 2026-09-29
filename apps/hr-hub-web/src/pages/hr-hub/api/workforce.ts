@@ -7,14 +7,18 @@ export type WorkforceRow = {
   checkIn: string;
   checkOut: string;
   note: string;
-  fineAmount: number;
   fineId?: string;
+  fineAmount: number;
+  monthFinePaidAmount: number;
+  monthFinePaidStatus: string;
 };
 
 export type EmployeeSummary = {
   employeeCode: string;
   employeeName?: string | null;
+  attendanceCount: number;
   totalFine: number;
+  monthFinePaidStatus: string;
 };
 
 export type ImportWorkforceResponse = {
@@ -127,6 +131,23 @@ export type FinePaymentPreviewResponse = {
   availableMonthlyFines: MonthlyFine[];
 };
 
+export type SettlePaymentResponse = FinePayment;
+
+export type SettlePaymentPayload = {
+  paymentId: string;
+  providerMetadata?: unknown;
+};
+
+export type RejectFinePaymentPayload = {
+  paymentId: string;
+  reason?: string;
+};
+
+export type ExecutePaymentPayload = {
+  employeeCode: string;
+  monthlyFineIds: string[];
+};
+
 export async function getWorkforceFeedback(
   month: string,
 ): Promise<WorkforceFeedbackList> {
@@ -181,6 +202,50 @@ export async function importWorkforceFiles({
     "/workforce/import/preview",
     formData,
   );
+
+  return data;
+}
+
+export async function getPaymentPreview(
+  employeeCode: string,
+): Promise<FinePaymentPreviewResponse> {
+  const { data } = await apiClient.get<FinePaymentPreviewResponse>(
+    "/fines/payment/preview",
+    {
+      params: {
+        employeeCode,
+      },
+    },
+  );
+
+  return data;
+}
+
+export async function settleFinePayment(
+  payload: SettlePaymentPayload,
+): Promise<SettlePaymentResponse> {
+  const { data } = await apiClient.post<SettlePaymentResponse>(
+    `/fines/payment/${payload.paymentId}/settle`,
+    {},
+  );
+
+  return data;
+}
+
+export async function rejectFinePayment(
+  payload: RejectFinePaymentPayload,
+): Promise<FinePayment> {
+  const { data } = await apiClient.delete<FinePayment>(
+    `/fines/payment/${payload.paymentId}`,
+  );
+
+  return data;
+}
+
+export async function executeFinePayment(
+  payload: ExecutePaymentPayload,
+): Promise<FinePayment> {
+  const { data } = await apiClient.post<FinePayment>("/fines/payment", payload);
 
   return data;
 }

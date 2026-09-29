@@ -7,7 +7,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Button } from "@/components/ui/button";
 import { Check, ChevronsUpDown, X } from "lucide-react";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { EmployeeSummary, WorkforceRow } from "../hooks/useLateHubTable";
+import { EmployeeSummary, WorkforceRow } from "../api/workforce";
 
 /* -------------------------------------------------------------------------- */
 /* Types                                                                      */
@@ -15,10 +15,12 @@ import { EmployeeSummary, WorkforceRow } from "../hooks/useLateHubTable";
 
 export type WorkforceImportResult = {
   batchId: string;
+  month: string;
   status?: "preview" | "confirmed";
   rows: WorkforceRow[];
   employeeSummaries: EmployeeSummary[];
   grandTotal: number;
+  paidAmount: number;
 };
 
 type Props = {

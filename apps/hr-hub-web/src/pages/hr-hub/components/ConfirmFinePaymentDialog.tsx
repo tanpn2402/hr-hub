@@ -1,13 +1,13 @@
 import { useMemo, useState } from "react";
 import dayjs from "dayjs";
 import {
-  useMutation,
-  useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
 import axios from "axios";
 import {
   Check,
+  CreditCardCheck,
+  CreditCardX,
   Loader2,
   RefreshCw,
 } from "lucide-react";
@@ -23,82 +23,15 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useTranslation } from "react-i18next";
-import { EmployeeSummary, FinePayment, FinePaymentPreviewResponse } from "../api/workforce";
+import { EmployeeSummary } from "../api/workforce";
 import { formatMoney } from "@/lib/format-utils";
 import { formatMonth } from "@/lib/time-utils";
+import { useFinePaymentPreview, useRejectFinePaymentMutation, useSettleFinePaymentMutation } from "../hooks/useFinePayment";
 
 type Props = {
   paymentEmployee: EmployeeSummary | null;
   onOpenChange: (open: boolean) => void;
 };
-
-type SettlePaymentResponse = FinePayment;
-
-type SettlePaymentPayload = {
-  paymentId: string;
-  providerMetadata?: unknown;
-};
-
-/*
- * --------------------------------------------------------------------------
- * API
- * --------------------------------------------------------------------------
- */
-
-async function getPaymentPreview(
-  employeeCode: string,
-): Promise<FinePaymentPreviewResponse> {
-  const { data } =
-    await axios.get<FinePaymentPreviewResponse>(
-      "/api/fines/payment/preview",
-      {
-        params: {
-          employeeCode,
-        },
-      },
-    );
-
-  return data;
-}
-
-async function settleFinePayment(
-  payload: SettlePaymentPayload,
-): Promise<SettlePaymentResponse> {
-  const { data } =
-    await axios.post<SettlePaymentResponse>(
-      `/api/fines/payment/${payload.paymentId}/settle`,
-      {},
-    );
-
-  return data;
-}
-
-/*
- * --------------------------------------------------------------------------
- * Hooks
- * --------------------------------------------------------------------------
- */
-
-function usePendingFinePayments(
-  employeeCode: string | null | undefined,
-  enabled: boolean,
-) {
-  return useQuery({
-    queryKey: [
-      "fine-payment-preview",
-      employeeCode,
-    ],
-    queryFn: () =>
-      getPaymentPreview(employeeCode!),
-    enabled: !!employeeCode && enabled,
-  });
-}
-
-function useSettleFinePaymentMutation() {
-  return useMutation({
-    mutationFn: settleFinePayment,
-  });
-}
 
 /*
  * --------------------------------------------------------------------------
@@ -113,73 +46,58 @@ export function ConfirmFinePaymentDialog({
   const { t } = useTranslation();
   const queryClient = useQueryClient();
 
-  const [selectedIds, setSelectedIds] =
-    useState<string[]>([]);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
-  const [settledIds, setSettledIds] =
-    useState<string[]>([]);
+  const [settledIds, setSettledIds] = useState<string[]>([]);
 
-  const [settlingIds, setSettlingIds] =
-    useState<string[]>([]);
+  const [settlingIds, setSettlingIds] = useState<string[]>([]);
 
   const open = !!paymentEmployee;
 
-  const pendingQuery =
-    usePendingFinePayments(
-      paymentEmployee?.employeeCode,
-      open,
-    );
+  const pendingQuery = useFinePaymentPreview(
+    paymentEmployee?.employeeCode,
+    open,
+  );
 
-  const settleMutation =
-    useSettleFinePaymentMutation();
+  const settleMutation = useSettleFinePaymentMutation();
+
+  const rejectMutation = useRejectFinePaymentMutation();
 
   const pendingTransactions =
     pendingQuery.data?.pendingTransactions ?? [];
 
-  const visibleTransactions =
-    useMemo(
-      () =>
-        pendingTransactions.filter(
-          (payment) =>
-            !settledIds.includes(payment.id),
-        ),
-      [
-        pendingTransactions,
-        settledIds,
-      ],
-    );
+  const visibleTransactions = useMemo(() =>
+    pendingTransactions.filter(
+      (payment) =>
+        !settledIds.includes(payment.id),
+    ),
+    [
+      pendingTransactions,
+      settledIds,
+    ],
+  );
 
-  const selectedTransactions =
-    useMemo(
-      () =>
-        visibleTransactions.filter(
-          (payment) =>
-            selectedIds.includes(payment.id),
-        ),
-      [
-        visibleTransactions,
-        selectedIds,
-      ],
-    );
+  const selectedTransactions = useMemo(() =>
+    visibleTransactions.filter(
+      (payment) =>
+        selectedIds.includes(payment.id),
+    ),
+    [
+      visibleTransactions,
+      selectedIds,
+    ],
+  );
 
-  const selectedAmount =
-    selectedTransactions.reduce(
-      (sum, payment) =>
-        sum + payment.amount,
-      0,
-    );
+  const selectedAmount = selectedTransactions.reduce((sum, payment) => sum + payment.amount, 0);
 
   const allSelected =
     visibleTransactions.length > 0 &&
     selectedIds.length ===
     visibleTransactions.length;
 
-  const isSettling =
-    settlingIds.length > 0;
+  const isSettling = settlingIds.length > 0;
 
-  const togglePayment = (
-    paymentId: string,
-  ) => {
+  const togglePayment = (paymentId: string) => {
     if (settlingIds.includes(paymentId)) {
       return;
     }
@@ -260,12 +178,76 @@ export function ConfirmFinePaymentDialog({
         ),
       );
 
-      await queryClient.invalidateQueries({
-        queryKey: [
-          "fine-payment-preview",
-          paymentEmployee?.employeeCode,
-        ],
+      queryClient.invalidateQueries({
+        queryKey: ["fine-payment-preview"]
       });
+
+      queryClient.invalidateQueries({
+        queryKey: ["workforce", "report"]
+      });
+
+    } finally {
+      setSettlingIds([]);
+    }
+  };
+
+  const handleReject = async () => {
+    if (!selectedIds.length) {
+      return;
+    }
+
+    /*
+     * Snapshot the selection before starting.
+     */
+    const ids = [...selectedIds];
+
+    setSettlingIds(ids);
+
+    const successfulIds: string[] = [];
+
+    try {
+      /*
+       * Settle sequentially.
+       *
+       * This is intentional:
+       * - avoids sending many settlement requests at once
+       * - each transaction is independently idempotent
+       * - easier to handle partial failures
+       */
+      for (const paymentId of ids) {
+        try {
+          await rejectMutation.mutateAsync({
+            paymentId,
+          });
+
+          successfulIds.push(paymentId);
+        } catch {
+          /*
+           * Continue with the remaining payments.
+           */
+        }
+      }
+
+      setSettledIds((current) => [
+        ...current,
+        ...successfulIds,
+      ]);
+
+      setSelectedIds((current) =>
+        current.filter(
+          (id) =>
+            !successfulIds.includes(id),
+        ),
+      );
+
+      queryClient.invalidateQueries({
+        queryKey: ["fine-payment-preview"]
+      });
+
+      queryClient.invalidateQueries({
+        queryKey: ["workforce", "report"]
+      });
+
     } finally {
       setSettlingIds([]);
     }
@@ -460,11 +442,7 @@ export function ConfirmFinePaymentDialog({
 
                                   <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
                                     {!payment.monthlyFines?.length ? null : (
-                                      payment.monthlyFines.map(fine => (
-                                        <span>
-                                          {formatMonth(fine.month)}
-                                        </span>
-                                      ))
+                                      payment.monthlyFines.map(fine => (formatMonth(fine.month))).join(" • ")
                                     )}
                                   </div>
                                 </div>
@@ -524,9 +502,7 @@ export function ConfirmFinePaymentDialog({
                       </span>
 
                       <span className="font-mono text-xl font-bold">
-                        {formatMoney(
-                          selectedAmount,
-                        )}
+                        {formatMoney(selectedAmount)}
                       </span>
                     </div>
                   </div>
@@ -553,7 +529,28 @@ export function ConfirmFinePaymentDialog({
             {t("close")}
           </Button>
 
-          {visibleTransactions.length > 0 && (
+          {visibleTransactions.length > 0 && (<>
+
+            <Button
+              type="button"
+              className="min-w-32"
+              disabled={
+                !selectedIds.length ||
+                isSettling ||
+                pendingQuery.isLoading
+              }
+              onClick={handleReject}
+              variant="destructive"
+            >
+              {isSettling ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <CreditCardX className="mr-2 h-4 w-4" />
+              )}
+
+              {t("reject_payment")}
+            </Button>
+
             <Button
               type="button"
               className="min-w-32"
@@ -564,13 +561,16 @@ export function ConfirmFinePaymentDialog({
               }
               onClick={handleSettle}
             >
-              {isSettling && (
+              {isSettling ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <CreditCardCheck className="mr-2 h-4 w-4" />
               )}
 
               {t("confirm_payment")}
             </Button>
-          )}
+
+          </>)}
         </DialogFooter>
       </DialogContent>
     </Dialog>

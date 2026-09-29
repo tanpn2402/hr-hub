@@ -142,7 +142,11 @@ export function SubmitFeedbackDialog({ feedbackEmployee, onOpenChange }: Props) 
               </h3>
 
               <p className="mt-1 text-sm text-muted-foreground">
-                {feedbackEmployee?.employeeCode} · {feedbackEmployee?.date ? dateOfWeek(feedbackEmployee?.date) : "—"} · {dayjs(feedbackEmployee?.date).format("DD/MM/YYYY")}
+                {feedbackEmployee?.employeeCode} ·{" "}
+                {feedbackEmployee?.date
+                  ? dateOfWeek(feedbackEmployee?.date)
+                  : "—"}{" "}
+                · {dayjs(feedbackEmployee?.date).format("DD/MM/YYYY")}
               </p>
 
               <hr className="my-6" />
@@ -152,9 +156,7 @@ export function SubmitFeedbackDialog({ feedbackEmployee, onOpenChange }: Props) 
               <dl className="mt-3 grid grid-cols-2 gap-3 text-sm">
                 <dt className="text-muted-foreground">{t("check_in")}</dt>
                 <dd>
-                  {feedbackEmployee?.checkIn
-                    ? feedbackEmployee?.checkIn
-                    : "—"}
+                  {feedbackEmployee?.checkIn ? feedbackEmployee?.checkIn : "—"}
                 </dd>
 
                 <dt className="text-muted-foreground">{t("check_out")}</dt>
@@ -165,7 +167,13 @@ export function SubmitFeedbackDialog({ feedbackEmployee, onOpenChange }: Props) 
                 </dd>
 
                 <dt className="text-muted-foreground">{t("note")}</dt>
-                <dd>{feedbackEmployee?.note || "—"}</dd>
+                <dd>
+                  {feedbackEmployee?.note
+                    ? feedbackEmployee?.note
+                      .split(";")
+                      .map((note) => <div key={note}>{note}</div>)
+                    : "—"}
+                </dd>
 
                 <dt className="text-muted-foreground">{t("fine_amount")}</dt>
                 <dd>
@@ -187,7 +195,10 @@ export function SubmitFeedbackDialog({ feedbackEmployee, onOpenChange }: Props) 
                   setFeedbackReason(value as FeedbackReason)
                 }
                 disabled={feedbackMutation.isPending}
-                items={FEEDBACK_REASONS.map(({ label, value }) => ({ value, label: t(label) }))}
+                items={FEEDBACK_REASONS.map(({ label, value }) => ({
+                  value,
+                  label: t(label),
+                }))}
               >
                 <SelectTrigger className="w-full">
                   <SelectValue />
@@ -195,10 +206,7 @@ export function SubmitFeedbackDialog({ feedbackEmployee, onOpenChange }: Props) 
 
                 <SelectContent>
                   {FEEDBACK_REASONS.map((reason) => (
-                    <SelectItem
-                      key={reason.value}
-                      value={reason.value}
-                    >
+                    <SelectItem key={reason.value} value={reason.value}>
                       {t(reason.label)}
                     </SelectItem>
                   ))}
@@ -207,13 +215,13 @@ export function SubmitFeedbackDialog({ feedbackEmployee, onOpenChange }: Props) 
             </div>
 
             <div className="space-y-2">
-              <Label className="text-muted-foreground">{t("description")}</Label>
+              <Label className="text-muted-foreground">
+                {t("description")}
+              </Label>
 
               <Textarea
                 value={feedbackDescription}
-                onChange={(event) =>
-                  setFeedbackDescription(event.target.value)
-                }
+                onChange={(event) => setFeedbackDescription(event.target.value)}
                 placeholder=""
                 rows={5}
                 disabled={feedbackMutation.isPending}
@@ -254,13 +262,11 @@ export function SubmitFeedbackDialog({ feedbackEmployee, onOpenChange }: Props) 
               ) : (
                 <SendIcon />
               )}
-              {feedbackMutation.isPending
-                ? t("sending")
-                : t("send_feedback")}
+              {feedbackMutation.isPending ? t("sending") : t("send_feedback")}
             </Button>
           </DialogFooter>
         </DialogContent>
-      </Dialog >
+      </Dialog>
     </>
   );
 }

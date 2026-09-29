@@ -31,7 +31,6 @@ import { SubmitFinePaymentDialog } from "./SubmitFinePaymentDialog";
 import { dateOfWeek } from "@/lib/time-utils";
 import { formatMoney } from "@/lib/format-utils";
 import { cn } from "cn";
-import { WorkforceFeedback } from "../api/workforce";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useTranslation } from "react-i18next";
 
@@ -283,7 +282,7 @@ export function LateHubDetailTable({ data }: Props) {
           if (isEmpty) return null;
 
           return (
-            <div className="flex justify-end">
+            <div className="flex justify-end relative -top-0.5">
               <DropdownMenu>
                 <DropdownMenuTrigger render={<Button
                   type="button"
@@ -473,9 +472,11 @@ export function LateHubDetailTable({ data }: Props) {
               {t("grand_total")}
             </div>
 
-            <div className="w-32 text-right font-mono text-sm font-bold">
-              {formatMoney(data.grandTotal)}
+            <div className="text-right font-mono text-sm font-bold">
+              {isReviewing ? "" : (formatMoney(data.paidAmount) + " / ")}{formatMoney(data.grandTotal)}
             </div>
+
+            {isReviewing ? null : <div className="w-16.5" />}
           </div>
         </div>
       </div>
@@ -494,6 +495,8 @@ export function LateHubDetailTable({ data }: Props) {
             employeeCode: paymentEmployee.employeeCode,
             employeeName: paymentEmployee.employeeName,
             totalFine: paymentEmployee.totalFine,
+            monthFinePaidStatus: "",
+            attendanceCount: 0,
           }}
         onOpenChange={() => setPaymentEmployee(null)}
       />

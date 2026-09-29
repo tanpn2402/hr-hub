@@ -8,31 +8,15 @@ import {
   useTable,
   type ColumnDef,
 } from "@tanstack/react-table";
-import { WorkforceFeedback } from "../api/workforce";
+import {
+  EmployeeSummary,
+  WorkforceFeedback,
+  WorkforceRow,
+} from "../api/workforce";
 
 /* -------------------------------------------------------------------------- */
 /* Types                                                                      */
 /* -------------------------------------------------------------------------- */
-
-export type WorkforceRow = {
-  employeeCode: string;
-  employeeName: string;
-  date: string;
-  checkIn: string;
-  checkOut: string;
-  note: string;
-  fineId?: string;
-  fineAmount: number;
-  monthFinePaidAmount: number;
-  monthFinePaidStatus: string;
-};
-
-export type EmployeeSummary = {
-  employeeCode: string;
-  employeeName?: string | null;
-  totalFine: number;
-  monthFinePaidStatus: string;
-};
 
 export type WorkforceImportResult = {
   batchId: string;
@@ -40,6 +24,7 @@ export type WorkforceImportResult = {
   rows: WorkforceRow[];
   employeeSummaries: EmployeeSummary[];
   grandTotal: number;
+  paidAmount: number;
 };
 
 export type ReviewDetailRow = WorkforceRow & {

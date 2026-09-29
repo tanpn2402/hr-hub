@@ -25,6 +25,7 @@ import {
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/api/client";
 import { useTranslation } from "react-i18next";
+import { formatMonth } from "@/lib/time-utils";
 
 type Props = {
   open: boolean;
@@ -141,7 +142,7 @@ export function LateHubReviewDialog({
                 </DialogTitle>
 
                 <DialogDescription className="mt-0.5 text-xs">
-                  {isReviewing ? t("review_attendance_violations_and_calculated_fines_before_continuing") : ""}
+                  {formatMonth(data.month) + " • " + (isReviewing ? t("review_attendance_violations_and_calculated_fines_before_continuing") : "")}
                 </DialogDescription>
               </div>
             </div>

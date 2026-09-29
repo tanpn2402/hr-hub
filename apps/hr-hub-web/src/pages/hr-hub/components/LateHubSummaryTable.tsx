@@ -9,6 +9,7 @@ import {
 import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   CheckIcon,
+  ListTree,
   MoreVertical,
   QrCode,
 } from "lucide-react";
@@ -31,7 +32,7 @@ import { cn } from "cn";
 import { useTranslation } from "react-i18next";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ConfirmFinePaymentDialog } from "./ConfirmFinePaymentDialog";
-import { EmployeeSummary } from "../hooks/useLateHubTable";
+import { EmployeeSummary } from "../api/workforce";
 
 function formatMoney(value: number) {
   return new Intl.NumberFormat("vi-VN", {
@@ -125,7 +126,7 @@ export function LateHubSummaryTable({ data, onEmployeeClick }: Props) {
           if (employee.totalFine === 0) return null;
 
           return (
-            <div className="flex justify-end">
+            <div className="flex justify-end relative -top-1.5">
               <DropdownMenu>
                 <DropdownMenuTrigger render={<Button
                   type="button"
@@ -155,8 +156,8 @@ export function LateHubSummaryTable({ data, onEmployeeClick }: Props) {
                         setConfirmPaymentEmployee(employee);
                       }}
                     >
-                      <CheckIcon className="mr-2 h-4 w-4" />
-                      {t("confirm_payment")}
+                      <ListTree className="mr-2 h-4 w-4" />
+                      {t("list_payment")}
                     </DropdownMenuItem>
                   )}
                 </DropdownMenuContent>
@@ -272,9 +273,11 @@ export function LateHubSummaryTable({ data, onEmployeeClick }: Props) {
               Tổng cộng
             </div>
 
-            <div className="w-32 text-right font-mono text-sm font-bold">
-              {formatMoney(data.grandTotal)}
+            <div className="text-right font-mono text-sm font-bold">
+              {isReviewing ? "" : (formatMoney(data.paidAmount) + " / ")}{formatMoney(data.grandTotal)}
             </div>
+
+            {isReviewing ? null : <div className="w-16.5" />}
           </div>
         </div>
       </div>

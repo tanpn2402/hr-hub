@@ -14,6 +14,10 @@ export interface CreateFinePaymentDto {
   monthlyFineIds: string[];
 }
 
+export interface RejectFinePaymentDto {
+  reason?: string;
+}
+
 @Injectable()
 export class FinePaymentService {
   private logger: TraceLogger;
@@ -289,7 +293,13 @@ export class FinePaymentService {
       throw error;
     }
 
-    return this.prisma.finePayment.findUnique({ where: { id: payment.id } });
+    const latestPayment = await this.prisma.finePayment.findUnique({ where: { id: payment.id } });
+    const monthlyFines = await this.prisma.employeeMonthlyFine.findMany({ where: { id: { in: monthlyFineIds } } });
+
+    return {
+      ...latestPayment,
+      monthlyFines,
+    };
   }
 
   /**
@@ -467,6 +477,48 @@ export class FinePaymentService {
           status: 'completed',
 
           description: `Fine payment for ${payment.employeeCode}`,
+        },
+      });
+
+      return updatedPayment;
+    });
+  }
+
+  async reject(paymentId: string, dto: RejectFinePaymentDto, user?: AuthenticatedUser) {
+    return this.prisma.$transaction(async (tx) => {
+      const payment = await tx.finePayment.findUnique({
+        where: {
+          id: paymentId,
+        },
+      });
+
+      if (!payment) {
+        throw new NotFoundException('Fine payment not found');
+      }
+
+      // Idempotent
+      if (payment.status === 'cancelled') {
+        return payment;
+      }
+
+      if (payment.status !== 'pending') {
+        throw new ConflictException(`Cannot reject payment with status: ${payment.status}`);
+      }
+
+      const updatedPayment = await tx.finePayment.update({
+        where: {
+          id: paymentId,
+        },
+        data: {
+          status: 'cancelled',
+          providerMetadata: dto.reason
+            ? JSON.stringify({
+                rejectedReason: dto.reason,
+                rejectedBy: user?.id ?? null,
+                rejectedByName: user?.username ?? user?.email ?? null,
+                rejectedAt: new Date().toISOString(),
+              })
+            : undefined,
         },
       });
 
