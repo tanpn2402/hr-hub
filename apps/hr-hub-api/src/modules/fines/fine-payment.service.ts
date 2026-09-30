@@ -141,12 +141,6 @@ export class FinePaymentService {
   async execute(dto: CreateFinePaymentDto, user?: AuthenticatedUser) {
     this.logger.debug('[execute] ' + JSON.stringify({ dto }));
 
-    await new Promise((resolve, reject) => {
-      setTimeout(() => {
-        resolve(null);
-      }, 3_000);
-    });
-
     const code = this.normalizeEmployeeCode(dto.employeeCode);
 
     const monthlyFineIds = this.normalizeMonthlyFineIds(dto.monthlyFineIds);
