@@ -7,6 +7,26 @@ datasource db {
   provider = "sqlite"
 }
 
+model Employee {
+  id           String    @id @default(cuid())
+  employeeCode String    @unique
+  name         String
+  email        String?
+  referenceId  String?
+  phone        String?
+  department   String?
+  position     String?
+  joinedAt     DateTime?
+  active       Boolean   @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([name])
+  @@index([department])
+  @@index([active])
+}
+
 model Attendance {
   id String @id @default(cuid())
 

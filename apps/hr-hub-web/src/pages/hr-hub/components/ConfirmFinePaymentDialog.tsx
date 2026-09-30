@@ -205,10 +205,8 @@ export function ConfirmFinePaymentDialog({ open, paymentEmployee, onOpenChange }
       return;
     }
 
-    setSelectedIds([]);
-    setSettledIds([]);
-    setSettlingIds([]);
     settleMutation.reset();
+    rejectMutation.reset();
 
     onOpenChange(false);
   };

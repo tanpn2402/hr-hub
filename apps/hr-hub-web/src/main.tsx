@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import App from './App';
 import { AuthProvider } from './auth/AuthProvider';
+import { Toaster } from './components/ui/sonner';
 import './locates';
 
 import dayjs from 'dayjs';
@@ -38,6 +39,7 @@ createRoot(container).render(
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <App />
+          <Toaster />
         </AuthProvider>
       </QueryClientProvider>
     </BrowserRouter>

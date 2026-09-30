@@ -12,6 +12,15 @@ export class FinePaymentController {
     return this.finePaymentService.preview(employeeCode);
   }
 
+  @Get('payment/history')
+  getHistory(@Query('month') month?: string, @Query('employeeCode') employeeCode?: string, @Query('status') status?: string) {
+    return this.finePaymentService.getHistory({
+      month,
+      employeeCode,
+      status,
+    });
+  }
+
   @Get('payment/:id')
   findOne(@Param('id') id: string) {
     return this.finePaymentService.findOne(id);

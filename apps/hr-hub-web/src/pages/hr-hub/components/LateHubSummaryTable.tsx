@@ -300,7 +300,7 @@ export function LateHubSummaryTable({ data, onEmployeeClick }: Props) {
       <ConfirmFinePaymentDialog
         open={openConfirmPaymentDialog}
         paymentEmployee={confirmPaymentEmployee}
-        onOpenChange={() => setConfirmPaymentEmployee(null)}
+        onOpenChange={() => setOpenConfirmPaymentDialog(false)}
       />
     </>
   );

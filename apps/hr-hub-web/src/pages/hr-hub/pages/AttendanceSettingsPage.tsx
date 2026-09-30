@@ -428,7 +428,7 @@ export function AttendanceSettingsPage() {
                   {table.getHeaderGroups().map((headerGroup) => (
                     <TableRow key={headerGroup.id}>
                       {headerGroup.headers.map((header) => (
-                        <TableHead key={header.id} className="whitespace-nowrap">
+                        <TableHead key={header.id} className="h-8 whitespace-nowrap">
                           {header.isPlaceholder ? null : (
                             <div
                               className={
@@ -440,7 +440,7 @@ export function AttendanceSettingsPage() {
                                 <button
                                   type="button"
                                   onClick={header.column.getToggleSortingHandler()}
-                                  className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground"
+                                  className="flex items-center gap-1 text-[10px] font-semibold tracking-wider text-muted-foreground hover:text-foreground"
                                 >
                                   <table.FlexRender header={header} />
 
@@ -467,7 +467,7 @@ export function AttendanceSettingsPage() {
                   {table.getRowModel().rows.map((row) => (
                     <TableRow key={row.id}>
                       {row.getVisibleCells().map((cell) => (
-                        <TableCell key={cell.id}>
+                        <TableCell key={cell.id} className="text-sm">
                           <table.FlexRender cell={cell} />
                         </TableCell>
                       ))}

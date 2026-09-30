@@ -122,6 +122,7 @@ export type FinePayment = {
   description?: string | null;
 
   createdAt: string;
+  paidAt: string;
   expiresAt?: string | null;
 };
 

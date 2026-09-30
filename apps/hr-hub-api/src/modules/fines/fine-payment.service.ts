@@ -141,6 +141,12 @@ export class FinePaymentService {
   async execute(dto: CreateFinePaymentDto, user?: AuthenticatedUser) {
     this.logger.debug('[execute] ' + JSON.stringify({ dto }));
 
+    await new Promise((resolve, reject) => {
+      setTimeout(() => {
+        resolve(null);
+      }, 3_000);
+    });
+
     const code = this.normalizeEmployeeCode(dto.employeeCode);
 
     const monthlyFineIds = this.normalizeMonthlyFineIds(dto.monthlyFineIds);
@@ -544,6 +550,110 @@ export class FinePaymentService {
       });
 
       return updatedPayment;
+    });
+  }
+
+  async getHistory(params: { month?: string; employeeCode?: string; status?: string }) {
+    const { month, employeeCode, status } = params;
+
+    const validStatuses = ['settled', 'cancelled', 'expired', 'pending'];
+
+    if (status && !validStatuses.includes(status)) {
+      throw new BadRequestException(`Invalid payment status: ${status}`);
+    }
+
+    const normalizedEmployeeCode = employeeCode ? this.normalizeEmployeeCode(employeeCode) : undefined;
+
+    let monthlyFineIds: string[] | undefined;
+
+    if (month) {
+      const monthDate = dayjs(month, 'YYYY-MM', true);
+
+      if (!monthDate.isValid()) {
+        throw new BadRequestException('Invalid month. Expected YYYY-MM');
+      }
+
+      const monthStart = monthDate.startOf('month').toDate();
+      const nextMonthStart = monthDate.add(1, 'month').startOf('month').toDate();
+
+      const monthlyFines = await this.prisma.employeeMonthlyFine.findMany({
+        where: {
+          month: {
+            gte: monthStart,
+            lt: nextMonthStart,
+          },
+          ...(normalizedEmployeeCode
+            ? {
+                employeeCode: normalizedEmployeeCode,
+              }
+            : {}),
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      monthlyFineIds = monthlyFines.map((item) => item.id);
+
+      if (!monthlyFineIds.length) {
+        return [];
+      }
+    }
+
+    const payments = await this.prisma.finePayment.findMany({
+      where: {
+        ...(normalizedEmployeeCode
+          ? {
+              employeeCode: normalizedEmployeeCode,
+            }
+          : {}),
+
+        ...(status
+          ? {
+              status,
+            }
+          : {
+              status: {
+                in: validStatuses,
+              },
+            }),
+      },
+
+      select: {
+        id: true,
+        employeeCode: true,
+        employeeName: true,
+        monthlyFineIds: true,
+        amount: true,
+        currency: true,
+        status: true,
+        paymentMethod: true,
+        provider: true,
+        providerPaymentId: true,
+        providerMetadata: true,
+        paidAt: true,
+        createdBy: true,
+        createdByName: true,
+        expiresAt: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    if (!monthlyFineIds) {
+      return payments;
+    }
+
+    const monthlyFineIdSet = new Set(monthlyFineIds);
+
+    return payments.filter((payment) => {
+      const paymentMonthlyFineIds = this.parseMonthlyFineIds(payment.monthlyFineIds);
+
+      return paymentMonthlyFineIds.some((id) => monthlyFineIdSet.has(id));
     });
   }
 

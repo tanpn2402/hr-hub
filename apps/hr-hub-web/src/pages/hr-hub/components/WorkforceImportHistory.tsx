@@ -124,7 +124,7 @@ export function WorkforceImportHistory() {
         header: t('imported'),
 
         cell: ({ row }) => (
-          <span className="text-muted-foreground">
+          <span className="text-muted-foreground text-xs">
             {dayjs(row.original.createdAt).locale('vi').format('DD MMM YYYY, HH:mm')}
           </span>
         ),
@@ -133,7 +133,9 @@ export function WorkforceImportHistory() {
         id: 'month',
         accessorFn: (row) => row.month,
         header: t('month'),
-        cell: ({ row }) => <span className="font-medium">{formatMonth(row.original.month)}</span>,
+        cell: ({ row }) => (
+          <span className="font-medium text-xs">{formatMonth(row.original.month)}</span>
+        ),
       },
       {
         id: 'totalAttendance',
@@ -143,7 +145,7 @@ export function WorkforceImportHistory() {
         accessorFn: (row) => row.totalAttendance,
         header: () => <div className="text-right">{t('attendance')}</div>,
         cell: ({ row }) => (
-          <div className="text-right">{row.original.totalAttendance.toLocaleString()}</div>
+          <div className="text-right text-xs">{row.original.totalAttendance.toLocaleString()}</div>
         ),
       },
       {
@@ -154,7 +156,7 @@ export function WorkforceImportHistory() {
         accessorFn: (row) => row.totalLeave,
         header: () => <div className="text-right">{t('leave')}</div>,
         cell: ({ row }) => (
-          <div className="text-right">{row.original.totalLeave.toLocaleString()}</div>
+          <div className="text-right text-xs">{row.original.totalLeave.toLocaleString()}</div>
         ),
       },
       {
@@ -257,7 +259,7 @@ export function WorkforceImportHistory() {
               {table.getHeaderGroups().map((headerGroup) => (
                 <TableRow key={headerGroup.id}>
                   {headerGroup.headers.map((header) => (
-                    <TableHead key={header.id} className="whitespace-nowrap">
+                    <TableHead key={header.id} className="h-8 whitespace-nowrap">
                       {header.isPlaceholder ? null : (
                         <div
                           className={
@@ -269,7 +271,7 @@ export function WorkforceImportHistory() {
                             <button
                               type="button"
                               onClick={header.column.getToggleSortingHandler()}
-                              className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground"
+                              className="flex items-center gap-1 text-[10px] font-semibold tracking-wider text-muted-foreground hover:text-foreground"
                             >
                               <table.FlexRender header={header} />
 

@@ -1,4 +1,12 @@
-import { CalendarDays, FileText, LayoutDashboard, Settings, Users, History } from 'lucide-react';
+import {
+  CalendarDays,
+  FileText,
+  LayoutDashboard,
+  Settings,
+  Users,
+  History,
+  CreditCard,
+} from 'lucide-react';
 
 import { OverviewPage } from '../pages/OverviewPage';
 import { EmployeesPage } from '../pages/EmployeesPage';
@@ -6,6 +14,7 @@ import { AttendanceLeavePage } from '../pages/AttendanceLeavePage';
 import { DocumentsPage } from '../pages/DocumentsPage';
 import { AttendanceImportHistoryPage } from '../pages/AttendanceImportHistoryPage';
 import { AttendanceSettingsPage } from '../pages/AttendanceSettingsPage';
+import { FinePaymentHistoryPage } from '../pages/FinePaymentHistoryPage';
 
 export type HRHubNavItem = {
   id: string;
@@ -44,6 +53,13 @@ export const hrHubNavigation: HRHubNavItem[] = [
         icon: History,
         path: 'attendance/import-history',
         component: AttendanceImportHistoryPage,
+      },
+      {
+        id: 'fine-payment-history',
+        label: 'fine_payment_history',
+        icon: CreditCard,
+        path: 'attendance/fine-payment-history',
+        component: FinePaymentHistoryPage,
       },
       {
         id: 'attendance-settings',

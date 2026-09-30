@@ -4,7 +4,6 @@ import axios from 'axios';
 import { ArrowLeft, ArrowRight, Check, Copy, CreditCardX, Loader2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
@@ -14,23 +13,17 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useTranslation } from 'react-i18next';
-import { formatMonth } from '@/lib/time-utils';
-import { EmployeeSummary, FinePayment, FinePaymentPreviewResponse } from '../api/workforce';
+import { EmployeeSummary, FinePayment } from '../api/workforce';
 import {
   useExecuteFinePaymentMutation,
   useFinePaymentDetail,
   useFinePaymentPreview,
   useRejectFinePaymentMutation,
 } from '../hooks/useFinePayment';
-import { cn } from 'cn';
-
-function formatMoney(value: number) {
-  return new Intl.NumberFormat('vi-VN', {
-    style: 'currency',
-    currency: 'VND',
-    maximumFractionDigits: 0,
-  }).format(value);
-}
+import { FinePaymentDetail } from './FinePaymentDetail';
+import { FinePaymentPreview } from './FinePaymentPreview';
+import { toast } from 'sonner';
+import { useAuth } from '@/auth/useAuth';
 
 type Props = {
   open: boolean;
@@ -40,227 +33,10 @@ type Props = {
 
 type Step = 'preview' | 'detail';
 
-/*
- * --------------------------------------------------------------------------
- * Preview Step
- * --------------------------------------------------------------------------
- */
-
-function PreviewStep({
-  preview,
-  selectedIds,
-  onSelectedIdsChange,
-  onViewPendingPayment,
-}: {
-  preview: FinePaymentPreviewResponse;
-  selectedIds: string[];
-  onSelectedIdsChange: (ids: string[]) => void;
-  onViewPendingPayment: (payment: FinePayment) => void;
-}) {
-  const { t } = useTranslation();
-
-  const pendingPayment = preview.pendingTransactions[0] ?? null;
-
-  const selectedFines = useMemo(
-    () => preview.availableMonthlyFines.filter((item) => selectedIds.includes(item.id)),
-    [preview.availableMonthlyFines, selectedIds],
-  );
-
-  const totalAmount = selectedFines.reduce((sum, item) => sum + item.payableAmount, 0);
-
-  const allSelected =
-    preview.availableMonthlyFines.length > 0 &&
-    selectedIds.length === preview.availableMonthlyFines.length;
-
-  const toggleAll = () => {
-    if (allSelected) {
-      onSelectedIdsChange([]);
-      return;
-    }
-
-    onSelectedIdsChange(preview.availableMonthlyFines.map((item) => item.id));
-  };
-
-  const toggleItem = (id: string) => {
-    if (selectedIds.includes(id)) {
-      onSelectedIdsChange(selectedIds.filter((item) => item !== id));
-      return;
-    }
-
-    onSelectedIdsChange([...selectedIds, id]);
-  };
-
-  return (
-    <div className="space-y-4">
-      {pendingPayment ? (
-        <div className="rounded-lg border border-yellow-300 bg-yellow-50 p-4">
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <div className="font-medium text-yellow-900">{t('employee_has_pending_payment')}</div>
-
-              <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-yellow-800">
-                {!pendingPayment.monthlyFines?.length
-                  ? null
-                  : pendingPayment.monthlyFines.map((fine) => formatMonth(fine.month)).join(' • ')}
-
-                <div className="text-sm text-yellow-800">{formatMoney(pendingPayment.amount)}</div>
-              </div>
-            </div>
-
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => onViewPendingPayment(pendingPayment)}
-            >
-              {t('view_transaction')}
-            </Button>
-          </div>
-        </div>
-      ) : null}
-
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="font-medium">{t('monthly_fines')}</div>
-
-          <div className="text-sm text-muted-foreground">{t('select_months_to_pay')}</div>
-        </div>
-
-        {preview.availableMonthlyFines.length > 0 ? (
-          <Button type="button" variant="ghost" size="sm" onClick={toggleAll}>
-            {allSelected ? t('deselect_all') : t('select_all')}
-          </Button>
-        ) : null}
-      </div>
-
-      {preview.availableMonthlyFines.length === 0 ? (
-        <div className="flex min-h-48 items-center justify-center rounded-lg border text-sm text-muted-foreground">
-          {t('no_available_fines')}
-        </div>
-      ) : (
-        <div className="max-h-80 space-y-2 overflow-y-auto">
-          {preview.availableMonthlyFines.map((monthlyFine) => {
-            const selected = selectedIds.includes(monthlyFine.id);
-
-            return (
-              <label
-                key={monthlyFine.id}
-                className={cn(
-                  'flex items-center gap-3 rounded-lg border p-3',
-                  'cursor-pointer hover:bg-muted/50',
-                )}
-              >
-                <Checkbox checked={selected} onCheckedChange={() => toggleItem(monthlyFine.id)} />
-
-                <div className="min-w-0 flex-1">
-                  <div className="font-medium">{formatMonth(monthlyFine.month, 'MMMM, YYYY')}</div>
-
-                  {monthlyFine.reductionAmount > 0 ? (
-                    <div className="text-sm text-muted-foreground">
-                      {t('reduction')}: {formatMoney(monthlyFine.reductionAmount)}
-                    </div>
-                  ) : null}
-                </div>
-
-                <div className="font-mono font-semibold">
-                  {formatMoney(monthlyFine.payableAmount)}
-                </div>
-              </label>
-            );
-          })}
-        </div>
-      )}
-
-      <div className="rounded-lg bg-muted p-4">
-        <div className="flex items-center justify-between">
-          <span className="font-medium">{t('total')}</span>
-
-          <span className="font-mono text-xl font-bold">{formatMoney(totalAmount)}</span>
-        </div>
-
-        <div className="mt-1 text-right text-sm text-muted-foreground">
-          {t('selected_months')}: {selectedIds.length}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/*
- * --------------------------------------------------------------------------
- * Transaction Detail Step
- * --------------------------------------------------------------------------
- */
-
-function PaymentDetailStep({ payment }: { payment: FinePayment }) {
-  const { t } = useTranslation();
-
-  const qrUrl = useMemo(
-    () => (payment.providerMetadata ? JSON.parse(payment.providerMetadata) : { qrUrl: null }).qrUrl,
-    [payment],
-  );
-
-  return (
-    <div className="space-y-5">
-      <div className="flex flex-col items-center">
-        {payment.status === 'settled' ? (
-          <div className="flex h-64 w-64 items-center justify-center text-sm text-muted-foreground">
-            {t('payment_qr_missing')}
-          </div>
-        ) : qrUrl ? (
-          <img
-            src={qrUrl}
-            alt={t('payment_qr')}
-            className="h-64 w-64 rounded-lg border object-contain"
-          />
-        ) : (
-          <div className="flex h-64 w-64 items-center justify-center rounded-lg border text-sm text-muted-foreground">
-            {t('payment_qr_missing')}
-          </div>
-        )}
-      </div>
-
-      <div className="rounded-lg border">
-        <div className="flex items-center justify-between border-b p-3">
-          <span className="text-sm text-muted-foreground">{t('amount')}</span>
-
-          <span className="font-mono font-bold">{formatMoney(payment.amount)}</span>
-        </div>
-
-        <div className="flex items-center justify-between border-b p-3">
-          <span className="text-sm text-muted-foreground">{t('month')}</span>
-
-          <div className="font-normal">
-            {!payment.monthlyFines?.length
-              ? null
-              : payment.monthlyFines.map((fine) => (
-                  <div key={fine.month}>{formatMonth(fine.month)}</div>
-                ))}
-          </div>
-        </div>
-
-        <div className="flex items-center justify-between p-3">
-          <span className="text-sm text-muted-foreground">{t('status')}</span>
-
-          <span className="font-medium">{payment.status}</span>
-        </div>
-      </div>
-
-      {payment.description ? (
-        <p className="text-center text-sm text-muted-foreground">{payment.description}</p>
-      ) : null}
-    </div>
-  );
-}
-
-/*
- * --------------------------------------------------------------------------
- * Dialog
- * --------------------------------------------------------------------------
- */
-
 export function SubmitFinePaymentDialog({ open, paymentEmployee, onOpenChange }: Props) {
   const { t } = useTranslation();
+
+  const { hasPermission } = useAuth();
 
   const queryClient = useQueryClient();
 
@@ -272,7 +48,7 @@ export function SubmitFinePaymentDialog({ open, paymentEmployee, onOpenChange }:
 
   const previewQuery = useFinePaymentPreview(paymentEmployee?.employeeCode, !!paymentEmployee);
 
-  const { data: payment } = useFinePaymentDetail(paymentId, {
+  const paymentQuery = useFinePaymentDetail(paymentId, {
     refetchInterval(query) {
       return query.state.data?.status === 'settled' ? 0 : 5_000;
     },
@@ -352,6 +128,14 @@ export function SubmitFinePaymentDialog({ open, paymentEmployee, onOpenChange }:
             queryKey: ['workforce', 'report'],
           });
         },
+
+        onError: (error) => {
+          const message = axios.isAxiosError(error)
+            ? (error.response?.data?.message ?? t('payment_failed'))
+            : t('payment_failed');
+
+          toast.error(message, { position: 'bottom-right' });
+        },
       },
     );
   };
@@ -397,7 +181,15 @@ export function SubmitFinePaymentDialog({ open, paymentEmployee, onOpenChange }:
     onOpenChange(false);
   };
 
-  const paymentQr = payment?.qrCode ?? payment?.qrUrl;
+  const handleQueryError = () => {
+    if (previewQuery.isError) {
+      previewQuery.refetch();
+    } else if (paymentQuery.isError) {
+      paymentQuery.refetch();
+    }
+  };
+
+  const paymentQr = paymentQuery.data?.qrCode ?? paymentQuery.data?.qrUrl;
 
   return (
     <Dialog
@@ -419,47 +211,43 @@ export function SubmitFinePaymentDialog({ open, paymentEmployee, onOpenChange }:
           </DialogDescription>
         </DialogHeader>
 
+        {previewQuery.isLoading || paymentQuery.isLoading || paymentMutation.isPending ? (
+          <div className="flex min-h-56 items-center justify-center">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              {paymentMutation.isPending || paymentQuery.isLoading
+                ? t('loading_new_transaction')
+                : t('loading')}
+            </div>
+          </div>
+        ) : null}
+
+        {previewQuery.isError || paymentQuery.isError ? (
+          <div className="flex min-h-56 flex-col items-center justify-center gap-3">
+            <p className="text-sm text-destructive">{t('payment_preview_failed')}</p>
+
+            <Button type="button" variant="outline" onClick={handleQueryError}>
+              {t('retry')}
+            </Button>
+          </div>
+        ) : null}
+
         {step === 'preview' && (
           <>
-            {previewQuery.isLoading && (
-              <div className="flex min-h-56 items-center justify-center">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  {t('loading')}
-                </div>
-              </div>
-            )}
-
-            {previewQuery.isError && (
-              <div className="flex min-h-56 flex-col items-center justify-center gap-3">
-                <p className="text-sm text-destructive">{t('payment_preview_failed')}</p>
-
-                <Button type="button" variant="outline" onClick={() => previewQuery.refetch()}>
-                  {t('retry')}
-                </Button>
-              </div>
-            )}
-
-            {previewQuery.data ? (
-              <PreviewStep
+            {previewQuery.data && !paymentMutation.isPending ? (
+              <FinePaymentPreview
                 preview={previewQuery.data}
                 selectedIds={selectedIds}
                 onSelectedIdsChange={setSelectedIds}
                 onViewPendingPayment={handleViewPendingPayment}
               />
             ) : null}
-
-            {paymentMutation.isError && (
-              <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
-                {axios.isAxiosError(paymentMutation.error)
-                  ? (paymentMutation.error.response?.data?.message ?? t('payment_failed'))
-                  : t('payment_failed')}
-              </div>
-            )}
           </>
         )}
 
-        {step === 'detail' && paymentId && payment && <PaymentDetailStep payment={payment} />}
+        {step === 'detail' ? (
+          <>{paymentQuery.data ? <FinePaymentDetail payment={paymentQuery.data} /> : null}</>
+        ) : null}
 
         <DialogFooter>
           {step === 'preview' && (
@@ -541,7 +329,7 @@ export function SubmitFinePaymentDialog({ open, paymentEmployee, onOpenChange }:
                 {t('close')}
               </Button>
 
-              {payment?.status === 'settled' ? null : (
+              {paymentQuery.data?.status === 'settled' || !hasPermission('hr') ? null : (
                 <Button
                   type="button"
                   className="min-w-32"
