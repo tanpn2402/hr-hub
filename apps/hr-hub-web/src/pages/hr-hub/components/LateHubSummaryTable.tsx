@@ -9,8 +9,6 @@ import {
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { ListTree, MoreVertical, QrCode } from 'lucide-react';
 
-import type { WorkforceImportResult } from './LateHubReviewTable';
-
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -25,7 +23,7 @@ import { cn } from 'cn';
 import { useTranslation } from 'react-i18next';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { ConfirmFinePaymentDialog } from './ConfirmFinePaymentDialog';
-import { EmployeeSummary } from '../api/workforce';
+import { EmployeeSummary, ImportWorkforceResponse } from '../api/workforce';
 
 function formatMoney(value: number) {
   return new Intl.NumberFormat('vi-VN', {
@@ -41,7 +39,7 @@ const features = tableFeatures({
 });
 
 type Props = {
-  data: WorkforceImportResult;
+  data: ImportWorkforceResponse;
   onEmployeeClick: (employeeCode: string) => void;
 };
 

@@ -3,25 +3,11 @@ import { useMemo, useState } from 'react';
 import { LateHubSummaryTable } from './LateHubSummaryTable';
 import { LateHubDetailTable } from './LateHubDetailTable';
 import { useTranslation } from 'react-i18next';
-import { EmployeeSummary, WorkforceRow } from '../api/workforce';
 import { EmployeesPicker } from './EmployeesPicker';
-
-/* -------------------------------------------------------------------------- */
-/* Types                                                                      */
-/* -------------------------------------------------------------------------- */
-
-export type WorkforceImportResult = {
-  batchId: string;
-  month: string;
-  status?: 'preview' | 'confirmed';
-  rows: WorkforceRow[];
-  employeeSummaries: EmployeeSummary[];
-  grandTotal: number;
-  paidAmount: number;
-};
+import { ImportWorkforceResponse } from '../api/workforce';
 
 type Props = {
-  data: WorkforceImportResult;
+  data: ImportWorkforceResponse;
 };
 
 export function LateHubReviewTable({ data }: Props) {
@@ -36,8 +22,8 @@ export function LateHubReviewTable({ data }: Props) {
       paymentStatus === 'all'
         ? data.employeeSummaries
         : data.employeeSummaries.filter(
-            ({ monthFinePaidStatus }) => monthFinePaidStatus === paymentStatus,
-          );
+          ({ monthFinePaidStatus }) => monthFinePaidStatus === paymentStatus,
+        );
     let rows =
       paymentStatus === 'all'
         ? data.rows

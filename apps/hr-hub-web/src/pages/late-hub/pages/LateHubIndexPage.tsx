@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { useTranslation } from 'react-i18next';
 import { formatMonth } from '@/lib/time-utils';
@@ -8,11 +8,16 @@ import { useAvailableMonths, useMonthlyReport } from '@/pages/hr-hub/hooks/useWo
 import { AppSwitcher } from '@/apps/AppSwitcher';
 import { LateHubReviewTable } from '@/pages/hr-hub/components/LateHubReviewTable';
 
-const CURRENT_MONTH = dayjs().subtract(1, 'month').format('YYYY-MM');
+const CURRENT_MONTH = dayjs().subtract(1, "month").format('YYYY-MM');
 
 export function LateHubIndexPage() {
   const { t } = useTranslation();
   const { data = [CURRENT_MONTH], isLoading } = useAvailableMonths();
+
+  const months = useMemo(
+    () => [...new Set<string>([CURRENT_MONTH, ...data])].sort((a, b) => b.localeCompare(a)),
+    [data],
+  );
 
   const [selectedMonth, setSelectedMonth] = useState<string | null>(CURRENT_MONTH);
 
@@ -73,7 +78,7 @@ export function LateHubIndexPage() {
           </div>
         ) : (
           <div className="flex items-center rounded-lg border bg-background p-0.5">
-            {data.map((value) => (
+            {months.map((value) => (
               <button
                 key={value}
                 type="button"

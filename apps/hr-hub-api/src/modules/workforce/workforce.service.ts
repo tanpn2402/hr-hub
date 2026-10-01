@@ -1,16 +1,14 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as XLSX from 'xlsx';
-import { LateFineCalculatorService } from './late-fine-calculator.service';
 import { LateFineReport } from './models/late-fine-report.model';
-import { MonthlyReportsRepository } from './monthly-reports.repository';
 import { PrismaService } from '@app/prisma/prisma.service';
-import { Prisma } from '@prisma/client';
 import { WorkforceRules } from './models/workforce-rules.model';
 import { WorkforceRulesService } from './workforce-rules.service';
 import { TraceLogger } from '../app/trace/trace-logger.service';
 import { TraceContextService } from '../app/trace/trace-context.service';
 import dayjs from 'dayjs';
+import { Prisma } from '@generated/prisma';
 
 type WorkforceFileKind = 'CHECKIN_CHECKOUT' | 'LEAVE';
 
@@ -57,9 +55,7 @@ export class WorkforceService {
 
   constructor(
     private readonly config: ConfigService,
-    private readonly lateFineCalculator: LateFineCalculatorService,
     private readonly workforceRules: WorkforceRulesService,
-    private readonly monthlyReports: MonthlyReportsRepository,
     private readonly prisma: PrismaService,
     readonly traceContext: TraceContextService,
   ) {

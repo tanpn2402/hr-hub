@@ -23,13 +23,13 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { WorkforceImportResult } from './LateHubReviewTable';
 import { LoadingIndicator } from '@/components/ui/loading-idicator';
 import { LateHubReviewDialog } from './LateHubReviewDialog';
 import { useTranslation } from 'react-i18next';
 import dayjs from 'dayjs';
 import { formatMonth } from '@/lib/time-utils';
 import { formatMoney } from '@/lib/format-utils';
+import { ImportWorkforceResponse } from '../api/workforce';
 
 /* -------------------------------------------------------------------------- */
 /* Types                                                                      */
@@ -56,8 +56,8 @@ async function getImportHistory(): Promise<WorkforceImportHistoryItem[]> {
   return data;
 }
 
-async function getImportBatch(batchId: string): Promise<WorkforceImportResult> {
-  const { data } = await apiClient.get<WorkforceImportResult>(`/workforce/imports/${batchId}`);
+async function getImportBatch(batchId: string): Promise<ImportWorkforceResponse> {
+  const { data } = await apiClient.get<ImportWorkforceResponse>(`/workforce/imports/${batchId}`);
 
   return data;
 }

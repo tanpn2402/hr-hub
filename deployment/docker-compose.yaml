@@ -1,0 +1,53 @@
+services:
+  hr-hub-api:
+    build:
+      context: .
+      dockerfile: ./hr-hub-api/Dockerfile
+    container_name: hr-hub-api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+    volumes:
+      - ./.env.hr-hub-api:/app/apps/hr-hub-api/.env:ro
+    expose:
+      - '3000'
+    networks:
+      - hr-hub
+
+  idenplane:
+    build:
+      context: .
+      dockerfile: ./idenplane/Dockerfile
+    container_name: hr-hub-idenplane
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+    volumes:
+      - ./.env.idenplane:/app/apps/idenplane/.env:ro
+      - ./data/:/app/apps/idenplane/data/:rw
+    expose:
+      - '3001'
+    networks:
+      - hr-hub
+
+  nginx:
+    image: nginx:alpine
+    container_name: hr-hub-nginx
+    restart: unless-stopped
+    ports:
+      - '5050:80'
+    volumes:
+      - ../dist/hr-hub-web:/dist/hr-hub:ro
+      - ../dist/idenplane-admin:/dist/console:ro
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - hr-hub-api
+      - idenplane
+    networks:
+      - hr-hub
+
+networks:
+  hr-hub:
+    driver: bridge

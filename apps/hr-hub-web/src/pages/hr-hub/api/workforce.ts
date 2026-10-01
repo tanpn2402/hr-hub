@@ -23,9 +23,12 @@ export type EmployeeSummary = {
 
 export type ImportWorkforceResponse = {
   batchId: string;
+  month: string;
+  status?: 'preview' | 'confirmed';
   rows: WorkforceRow[];
   employeeSummaries: EmployeeSummary[];
   grandTotal: number;
+  paidAmount: number;
 };
 
 export type ImportWorkforceFilesParams = {

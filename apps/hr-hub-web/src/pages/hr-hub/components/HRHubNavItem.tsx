@@ -5,6 +5,7 @@ import { Link, useLocation } from 'react-router-dom';
 import type { HRHubNavItem as NavItem } from '../config/navigation';
 import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
+import { config } from '../config/page';
 
 type Props = {
   item: NavItem;
@@ -109,5 +110,5 @@ export function HRHubNavItem({ item, collapsed, level = 0 }: Props) {
  * Replace this with your actual base path if needed.
  */
 function buildPath(path: string): string {
-  return `/hr-hub/${path}`.replace(/\/+/g, '/').replace(/\/$/, '');
+  return `${config.path}${path}`.replace(/\/+/g, '/').replace(/\/$/, '');
 }

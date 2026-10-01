@@ -4,7 +4,7 @@ import type {
   CreateProxyApplicationInput,
   UpdateProxyApplicationInput,
 } from '../types';
-import { parseJsonArray, parseJsonObject } from '../utils/jsonFields';
+import { parseJsonArray } from '../utils/jsonFields';
 
 export async function getProxyApplications(
   realmName: string,

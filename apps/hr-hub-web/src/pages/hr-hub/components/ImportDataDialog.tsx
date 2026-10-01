@@ -12,11 +12,11 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { useImportWorkforce } from '../hooks/useImportWorkforce';
-import { WorkforceImportResult } from './LateHubReviewTable';
 import { LateHubReviewDialog } from './LateHubReviewDialog';
 import { useQueryClient } from '@tanstack/react-query';
 import i18n from '@/locates';
 import { useTranslation } from 'react-i18next';
+import { ImportWorkforceResponse } from '../api/workforce';
 
 const excelFileSchema = z
   .instanceof(File)
@@ -49,7 +49,7 @@ export function ImportDataDialog({ open, onOpenChange }: Props) {
   const [files, setFiles] = useState<File[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  const [reviewData, setReviewData] = useState<WorkforceImportResult | null>(null);
+  const [reviewData, setReviewData] = useState<ImportWorkforceResponse | null>(null);
 
   const [reviewOpen, setReviewOpen] = useState(false);
 

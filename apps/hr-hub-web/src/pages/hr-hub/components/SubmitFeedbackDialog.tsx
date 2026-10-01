@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import axios from 'axios';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -25,6 +24,7 @@ import { dateOfWeek } from '@/lib/time-utils';
 import { formatMoney } from '@/lib/format-utils';
 import { Loader2, SendIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { apiClient } from '@/api/client';
 
 const FEEDBACK_REASONS = [
   {
@@ -63,7 +63,7 @@ type FeedbackPayload = {
 };
 
 async function createFineFeedback(payload: FeedbackPayload) {
-  const { data } = await axios.post('/api/fines/' + payload.fineId + '/feedback', {
+  const { data } = await apiClient.post('/fines/' + payload.fineId + '/feedback', {
     reason: payload.reason,
     description: payload.description,
   });
