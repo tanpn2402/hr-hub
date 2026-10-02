@@ -65,6 +65,7 @@ export function parseAttendanceWorkbook(
   }
 
   const records: AttendanceRecord[] = [];
+  const recordKeys = new Set<string>();
 
   for (const row of rows.slice(headerIndex + 1)) {
     const dateCell = row[columnIndex.get('date')!];
@@ -80,6 +81,14 @@ export function parseAttendanceWorkbook(
     }
 
     const date = isoDate(dateCell);
+    const recordKey = `${employeeCode}_${date}`;
+    
+    // Prevent duplicated attendance records
+    if (recordKeys.has(recordKey)) {
+      continue;
+    }
+
+    recordKeys.add(recordKey);
 
     let checkIn = toDateOrNull(row[columnIndex.get('checkIn')!]);
 
