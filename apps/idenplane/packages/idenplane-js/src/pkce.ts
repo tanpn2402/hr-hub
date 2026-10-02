@@ -1,3 +1,5 @@
+import { sha256 } from 'js-sha256';
+
 function base64UrlEncode(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
   let binary = '';
@@ -17,9 +19,16 @@ export function generateCodeVerifier(): string {
 /** Generate a PKCE code challenge from a verifier using SHA-256. */
 export async function generateCodeChallenge(verifier: string): Promise<string> {
   const encoder = new TextEncoder();
-  const data = encoder.encode(verifier);
-  const digest = await crypto.subtle.digest('SHA-256', data);
-  return base64UrlEncode(digest);
+    if (crypto.subtle) {
+    const data = new TextEncoder().encode(verifier);
+    const digest = await crypto.subtle.digest('SHA-256', data);
+
+    return base64UrlEncode(digest);
+  }
+
+  // Fallback for non-secure contexts where crypto.subtle is unavailable.
+  const hash = sha256.arrayBuffer(verifier);
+  return base64UrlEncode(hash);
 }
 
 /** Generate a random state parameter for CSRF protection. */
