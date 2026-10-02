@@ -26,15 +26,17 @@ export function parseLeaveWorkbook(workbook: XLSX.WorkBook, ruleResolver: Workfo
   let employeeCodeIndex = -1;
   let leaveFromIndex = -1;
   let leaveToIndex = -1;
+  let leaveStatusIndex = -1;
   rows[headerIndex].forEach((cell, index) => {
     const key = normalize(cell);
     if (key === 'placement number') employeeCodeIndex = index;
     if (key === 'leave from') leaveFromIndex = index;
     if (key === 'leave to') leaveToIndex = index;
+    if (key === 'status') leaveStatusIndex = index;
   });
 
-  if (employeeCodeIndex === -1 || leaveFromIndex === -1 || leaveToIndex === -1) {
-    throw new BadRequestException('Leave workbook is missing expected columns "Placement Number" / "Leave From" / "Leave To"');
+  if (employeeCodeIndex === -1 || leaveFromIndex === -1 || leaveToIndex === -1 || leaveStatusIndex === -1) {
+    throw new BadRequestException('Leave workbook is missing expected columns "Placement Number" / "Leave From" / "Leave To" / "Status"');
   }
 
   const coverage: LeaveCoverageMap = new Map();
@@ -42,7 +44,7 @@ export function parseLeaveWorkbook(workbook: XLSX.WorkBook, ruleResolver: Workfo
     const employeeCode = String(row[employeeCodeIndex] ?? '').trim();
     const leaveFrom = row[leaveFromIndex];
     const leaveTo = row[leaveToIndex];
-    if (!employeeCode || !(leaveFrom instanceof Date) || !(leaveTo instanceof Date)) continue;
+    const leaveStatus = normalize(row[leaveStatusIndex]);
 
     if (employeeCode === '510') {
       logger?.debug(
@@ -51,9 +53,27 @@ export function parseLeaveWorkbook(workbook: XLSX.WorkBook, ruleResolver: Workfo
             employeeCode,
             leaveFrom,
             leaveTo,
+            leaveStatus,
           }),
       );
     }
+
+    if (!employeeCode || !(leaveFrom instanceof Date) || !(leaveTo instanceof Date)) continue;
+
+    if (leaveStatus === 'rejected' || leaveStatus === 'cancelled') {
+      logger?.debug(
+        '[parseLeaveWorkbook] skipping leave for employee ' +
+          employeeCode +
+          ' from ' +
+          leaveFrom +
+          ' to ' +
+          leaveTo +
+          ' due to status: ' +
+          leaveStatus,
+      );
+      continue;
+    }
+
     const employeeRules = ruleResolver.resolve(employeeCode, dayjs.utc(leaveFrom).toDate());
     markDailyCoverage(coverage, employeeCode, leaveFrom, leaveTo, employeeRules, logger);
   }
