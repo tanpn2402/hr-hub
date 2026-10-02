@@ -37,7 +37,7 @@ services:
     container_name: hr-hub-nginx
     restart: unless-stopped
     ports:
-      - '5050:80'
+      - '10080:80'
     volumes:
       - ../dist/hr-hub-web:/dist/hr-hub:ro
       - ../dist/idenplane-admin:/dist/console:ro
