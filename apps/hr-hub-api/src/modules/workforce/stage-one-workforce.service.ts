@@ -719,7 +719,8 @@ export class StageOneWorkforceService {
       }
 
       employee.attendanceCount++;
-      employee.totalFine += Number(row.fineAmount ?? 0);
+      const employeeRules = this.workforceRules.resolve(row.employeeCode, row.date);
+      employee.totalFine = Math.min(employee.totalFine + Number(row.fineAmount ?? 0), employeeRules.maxFinePerMonth);
     }
 
     return {
