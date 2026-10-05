@@ -24,7 +24,6 @@
   "workspaces": [
     "apps/*",
     "apps/idenplane/admin-ui",
-    "apps/idenplane/packages/*",
     "packages/*"
   ]
 }
