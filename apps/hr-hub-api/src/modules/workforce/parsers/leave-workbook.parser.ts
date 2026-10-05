@@ -26,25 +26,22 @@ export function parseLeaveWorkbook(workbook: XLSX.WorkBook, ruleResolver: Workfo
   let employeeCodeIndex = -1;
   let leaveFromIndex = -1;
   let leaveToIndex = -1;
-  let leaveStatusIndex = -1;
   rows[headerIndex].forEach((cell, index) => {
     const key = normalize(cell);
     if (key === 'placement number') employeeCodeIndex = index;
     if (key === 'leave from') leaveFromIndex = index;
     if (key === 'leave to') leaveToIndex = index;
-    if (key === 'status') leaveStatusIndex = index;
   });
 
-  if (employeeCodeIndex === -1 || leaveFromIndex === -1 || leaveToIndex === -1 || leaveStatusIndex === -1) {
-    throw new BadRequestException('Leave workbook is missing expected columns "Placement Number" / "Leave From" / "Leave To" / "Status"');
+  if (employeeCodeIndex === -1 || leaveFromIndex === -1 || leaveToIndex === -1) {
+    throw new BadRequestException('Leave workbook is missing expected columns "Placement Number" / "Leave From" / "Leave To"');
   }
 
   const coverage: LeaveCoverageMap = new Map();
   for (const row of rows.slice(headerIndex + 1)) {
     const employeeCode = String(row[employeeCodeIndex] ?? '').trim();
-    const leaveFrom = row[leaveFromIndex];
-    const leaveTo = row[leaveToIndex];
-    const leaveStatus = normalize(row[leaveStatusIndex]);
+    let leaveFrom = row[leaveFromIndex];
+    let leaveTo = row[leaveToIndex];
 
     if (employeeCode === '510') {
       logger?.debug(
@@ -53,24 +50,34 @@ export function parseLeaveWorkbook(workbook: XLSX.WorkBook, ruleResolver: Workfo
             employeeCode,
             leaveFrom,
             leaveTo,
-            leaveStatus,
           }),
       );
     }
 
-    if (!employeeCode || !(leaveFrom instanceof Date) || !(leaveTo instanceof Date)) continue;
+    if (!employeeCode) {
+      continue;
+    }
 
-    if (leaveStatus === 'rejected' || leaveStatus === 'cancelled') {
-      logger?.debug(
-        '[parseLeaveWorkbook] skipping leave for employee ' +
-          employeeCode +
-          ' from ' +
-          leaveFrom +
-          ' to ' +
-          leaveTo +
-          ' due to status: ' +
-          leaveStatus,
-      );
+    if (!(leaveFrom instanceof Date) || !(leaveTo instanceof Date)) {
+      try {
+        // raw = 09-11-2026 08:00:00 -> 2026-09-11T00:59:29.999Z
+        leaveFrom = dayjs.utc(String(leaveFrom), 'MM-DD-YYYY HH:mm:ss').subtract(7, 'hour').subtract(30, 'millisecond').toDate();
+        leaveTo = dayjs.utc(String(leaveTo), 'MM-DD-YYYY HH:mm:ss').subtract(7, 'hour').subtract(30, 'millisecond').toDate();
+      } catch (error) {
+        logger?.error(
+          '[parseLeaveWorkbook] failed to parse leave dates for employee ' +
+            JSON.stringify({
+              employeeCode,
+              leaveFrom,
+              leaveTo,
+              error: error instanceof Error ? error.message : String(error),
+            }),
+        );
+        continue;
+      }
+    }
+
+    if (!(leaveFrom instanceof Date) || !(leaveTo instanceof Date)) {
       continue;
     }
 
