@@ -500,7 +500,7 @@ export function LateHubDetailTable({ data }: Props) {
                 attendanceCount: 0,
               }
         }
-        onOpenChange={() => setPaymentEmployee(null)}
+        onOpenChange={() => setOpenPaymentDialog(false)}
       />
     </>
   );
