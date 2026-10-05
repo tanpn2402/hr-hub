@@ -35,10 +35,10 @@ export default defineConfig(({ mode }) => {
       strictPort: true,
 
       proxy: {
-        '/api': {
+        '/hr-hub/api': {
           target: 'http://localhost:3003',
           changeOrigin: true,
-          rewrite: (path) => path.replace(/^\/api/, ''),
+          rewrite: (path) => path.replace(/^\/hr-hub\/api/, ''),
         },
       },
     },
