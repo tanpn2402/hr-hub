@@ -1,4 +1,6 @@
-import { Body, Controller, Delete, Get, Param, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { AuthGuard } from '../auth/auth.guard';
+import { HrRolesGuard } from '../auth/hr-roles.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { AuthenticatedUser } from '../auth/auth.types';
 import { CreateFinePaymentDto, FinePaymentService, RejectFinePaymentDto } from './fine-payment.service';
@@ -13,6 +15,7 @@ export class FinePaymentController {
   }
 
   @Get('payment/history')
+  @UseGuards(AuthGuard, HrRolesGuard)
   getHistory(@Query('month') month?: string, @Query('employeeCode') employeeCode?: string, @Query('status') status?: string) {
     return this.finePaymentService.getHistory({
       month,
@@ -32,6 +35,7 @@ export class FinePaymentController {
   }
 
   @Post('payment/:id/settle')
+  @UseGuards(AuthGuard, HrRolesGuard)
   settle(@Param('id') id: string, @Body() body: unknown) {
     return this.finePaymentService.settle(id);
   }

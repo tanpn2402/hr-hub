@@ -1,4 +1,6 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { AuthGuard } from '../auth/auth.guard';
+import { HrRolesGuard } from '../auth/hr-roles.guard';
 import { CreateEmployeeDto, EmployeesService, UpdateEmployeeDto } from './employees.service';
 
 @Controller('employees')
@@ -21,16 +23,19 @@ export class EmployeesController {
   }
 
   @Post()
+  @UseGuards(AuthGuard, HrRolesGuard)
   create(@Body() dto: CreateEmployeeDto) {
     return this.employeesService.create(dto);
   }
 
   @Patch(':id')
+  @UseGuards(AuthGuard, HrRolesGuard)
   update(@Param('id') id: string, @Body() dto: UpdateEmployeeDto) {
     return this.employeesService.update(id, dto);
   }
 
   @Delete(':id')
+  @UseGuards(AuthGuard, HrRolesGuard)
   remove(@Param('id') id: string) {
     return this.employeesService.remove(id);
   }

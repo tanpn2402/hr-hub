@@ -10,6 +10,8 @@ export type AuthContextType = {
   login: () => Promise<void>;
   logout: () => Promise<void>;
   hasRole: (role: string) => boolean;
+  /** True when the user has at least one of the roles (realm or client roles, case-insensitive). */
+  hasAnyRole: (roles: string[]) => boolean;
   hasPermission: (permission: string) => boolean;
 };
 
@@ -49,6 +51,20 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     return idenplane.hasClientRole(idenplane.getConfig().clientId, role);
   };
 
+  // Same role set the API sees: realm roles + client roles, compared case-insensitively.
+  const hasAnyRole = useCallback(
+    (roles: string[]) => {
+      if (!user) return false;
+      const owned = new Set(
+        [...idenplane.getRealmRoles(), ...idenplane.getClientRoles(idenplane.getConfig().clientId)].map((role) =>
+          role.toLowerCase(),
+        ),
+      );
+      return roles.some((role) => owned.has(role.toLowerCase()));
+    },
+    [user],
+  );
+
   // Utility method to check granular permissions
   const hasPermission = (permission: string) => {
     if (!user) return false;
@@ -70,6 +86,7 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     login,
     logout,
     hasRole,
+    hasAnyRole,
     hasPermission,
   };
 

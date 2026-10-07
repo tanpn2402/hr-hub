@@ -15,6 +15,7 @@ import { Link } from 'react-router-dom';
 
 import { apps } from './app-registry';
 import { useTranslation } from 'react-i18next';
+import { useAuth } from '@/auth/useAuth';
 import { useWebApps } from '@/pages/hr-hub/hooks/useWebApps';
 
 type AppSwitcherProps = {
@@ -23,6 +24,7 @@ type AppSwitcherProps = {
 
 export function AppSwitcher({ currentApp = 'late-hub' }: AppSwitcherProps) {
   const { t } = useTranslation();
+  const { hasAnyRole } = useAuth();
   // The API filters by the caller's roles (anonymous callers get public apps); admins also receive drafts/disabled apps.
   const webApps = (useWebApps().data ?? []).filter((app) => app.status === 'published');
 
@@ -52,42 +54,47 @@ export function AppSwitcher({ currentApp = 'late-hub' }: AppSwitcherProps) {
           <DropdownMenuSeparator />
 
           <div className="space-y-1">
-            {apps.map((app) => {
-              const Icon = app.icon;
-              const active = app.id === currentApp;
+            {apps
+              // Hide apps the user's roles don't allow (the route and API enforce it too).
+              .filter((app) => !app.access?.roles?.length || hasAnyRole(app.access.roles))
+              .map((app) => {
+                const Icon = app.icon;
+                const active = app.id === currentApp;
 
-              return (
-                <DropdownMenuItem
-                  key={app.id}
-                  className="cursor-pointer gap-3 rounded-lg p-2.5"
-                  onClick={() => handleNavigate(app.href)}
-                  render={
-                    <Link to={app.href}>
-                      <div
-                        className={[
-                          'flex size-9 shrink-0 items-center justify-center rounded-lg',
-                          active ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground',
-                        ].join(' ')}
-                      >
-                        <Icon className="size-4" />
-                      </div>
+                return (
+                  <DropdownMenuItem
+                    key={app.id}
+                    className="cursor-pointer gap-3 rounded-lg p-2.5"
+                    onClick={() => handleNavigate(app.href)}
+                    render={
+                      <Link to={app.href}>
+                        <div
+                          className={[
+                            'flex size-9 shrink-0 items-center justify-center rounded-lg',
+                            active
+                              ? 'bg-primary/10 text-primary'
+                              : 'bg-muted text-muted-foreground',
+                          ].join(' ')}
+                        >
+                          <Icon className="size-4" />
+                        </div>
 
-                      <div className="min-w-0 flex-1">
-                        <div className="text-sm font-medium">{t(app.name)}</div>
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm font-medium">{t(app.name)}</div>
 
-                        {app.description && (
-                          <div className="truncate text-xs text-muted-foreground">
-                            {t(app.description)}
-                          </div>
-                        )}
-                      </div>
+                          {app.description && (
+                            <div className="truncate text-xs text-muted-foreground">
+                              {t(app.description)}
+                            </div>
+                          )}
+                        </div>
 
-                      {active && <Check className="size-4 text-primary" />}
-                    </Link>
-                  }
-                />
-              );
-            })}
+                        {active && <Check className="size-4 text-primary" />}
+                      </Link>
+                    }
+                  />
+                );
+              })}
           </div>
 
           {webApps.length > 0 && (
@@ -111,7 +118,9 @@ export function AppSwitcher({ currentApp = 'late-hub' }: AppSwitcherProps) {
                           <div
                             className={[
                               'flex size-9 shrink-0 items-center justify-center rounded-lg',
-                              active ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground',
+                              active
+                                ? 'bg-primary/10 text-primary'
+                                : 'bg-muted text-muted-foreground',
                             ].join(' ')}
                           >
                             <AppWindow className="size-4" />

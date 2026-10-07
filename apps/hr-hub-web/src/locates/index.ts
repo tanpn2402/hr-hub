@@ -301,6 +301,8 @@ export const resources = {
       settle_this_payment: 'Xác nhận thanh toán giao dịch này',
       payment_will_be_settled: 'Giao dịch thanh toán này sẽ được xác nhận là đã thanh toán.',
       apps: 'Ứng dụng web',
+      access_denied: 'Không có quyền truy cập',
+      access_denied_description: 'Chỉ nhân sự (HR) hoặc quản trị viên (ADMIN) mới được truy cập HR Hub. Hãy liên hệ quản trị viên nếu bạn cần quyền.',
       web_apps: 'Web Apps',
       web_apps_description: 'Quản lý các ứng dụng web do AI tạo ra',
       create_web_app: 'Tạo Web App',

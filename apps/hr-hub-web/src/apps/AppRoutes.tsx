@@ -22,7 +22,7 @@ function appRoute(app: (typeof apps)[number]) {
       element={(
         <Suspense fallback={<AppLoadingFallback />}>
           {app.access?.authenticated ? (
-            <ProtectedRoute>
+            <ProtectedRoute roles={app.access.roles}>
               <Component />
             </ProtectedRoute>
           ) : (

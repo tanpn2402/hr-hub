@@ -1,8 +1,12 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+
+import { AuthGuard } from '../auth/auth.guard';
+import { HrRolesGuard } from '../auth/hr-roles.guard';
 
 import { CreateWorkforceRuleInput, UpdateWorkforceRuleInput, WorkforceRulesService } from './workforce-rules.service';
 
 @Controller('workforce/rules')
+@UseGuards(AuthGuard, HrRolesGuard)
 export class WorkforceRulesController {
   constructor(private readonly workforceRulesService: WorkforceRulesService) {}
 

@@ -1,0 +1,259 @@
+/*!
+ * HR Hub web app theme  —  <link rel="stylesheet" href="/hr-hub/hrhub-theme.css" />
+ *
+ * Mirrors the HR Hub UI (apps/hr-hub-web/src/style.css + components/ui): green primary, neutral surfaces,
+ * pill buttons/inputs, rounded cards. Light by default (HR Hub has no theme switcher); add class="dark" on
+ * <html> for the dark tokens. Class names are prefixed "hh-" so they never clash with app code.
+ */
+
+:root {
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.527 0.154 150.069);
+  --primary-foreground: oklch(0.982 0.018 155.826);
+  --secondary: oklch(0.967 0.001 286.375);
+  --secondary-foreground: oklch(0.21 0.006 285.885);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --success: oklch(0.627 0.194 149.214);
+  --warning: oklch(0.769 0.188 70.08);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --chart-1: oklch(0.871 0.15 154.449);
+  --chart-2: oklch(0.723 0.219 149.579);
+  --chart-3: oklch(0.627 0.194 149.214);
+  --chart-4: oklch(0.527 0.154 150.069);
+  --chart-5: oklch(0.448 0.119 151.328);
+
+  --radius: 0.625rem;
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-pill: calc(var(--radius) * 2.6);
+
+  --font-sans: 'Inter Variable', Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  color-scheme: light;
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.448 0.119 151.328);
+  --primary-foreground: oklch(0.982 0.018 155.826);
+  --secondary: oklch(0.274 0.006 286.033);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  color-scheme: dark;
+}
+
+/* ---------- base ---------- */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  border-color: var(--border);
+}
+
+html {
+  font-family: var(--font-sans);
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--background);
+  color: var(--foreground);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4 { margin: 0; font-weight: 600; letter-spacing: -0.015em; }
+h1 { font-size: 1.25rem; line-height: 1.75rem; }
+h2 { font-size: 1rem; line-height: 1.5rem; }
+h3 { font-size: 0.875rem; }
+p { margin: 0; }
+a { color: var(--primary); text-underline-offset: 4px; }
+code, kbd, pre, .hh-mono { font-family: var(--font-mono); font-size: 0.8125rem; }
+
+:focus-visible { outline: 3px solid color-mix(in oklch, var(--ring) 30%, transparent); outline-offset: 1px; }
+
+/* ---------- layout ---------- */
+
+/* Page = HR Hub page: header with bottom border, then content with 1.5rem gutters. */
+.hh-page { min-height: 100vh; background: var(--background); }
+.hh-page-header {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem;
+  padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border);
+}
+.hh-page-header .hh-muted { margin-top: 0.25rem; }
+.hh-page-body { padding: 1.5rem; }
+.hh-container { max-width: 64rem; margin: 0 auto; }
+
+.hh-stack { display: flex; flex-direction: column; gap: 1rem; }
+.hh-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; }
+.hh-between { justify-content: space-between; }
+.hh-grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); }
+.hh-grid-2 { display: grid; gap: 0.75rem; grid-template-columns: 2fr 1fr; }
+@media (max-width: 560px) { .hh-grid-2 { grid-template-columns: 1fr; } }
+
+.hh-muted { color: var(--muted-foreground); }
+.hh-right { text-align: right; }
+.hh-hidden, [hidden] { display: none !important; }
+
+/* ---------- card ---------- */
+
+.hh-card {
+  background: var(--card); color: var(--card-foreground);
+  border: 1px solid var(--border); border-radius: var(--radius-xl);
+  padding: 1.25rem; box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+}
+.hh-card-clickable { cursor: pointer; transition: background-color 0.15s; }
+.hh-card-clickable:hover { background: color-mix(in oklch, var(--muted) 40%, transparent); }
+
+/* Metric tile (see HRMetricCard) */
+.hh-metric-icon {
+  display: grid; place-items: center; width: 2.25rem; height: 2.25rem;
+  border-radius: var(--radius-lg); background: var(--muted); color: var(--muted-foreground);
+}
+.hh-metric-value { margin-top: 0.75rem; font-size: 1.5rem; font-weight: 600; letter-spacing: -0.02em; }
+
+/* ---------- buttons (pill, h-9) ---------- */
+
+.hh-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.375rem;
+  height: 2.25rem; padding: 0 0.75rem; font: inherit; font-size: 0.875rem; font-weight: 500; white-space: nowrap;
+  color: var(--primary-foreground); background: var(--primary);
+  border: 1px solid transparent; border-radius: var(--radius-pill); cursor: pointer; user-select: none;
+  transition: background-color 0.15s, opacity 0.15s;
+}
+.hh-btn:hover { background: color-mix(in oklch, var(--primary) 80%, transparent); }
+.hh-btn:active { transform: translateY(1px); }
+.hh-btn:disabled, .hh-btn[aria-disabled='true'] { opacity: 0.5; pointer-events: none; }
+.hh-btn-sm { height: 2rem; }
+.hh-btn-xs { height: 1.5rem; padding: 0 0.625rem; font-size: 0.75rem; }
+.hh-btn-lg { height: 2.5rem; padding: 0 1rem; }
+.hh-btn-outline { color: var(--foreground); background: var(--background); border-color: var(--border); }
+.hh-btn-outline:hover { background: var(--muted); }
+.hh-btn-secondary { color: var(--secondary-foreground); background: var(--secondary); }
+.hh-btn-secondary:hover { background: color-mix(in oklch, var(--secondary), var(--foreground) 5%); }
+.hh-btn-ghost { color: var(--foreground); background: transparent; }
+.hh-btn-ghost:hover { background: var(--muted); }
+.hh-btn-destructive { color: var(--destructive); background: color-mix(in oklch, var(--destructive) 10%, transparent); }
+.hh-btn-destructive:hover { background: color-mix(in oklch, var(--destructive) 20%, transparent); }
+.hh-link-btn { padding: 0; font: inherit; color: var(--primary); background: none; border: 0; cursor: pointer; text-underline-offset: 4px; }
+.hh-link-btn:hover { text-decoration: underline; }
+
+/* ---------- form controls (pill inputs, tinted background, no border until focus) ---------- */
+
+.hh-field { display: flex; flex-direction: column; gap: 0.375rem; margin-bottom: 1rem; }
+.hh-label { font-size: 0.875rem; font-weight: 500; }
+.hh-hint { font-size: 0.75rem; color: var(--muted-foreground); }
+
+.hh-input, .hh-select, .hh-textarea {
+  width: 100%; min-width: 0; height: 2.25rem; padding: 0.25rem 0.75rem; font: inherit; font-size: 0.875rem;
+  color: var(--foreground); background: color-mix(in oklch, var(--input) 50%, transparent);
+  border: 1px solid transparent; border-radius: calc(var(--radius) * 2.2); outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s, background-color 0.15s;
+}
+.hh-textarea { height: auto; min-height: 4.5rem; padding: 0.5rem 0.75rem; border-radius: var(--radius-xl); resize: vertical; }
+.hh-select { appearance: none; padding-right: 2rem; cursor: pointer;
+  background-image: linear-gradient(45deg, transparent 50%, var(--muted-foreground) 50%), linear-gradient(135deg, var(--muted-foreground) 50%, transparent 50%);
+  background-position: calc(100% - 1rem) 50%, calc(100% - 0.7rem) 50%; background-size: 0.3rem 0.3rem; background-repeat: no-repeat; }
+.hh-input::placeholder, .hh-textarea::placeholder { color: var(--muted-foreground); }
+.hh-input:focus-visible, .hh-select:focus-visible, .hh-textarea:focus-visible {
+  border-color: var(--ring); box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 30%, transparent);
+}
+.hh-input:disabled, .hh-select:disabled, .hh-textarea:disabled { opacity: 0.5; cursor: not-allowed; }
+.hh-input[aria-invalid='true'], .hh-select[aria-invalid='true'], .hh-textarea[aria-invalid='true'] {
+  border-color: var(--destructive); box-shadow: 0 0 0 3px color-mix(in oklch, var(--destructive) 20%, transparent);
+}
+
+/* Segmented number scale (1-5 ratings): <label class="hh-scale-item"><input type="radio"><span>3</span></label> */
+.hh-scale { display: flex; gap: 0.375rem; }
+.hh-scale-item { position: relative; }
+.hh-scale-item input { position: absolute; inset: 0; margin: 0; opacity: 0; cursor: pointer; }
+.hh-scale-item span {
+  display: grid; place-items: center; width: 2.25rem; height: 2.25rem; border: 1px solid var(--border);
+  border-radius: var(--radius-pill); cursor: pointer; user-select: none; transition: background-color 0.15s;
+}
+.hh-scale-item input:hover + span { background: var(--muted); }
+.hh-scale-item input:checked + span { background: var(--primary); border-color: var(--primary); color: var(--primary-foreground); }
+.hh-scale-item input:focus-visible + span { outline: 3px solid color-mix(in oklch, var(--ring) 30%, transparent); }
+
+/* ---------- table (rounded-xl bordered container, small uppercase header) ---------- */
+
+.hh-table-wrap { overflow-x: auto; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-xl); }
+.hh-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+.hh-table th {
+  height: 2rem; padding: 0 0.75rem; text-align: left; white-space: nowrap;
+  font-size: 0.625rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted-foreground);
+  border-bottom: 1px solid var(--border);
+}
+.hh-table td { padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.hh-table tbody tr:last-child td { border-bottom: 0; }
+.hh-table tbody tr:hover { background: color-mix(in oklch, var(--muted) 50%, transparent); }
+.hh-table tbody tr[data-clickable], .hh-table tbody tr.hh-clickable { cursor: pointer; }
+.hh-table .hh-num { text-align: right; font-variant-numeric: tabular-nums; }
+.hh-empty { display: grid; place-items: center; min-height: 8rem; padding: 1.5rem; text-align: center; color: var(--muted-foreground); }
+
+/* ---------- badge (pill, h-5 text-xs) ---------- */
+
+.hh-badge {
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.25rem; height: 1.25rem; padding: 0 0.5rem;
+  font-size: 0.75rem; font-weight: 500; white-space: nowrap; color: var(--primary-foreground); background: var(--primary);
+  border: 1px solid transparent; border-radius: calc(var(--radius) * 2.2);
+}
+.hh-badge-secondary { color: var(--secondary-foreground); background: var(--secondary); }
+.hh-badge-outline { color: var(--foreground); background: transparent; border-color: var(--border); }
+.hh-badge-destructive { color: var(--destructive); background: color-mix(in oklch, var(--destructive) 10%, transparent); }
+.hh-badge-success { color: var(--success); background: color-mix(in oklch, var(--success) 14%, transparent); }
+.hh-badge-warning { color: oklch(0.55 0.14 70); background: color-mix(in oklch, var(--warning) 20%, transparent); }
+.hh-dot { width: 0.375rem; height: 0.375rem; border-radius: 999px; background: var(--muted-foreground); }
+.hh-dot-success { background: oklch(0.696 0.17 162.48); }
+.hh-dot-warning { background: oklch(0.769 0.188 70.08); }
+.hh-dot-danger { background: var(--destructive); }
+
+/* ---------- alert ---------- */
+
+.hh-alert { padding: 0.5rem 0.75rem; font-size: 0.875rem; border-radius: var(--radius-md); }
+.hh-alert-error { color: var(--destructive); background: color-mix(in oklch, var(--destructive) 10%, transparent); }
+.hh-alert-success { color: var(--success); background: color-mix(in oklch, var(--success) 12%, transparent); }
+.hh-alert-info { color: var(--foreground); background: var(--muted); }
+
+/* ---------- progress bar (e.g. score) ---------- */
+
+.hh-bar { height: 0.5rem; overflow: hidden; background: var(--muted); border-radius: 999px; }
+.hh-bar > div { height: 100%; background: var(--primary); border-radius: 999px; }
+
+/* ---------- misc ---------- */
+
+.hh-separator { height: 1px; margin: 1rem 0; background: var(--border); border: 0; }
+.hh-spinner {
+  display: inline-block; width: 1rem; height: 1rem; border: 2px solid var(--border); border-top-color: var(--primary);
+  border-radius: 999px; animation: hh-spin 0.7s linear infinite;
+}
+@keyframes hh-spin { to { transform: rotate(360deg); } }
