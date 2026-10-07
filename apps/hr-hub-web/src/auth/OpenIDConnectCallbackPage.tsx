@@ -11,6 +11,14 @@ export function OpenIDConnectCallbackPage() {
     let cancelled = false;
 
     async function handleCallback() {
+      // Landing here without an authorization response means we returned from the IdP's logout
+      // (post_logout_redirect_uri): go home, where ProtectedRoute starts a fresh login.
+      const params = new URLSearchParams(window.location.search);
+      if (!params.has('code') && !params.has('error')) {
+        window.location.replace('/hr-hub/');
+        return;
+      }
+
       try {
         const success = await idenplane.handleCallback();
 

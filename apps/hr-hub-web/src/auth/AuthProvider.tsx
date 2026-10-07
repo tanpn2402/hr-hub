@@ -75,9 +75,29 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     return idenplane.login();
   }, [idenplane]);
 
-  const logout = useCallback(() => {
-    return idenplane.logout();
-  }, [idenplane]);
+  /**
+   * The SDK's logout() only revokes the refresh token and clears local tokens; it never ends the identity
+   * provider's browser (SSO) session, so the next login() silently signs the same user straight back in.
+   * After clearing local state we therefore navigate to the IdP's RP-initiated logout endpoint (which clears
+   * its session cookie) and come back through the registered redirect URI.
+   */
+  const logout = useCallback(async () => {
+    const idToken = localStorage.getItem('idenplane_id_token');
+    const { url, realm, redirectUri } = idenplane.getConfig();
+
+    try {
+      await idenplane.logout();
+    } finally {
+      setUser(null);
+      setIsAuthenticated(false);
+    }
+
+    const endSession = new URL(`${url}/realms/${encodeURIComponent(realm)}/protocol/openid-connect/logout`);
+    if (idToken) endSession.searchParams.set('id_token_hint', idToken);
+    // Must exactly match a URI registered for the client; the callback page sends code-less visits home.
+    endSession.searchParams.set('post_logout_redirect_uri', redirectUri);
+    window.location.assign(endSession.toString());
+  }, []);
 
   const value = {
     user,
