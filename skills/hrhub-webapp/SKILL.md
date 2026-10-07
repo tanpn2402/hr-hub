@@ -22,8 +22,19 @@ my-app/
 
 Run `python3 .claude/skills/hrhub-webapp/scripts/package.py my-app` → creates and validates `my-app.zip`.
 Tell the user the slug to use (lowercase letters, digits, hyphens; 2-63 chars; not `api`, `assets`, `admin`,
-`console`, `launch`, `web-apps`, `late-attendance`) and which **required roles** to set (none = public, anyone
-can open and use it without logging in).
+`console`, `launch`, `web-apps`, `late-attendance`) and which **required roles** to set.
+
+## Access model (decide this with the user)
+
+- **No required roles = public**: anyone can open it, **without logging in**, and its data API works anonymously
+  too (anyone can read and write that app's data). Good for open forms; not for anything sensitive.
+- **Required roles** (e.g. `hr`; any one role is enough): visitors are sent to login first; users without the role
+  get "no access", and the data API answers 401/403 for them. Enforcement is always **server-side**.
+- Role names are case-insensitive in the HR Hub portal itself, but for web apps use the exact Idenplane role name.
+- Opened directly (outside HR Hub's viewer) an app redirects itself into `/hr-hub/apps/<slug>`; the SDK only works
+  inside the viewer.
+- A reporting app that reads a form app's data should get **restricted roles**, but the form app's data is still
+  readable by anyone allowed to open the form app. For sensitive results ask the admin to restrict the form app too.
 
 ## Page skeleton (always start from this)
 
@@ -73,7 +84,8 @@ Therefore:
 ## hrhub-sdk.js
 
 Loaded from `/hr-hub/hrhub-sdk.js`; exposes `window.hrhub`. Every call returns a Promise. Errors are `Error`
-objects with `.status` (`401` login needed, `403` no access, `404`, `409` conflict, `413` too large).
+objects with `.status` (`403` no access, `404`, `409` conflict, `413` too large). A `401` makes the viewer send the
+visitor to login and bring them back, so apps normally never see it.
 
 ```js
 // --- own data (a key/value store private to THIS app; values are any JSON, max ~1 MB) ---
@@ -87,7 +99,12 @@ await hrhub.data.remove('settings');
 const e = await hrhub.data.getEntry('board');
 await hrhub.data.set('board', newValue, { ifUpdatedAt: e ? e.updatedAt : 0 });  // 409 if changed meanwhile
 
-// --- HR Hub employee directory (read-only; no email/phone) ---
+// --- logged-in user (no tokens; anonymous visitors get authenticated:false) ---
+const me = await hrhub.user.get();   // { authenticated, id, username, name, email, roles: [], groups: [] }
+// roles = realm + client roles; groups only when the identity provider releases a "groups" claim (else []).
+// Use it for UI only (greeting, hiding buttons): real access control is enforced by the server, never by app JS.
+
+// --- HR Hub employee directory (read-only; no email/phone; available to anonymous visitors of public apps too) ---
 const employees = await hrhub.employees.list();  // [{ id, employeeCode, name, department, position }]
 
 // --- read ANOTHER app's data (read-only; user must be allowed to open that app) ---
@@ -104,9 +121,17 @@ Key rules: `^[A-Za-z0-9._:-]{1,128}$`, max 1000 keys per app, ~1 MB per value.
 - **Reporting app**: a separate app that reads the form app via `hrhub.apps.readData(slug)`; sort/filter in JS.
 - Store ISO timestamps (`new Date().toISOString()`), employee codes (not only names), and a `schemaVersion` if
   the shape may change.
-- Anyone who can open the app can read its data through the API: don't store secrets or sensitive data in an app
-  that is public or has broad roles. A form app and its reporting app should use different required roles when the
+- Anyone who can open the app can read its data through the API (anonymous visitors too when it is public): don't
+  store secrets or sensitive data in an app that is public or has broad roles. A form app and its reporting app should use different required roles when the
   results are sensitive (ask the administrator to restrict roles).
+
+### Using the logged-in user
+
+`hrhub.user.get()` is for **display and UX only** (greeting, pre-filling a "reviewer" field, hiding buttons the user
+can't use, e.g. `if (me.roles.some((r) => r.toLowerCase() === 'hr'))`). Never rely on it for security: the
+sandboxed JS can be tampered with, so anything that must be restricted needs the app's **required roles** instead.
+Handle `me.authenticated === false` (public apps), and treat `groups` as optional (usually `[]` today). Store
+`me.username`/`me.id` with a record when you need to know who submitted it.
 
 ## Styling: follow HR Hub
 
@@ -162,4 +187,6 @@ Full snippets: `reference/components.md`. Working examples (copy their structure
 - [ ] Uses `hh-*` classes and theme variables only; no custom palette or font
 - [ ] Loading, empty and error states; submit disabled while saving
 - [ ] Data keys documented; one key per record for append-only data
+- [ ] Access decided with the user (public vs required roles) and stated in the handover
+- [ ] `hrhub.user.get()` used for display only; handles anonymous visitors
 - [ ] `package.py` passes

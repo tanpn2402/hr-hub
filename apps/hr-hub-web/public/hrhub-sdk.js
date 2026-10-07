@@ -10,6 +10,12 @@
  *   const keys = await hrhub.data.list();                  // [{ key, updatedAt }]
  *   await hrhub.data.remove('employees');
  *
+ * Logged-in user (never includes tokens; anonymous visitors get authenticated:false):
+ *   const me = await hrhub.user.get();
+ *   // { authenticated, id, username, name, email, roles: [...], groups: [...] }
+ *   // roles = realm + client roles. groups = the identity provider's "groups" claim (empty when not released).
+ *   if (me.roles.includes('hr')) { ... }   // UI convenience only: the data API enforces access server-side
+ *
  * Employee directory (read-only, no contact details):
  *   const employees = await hrhub.employees.list();   // [{ id, employeeCode, name, department, position }]
  *
@@ -59,6 +65,11 @@
   }
 
   window.hrhub = {
+    user: {
+      get: function () {
+        return call('me');
+      },
+    },
     apps: {
       readData: function (slug) {
         return call('readApp', { app: slug });

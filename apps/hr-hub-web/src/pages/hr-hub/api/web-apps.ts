@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { apiClient } from '@/api/client';
+import { idenplane } from '@/lib/idenplane';
 
 export type WebAppStatus = 'draft' | 'published' | 'disabled' | 'deleted';
 
@@ -131,24 +132,38 @@ export async function rollbackWebAppVersion(id: string, version: number): Promis
 }
 
 export async function setWebAppEnabled(id: string, enabled: boolean): Promise<WebApp> {
-  const { data } = await apiClient.post<WebApp>(`/web-apps/${id}/${enabled ? 'enable' : 'disable'}`);
+  const { data } = await apiClient.post<WebApp>(
+    `/web-apps/${id}/${enabled ? 'enable' : 'disable'}`,
+  );
   return data;
 }
 
 /* ------------------------------ runtime (viewer) ------------------------------ */
 
-export type WebAppAccess = { slug: string; name: string; description: string | null; status: string };
+export type WebAppAccess = {
+  slug: string;
+  name: string;
+  description: string | null;
+  status: string;
+};
 
 export async function getWebAppAccess(slug: string): Promise<WebAppAccess> {
-  const { data } = await apiClient.get<WebAppAccess>(`/web-apps/${encodeURIComponent(slug)}/access`);
+  const { data } = await apiClient.get<WebAppAccess>(
+    `/web-apps/${encodeURIComponent(slug)}/access`,
+  );
   return data;
 }
 
-export type WebAppDataOp = 'list' | 'get' | 'set' | 'remove' | 'employees' | 'readApp';
+export type WebAppDataOp = 'list' | 'get' | 'set' | 'remove' | 'employees' | 'readApp' | 'me';
 
 /** Executes a data operation for the app identified by the route slug (never by the app itself). */
-export async function runWebAppDataOp(slug: string, op: WebAppDataOp, args: Record<string, unknown>) {
+export async function runWebAppDataOp(
+  slug: string,
+  op: WebAppDataOp,
+  args: Record<string, unknown>,
+) {
   if (op === 'readApp') return readOtherAppData(String(args.app ?? ''));
+  if (op === 'me') return readCurrentUser();
 
   const base = `/web-apps/${encodeURIComponent(slug)}/data`;
   const key = encodeURIComponent(String(args.key ?? ''));
@@ -159,7 +174,13 @@ export async function runWebAppDataOp(slug: string, op: WebAppDataOp, args: Reco
       const { data } = await apiClient.get<Array<Record<string, unknown>>>('/employees');
       return data
         .filter((employee) => employee.active !== false)
-        .map(({ id, employeeCode, name, department, position }) => ({ id, employeeCode, name, department, position }));
+        .map(({ id, employeeCode, name, department, position }) => ({
+          id,
+          employeeCode,
+          name,
+          department,
+          position,
+        }));
     }
     case 'list':
       return (await apiClient.get(base)).data;
@@ -171,7 +192,9 @@ export async function runWebAppDataOp(slug: string, op: WebAppDataOp, args: Reco
         throw error;
       }
     case 'set':
-      return (await apiClient.put(`${base}/${key}`, { value: args.value, ifUpdatedAt: args.ifUpdatedAt })).data;
+      return (
+        await apiClient.put(`${base}/${key}`, { value: args.value, ifUpdatedAt: args.ifUpdatedAt })
+      ).data;
     case 'remove':
       return (await apiClient.delete(`${base}/${key}`)).data;
     default:
@@ -192,11 +215,79 @@ async function readOtherAppData(app: string) {
 
   for (let i = 0; i < keys.length; i += 10) {
     const batch = await Promise.all(
-      keys.slice(i, i + 10).map(({ key }) => apiClient.get(`${base}/${encodeURIComponent(key)}`).then((r) => r.data)),
+      keys
+        .slice(i, i + 10)
+        .map(({ key }) => apiClient.get(`${base}/${encodeURIComponent(key)}`).then((r) => r.data)),
     );
     entries.push(...batch);
   }
   return entries;
+}
+
+export type WebAppUser = {
+  authenticated: boolean;
+  id: string | null;
+  username: string | null;
+  name: string | null;
+  email: string | null;
+  /** Realm roles + all client roles (the same set the API authorizes with). */
+  roles: string[];
+  /** Group names from the identity provider's `groups` claim; empty when the IdP doesn't release groups. */
+  groups: string[];
+};
+
+const ANONYMOUS_USER: WebAppUser = {
+  authenticated: false,
+  id: null,
+  username: null,
+  name: null,
+  email: null,
+  roles: [],
+  groups: [],
+};
+
+let userCache: { at: number; user: WebAppUser } | null = null;
+
+const asStrings = (value: unknown): string[] =>
+  Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
+
+/** The signed-in user as web apps may see them. Never includes tokens. Anonymous visitors get an empty user. */
+async function readCurrentUser(): Promise<WebAppUser> {
+  if (!idenplane.isAuthenticated()) return ANONYMOUS_USER;
+  if (userCache && Date.now() - userCache.at < 60_000) return userCache.user;
+
+  // Fresh userinfo can carry more claims (e.g. groups) than the tokens; fall back to the cached/ID-token data.
+  const info = (await idenplane.fetchUserInfo().catch(() => null)) ?? idenplane.getUserInfo();
+  const access = (idenplane.getTokenClaims() ?? {}) as Record<string, unknown>;
+  const claims = { ...(idenplane.getIdTokenClaims() ?? {}), ...access, ...(info ?? {}) } as Record<
+    string,
+    unknown
+  >;
+
+  const realmAccess = (access.realm_access ?? claims.realm_access) as
+    { roles?: unknown } | undefined;
+  const resourceAccess = (access.resource_access ?? claims.resource_access ?? {}) as Record<
+    string,
+    { roles?: unknown }
+  >;
+
+  const user: WebAppUser = {
+    authenticated: true,
+    id: typeof claims.sub === 'string' ? claims.sub : null,
+    username: typeof claims.preferred_username === 'string' ? claims.preferred_username : null,
+    name: typeof claims.name === 'string' ? claims.name : null,
+    email: typeof claims.email === 'string' ? claims.email : null,
+    roles: [
+      ...new Set([
+        ...asStrings(realmAccess?.roles),
+        ...Object.values(resourceAccess).flatMap((resource) => asStrings(resource?.roles)),
+      ]),
+    ],
+    groups: [...new Set(asStrings(claims.groups))],
+  };
+
+  userCache = { at: Date.now(), user };
+  return user;
 }
 
 export function getErrorMessage(error: unknown, fallback = 'Request failed'): string {
@@ -204,7 +295,10 @@ export function getErrorMessage(error: unknown, fallback = 'Request failed'): st
     const data = error.response?.data as { message?: unknown; errors?: unknown } | undefined;
     const errors = Array.isArray(data?.errors) ? (data.errors as string[]).join('; ') : '';
     const message = Array.isArray(data?.message) ? data.message.join('; ') : data?.message;
-    return [typeof message === 'string' ? message : '', errors].filter(Boolean).join(' - ') || error.message;
+    return (
+      [typeof message === 'string' ? message : '', errors].filter(Boolean).join(' - ') ||
+      error.message
+    );
   }
   return error instanceof Error ? error.message : fallback;
 }

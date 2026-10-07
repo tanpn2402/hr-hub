@@ -95,3 +95,13 @@ hrhub.apps.readData('some-app')
   .then(render)
   .catch((e) => { box.className = 'hh-alert hh-alert-error'; box.textContent = e.message; });
 ```
+
+## Greeting with the current user
+```js
+hrhub.user.get().then((me) => {
+  const el = document.getElementById('who');
+  el.textContent = me.authenticated ? 'Xin chào, ' + (me.name || me.username) : 'Khách';
+  // UI only: hide HR-only controls; the server still enforces access
+  document.getElementById('admin-tools').hidden = !me.roles.some((r) => r.toLowerCase() === 'hr');
+});
+```

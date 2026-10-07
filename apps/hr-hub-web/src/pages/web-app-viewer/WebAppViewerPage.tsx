@@ -15,7 +15,7 @@ import {
   type WebAppDataOp,
 } from '@/pages/hr-hub/api/web-apps';
 
-const OPS: WebAppDataOp[] = ['list', 'get', 'set', 'remove', 'employees', 'readApp'];
+const OPS: WebAppDataOp[] = ['list', 'get', 'set', 'remove', 'employees', 'readApp', 'me'];
 
 /**
  * Served at /hr-hub/apps/:slug (login is enforced client-side by ProtectedRoute). Hosts a web app inside a sandboxed iframe (no allow-same-origin => opaque origin, so the app cannot read
