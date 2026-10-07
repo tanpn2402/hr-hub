@@ -1,6 +1,5 @@
-import { Building2, Clock3, Grid2X2, LayoutDashboard } from "lucide-react";
-import { HRHubPage } from "../pages/hr-hub/HRHubPage";
-import { LateHubPage } from "../pages/late-hub/LateHubPage";
+import { Clock3, LayoutDashboard } from 'lucide-react';
+import { lazy, LazyExoticComponent } from 'react';
 
 type AppItem = {
   id: string;
@@ -16,50 +15,41 @@ type AppItem = {
     roles?: string[];
     permissions?: string[];
   };
-  component: () => React.JSX.Element;
+  component: LazyExoticComponent<() => React.JSX.Element>;
 };
+
+const appComponent = <T extends () => React.JSX.Element>(loader: () => Promise<{ default: T }>) =>
+  lazy(loader);
 
 export const apps: AppItem[] = [
   {
-    id: "hr-hub",
-    name: "HR Hub",
-    description: "Employee workspace",
+    id: 'hr-hub',
+    name: 'hr_hub',
+    description: 'employee_workspace',
     icon: LayoutDashboard,
-    href: "/hr-hub",
+    href: '/hr-hub/',
     nested: true,
     access: {
       authenticated: true,
-      roles: ["HR", "ADMIN"],
+      roles: ['HR', 'ADMIN'],
     },
-    component: HRHubPage,
+    component: appComponent(() =>
+      import('../pages/hr-hub/HRHubPage').then((m) => ({
+        default: m.HRHubPage,
+      })),
+    ),
   },
   {
-    id: "late-hub",
-    name: "Late Hub",
-    description: "Attendance & late hours",
+    id: 'late-hub',
+    name: 'late_hub',
+    description: 'attendance_and_late_hours',
     icon: Clock3,
-    href: "/apps/late-hub",
+    href: '/hr-hub/apps/late-attendance',
     nested: true,
-    component: LateHubPage,
-  },
-  {
-    id: "app-1",
-    name: "App 1",
-    description: "Application",
-    icon: Building2,
-    href: "/apps/app-1",
-    access: {
-      authenticated: true,
-      roles: ["SYSTEM"],
-    },
-    component: HRHubPage,
-  },
-  {
-    id: "app-2",
-    name: "App 2",
-    description: "Application",
-    icon: Grid2X2,
-    href: "/apps/app-2",
-    component: HRHubPage,
+    component: appComponent(() =>
+      import('../pages/late-hub/LateHubPage').then((m) => ({
+        default: m.LateHubPage,
+      })),
+    ),
   },
 ];

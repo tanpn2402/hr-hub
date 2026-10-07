@@ -1,6 +1,7 @@
-import { LogOut, User } from "lucide-react";
+import { LogOut, User } from 'lucide-react';
 
-import { useAuth } from "@/auth/useAuth";
+import { useAuth } from '@/auth/useAuth';
+import { useTranslation } from 'react-i18next';
 
 import {
   DropdownMenu,
@@ -8,25 +9,22 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+} from '@/components/ui/dropdown-menu';
 
 type Props = {
   onLogout: () => void;
 };
 
 export function HRHubUserMenu({ onLogout }: Props) {
+  const { t } = useTranslation();
   const { user } = useAuth();
 
-  const displayName =
-    user?.name ||
-    user?.preferred_username ||
-    user?.email ||
-    "User";
+  const displayName = user?.name || user?.preferred_username || user?.email || t('user');
 
   const initials = displayName
-    .split(" ")
+    .split('')
     .map((part) => part[0])
-    .join("")
+    .join('')
     .slice(0, 2)
     .toUpperCase();
 
@@ -43,9 +41,7 @@ export function HRHubUserMenu({ onLogout }: Props) {
             </div>
 
             <div className="hidden text-left sm:block">
-              <div className="text-sm font-medium leading-none">
-                {displayName}
-              </div>
+              <div className="text-sm font-medium leading-none">{displayName}</div>
 
               {user?.email && (
                 <div className="mt-1 max-w-48 truncate text-xs text-muted-foreground">
@@ -59,14 +55,10 @@ export function HRHubUserMenu({ onLogout }: Props) {
 
       <DropdownMenuContent align="end" className="w-56">
         <div className="px-2 py-1.5">
-          <div className="text-sm font-medium">
-            {displayName}
-          </div>
+          <div className="text-sm font-medium">{displayName}</div>
 
           {user?.email && (
-            <div className="truncate text-xs text-muted-foreground">
-              {user.email}
-            </div>
+            <div className="truncate text-xs text-muted-foreground">{user.email}</div>
           )}
         </div>
 
@@ -74,17 +66,14 @@ export function HRHubUserMenu({ onLogout }: Props) {
 
         <DropdownMenuItem disabled>
           <User className="mr-2 size-4" />
-          Profile
+          {t('profile')}
         </DropdownMenuItem>
 
         <DropdownMenuSeparator />
 
-        <DropdownMenuItem
-          onClick={onLogout}
-          className="text-destructive focus:text-destructive"
-        >
+        <DropdownMenuItem onClick={onLogout} className="text-destructive focus:text-destructive">
           <LogOut className="mr-2 size-4" />
-          Logout
+          {t('logout')}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

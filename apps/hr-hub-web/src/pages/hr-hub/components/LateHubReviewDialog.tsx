@@ -1,12 +1,5 @@
-import { useMemo, useState } from "react";
-import {
-  CheckCircle2,
-  FileSpreadsheet,
-  Loader2,
-  Maximize2,
-  Minimize2,
-  X,
-} from "lucide-react";
+import { useMemo, useState } from 'react';
+import { CheckCircle2, FileSpreadsheet, Loader2, Maximize2, Minimize2, X } from 'lucide-react';
 
 import {
   Dialog,
@@ -15,32 +8,25 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 
-import {
-  LateHubReviewTable,
-  type WorkforceImportResult,
-} from "./LateHubReviewTable";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiClient } from "@/api/client";
+import { LateHubReviewTable } from './LateHubReviewTable';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { apiClient } from '@/api/client';
+import { useTranslation } from 'react-i18next';
+import { formatMonth } from '@/lib/time-utils';
+import { ImportWorkforceResponse } from '../api/workforce';
 
 type Props = {
   open: boolean;
-  data: WorkforceImportResult | null;
+  data: ImportWorkforceResponse | null;
   onOpenChange: (open: boolean) => void;
 };
 
-
 type ConfirmImportPayload = { overrides?: Record<string, unknown> };
-async function confirmImport(
-  batchId: string,
-  payload: ConfirmImportPayload = {},
-) {
-  const { data } = await apiClient.post(
-    `/workforce/import/${batchId}/confirm`,
-    payload,
-  );
+async function confirmImport(batchId: string, payload: ConfirmImportPayload = {}) {
+  const { data } = await apiClient.post(`/workforce/import/${batchId}/confirm`, payload);
   return data;
 }
 
@@ -56,14 +42,11 @@ function useConfirmImport() {
   });
 }
 
-export function LateHubReviewDialog({
-  open,
-  data,
-  onOpenChange,
-}: Props) {
+export function LateHubReviewDialog({ open, data, onOpenChange }: Props) {
+  const { t } = useTranslation();
   const [fullscreen, setFullscreen] = useState(true);
 
-  const isReviewing = useMemo(() => data?.batchId !== "", [data]);
+  const isReviewing = useMemo(() => data?.batchId !== '', [data]);
 
   const queryClient = useQueryClient();
   const confirmMutation = useConfirmImport();
@@ -74,7 +57,7 @@ export function LateHubReviewDialog({
   };
 
   function handleConfirm() {
-    if (!data || !data.batchId || data.status !== "preview") {
+    if (!data || !data.batchId || data.status !== 'preview') {
       return;
     }
 
@@ -85,11 +68,11 @@ export function LateHubReviewDialog({
           onOpenChange(false);
 
           queryClient.invalidateQueries({
-            queryKey: ["workforce", "import-history"],
+            queryKey: ['workforce', 'import-history'],
           });
 
           queryClient.invalidateQueries({
-            queryKey: ["workforce", "report-months"],
+            queryKey: ['workforce', 'report-months'],
           });
 
           // TODO: invalidate query batchImportMonth
@@ -105,25 +88,21 @@ export function LateHubReviewDialog({
     onOpenChange(false);
   }
 
-
   if (!data) {
     return null;
   }
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={handleOpenChange}
-    >
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
         showCloseButton={false}
         className={[
-          "flex flex-col gap-0 overflow-hidden p-0",
-          open ? "transition-[width,height,max-width,border-radius] duration-200" : "",
+          'flex flex-col gap-0 overflow-hidden p-0',
+          open ? 'transition-[width,height,max-width,border-radius] duration-200' : '',
           fullscreen
-            ? "h-screen w-screen sm:max-w-none rounded-none max-w-full"
-            : "h-[92vh] w-[96vw] sm:max-w-none max-w-none",
-        ].join(" ")}
+            ? 'h-screen w-screen sm:max-w-none rounded-none max-w-full'
+            : 'h-[92vh] w-[96vw] sm:max-w-none max-w-none',
+        ].join(' ')}
       >
         {/* Header */}
         <DialogHeader className="shrink-0 border-b px-6 py-4">
@@ -135,11 +114,15 @@ export function LateHubReviewDialog({
 
               <div className="min-w-0">
                 <DialogTitle className="truncate">
-                  {isReviewing ? "Review imported attendance" : "Attendance view"}
+                  {isReviewing ? t('review_imported_attendance') : t('attendance_view')}
                 </DialogTitle>
 
                 <DialogDescription className="mt-0.5 text-xs">
-                  {isReviewing ? "Review attendance violations and calculated fines before continuing." : ""}
+                  {formatMonth(data.month) +
+                    ' • ' +
+                    (isReviewing
+                      ? t('review_attendance_violations_and_calculated_fines_before_continuing')
+                      : '')}
                 </DialogDescription>
               </div>
             </div>
@@ -150,20 +133,10 @@ export function LateHubReviewDialog({
                 variant="ghost"
                 size="icon"
                 className="size-8"
-                onClick={() =>
-                  setFullscreen((value) => !value)
-                }
-                title={
-                  fullscreen
-                    ? "Exit full screen"
-                    : "Full screen"
-                }
+                onClick={() => setFullscreen((value) => !value)}
+                title={fullscreen ? t('exit_full_screen') : t('full_screen')}
               >
-                {fullscreen ? (
-                  <Minimize2 className="size-4" />
-                ) : (
-                  <Maximize2 className="size-4" />
-                )}
+                {fullscreen ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}
               </Button>
 
               <Button
@@ -171,7 +144,7 @@ export function LateHubReviewDialog({
                 size="icon"
                 className="size-8"
                 onClick={() => handleOpenChange(false)}
-                title="Close"
+                title={t('close')}
               >
                 <X className="size-4" />
               </Button>
@@ -185,29 +158,31 @@ export function LateHubReviewDialog({
         </div>
 
         <DialogFooter className="shrink-0 border-t bg-muted/20 px-6 py-4">
-          <Button variant="outline"
+          <Button
+            variant="outline"
             className="min-w-32"
-            onClick={handleClose} disabled={isConfirming}>
-            Close
+            onClick={handleClose}
+            disabled={isConfirming}
+          >
+            {t('close')}
           </Button>
 
           {isReviewing ? (
             <Button
               onClick={handleConfirm}
               className="min-w-32"
-              disabled={!data || !data.batchId || data.status !== "preview" || isConfirming}
+              disabled={!data || !data.batchId || data.status !== 'preview' || isConfirming}
             >
               {isConfirming ? (
                 <Loader2 className="size-4 animate-spin" />
               ) : (
                 <CheckCircle2 className="size-4" />
               )}
-              Confirm Import
+              {t('confirm_import')}
             </Button>
           ) : null}
         </DialogFooter>
       </DialogContent>
-
     </Dialog>
   );
 }

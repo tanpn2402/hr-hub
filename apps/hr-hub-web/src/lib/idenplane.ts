@@ -1,13 +1,22 @@
-import { IdenplaneClient, IdenplaneConfig } from "idenplane-sdk";
+import { IdenplaneClient, IdenplaneConfig } from 'idenplane-sdk';
+
+const resolveIAMUrl = (url: string) => {
+  if (url === undefined || url === null || url.trim() === '') {
+    return window.location.origin;
+  }
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return url;
+  }
+  return window.location.origin + url;
+};
 
 export const config: IdenplaneConfig = {
-  url: import.meta.env.VITE_IAM_URL || "http://localhost:3004",
-  realm: import.meta.env.VITE_IAM_REALM || "tts",
-  clientId: import.meta.env.VITE_IAM_CLIENT_ID || "hr-hub-1",
-  redirectUri:
-    import.meta.env.VITE_IAM_REDIRECT_URI ||
-    "http://localhost:5170/auth/openid_connect/callback",
-  storage: "localStorage",
+  url: resolveIAMUrl(import.meta.env.VITE_IAM_URL),
+  realm: import.meta.env.VITE_IAM_REALM || 'tts',
+  clientId: import.meta.env.VITE_IAM_CLIENT_ID || 'hr-hub-1',
+  redirectUri: resolveIAMUrl(import.meta.env.VITE_IAM_REDIRECT_URI),
+  storage: 'localStorage',
+  allowInsecureHttp: true,
 };
 
 export const idenplane = new IdenplaneClient(config);

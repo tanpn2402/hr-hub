@@ -1,7 +1,9 @@
 import { BadRequestException } from '@nestjs/common';
 import dayjs, { Dayjs } from 'dayjs';
+import utc from 'dayjs/plugin/utc';
 import customParseFormat from 'dayjs/plugin/customParseFormat';
 
+dayjs.extend(utc);
 dayjs.extend(customParseFormat);
 
 export function minutesOfDay(hoursMinutes: string): number {
@@ -10,6 +12,13 @@ export function minutesOfDay(hoursMinutes: string): number {
     throw new Error(`Invalid HH:mm time value in configuration: "${hoursMinutes}"`);
   }
   return parsed.hour() * 60 + parsed.minute();
+}
+
+export function formatMinutesOfDay(minutes: number): string {
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+
+  return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
 }
 
 /** Parses a "DD-MM-YYYY" configuration value into an ISO yyyy-MM-dd date string. */

@@ -7,6 +7,26 @@ datasource db {
   provider = "sqlite"
 }
 
+model Employee {
+  id           String    @id @default(cuid())
+  employeeCode String    @unique
+  name         String
+  email        String?
+  referenceId  String?
+  phone        String?
+  department   String?
+  position     String?
+  joinedAt     DateTime?
+  active       Boolean   @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([name])
+  @@index([department])
+  @@index([active])
+}
+
 model Attendance {
   id String @id @default(cuid())
 
@@ -134,6 +154,142 @@ model WorkforceImport {
 
   @@index([status])
   @@index([createdAt])
+}
+
+model WorkforceRule {
+  id String @id @default(cuid())
+
+  /// BASE is reserved for future DB-based base rules.
+  /// OVERRIDE represents an HR-defined exception.
+  kind String @default("OVERRIDE")
+
+  /// Property being overridden.
+  /// Examples:
+  /// AFTERNOON_CHECKOUT_DEADLINE
+  /// MORNING_START
+  /// CHECKIN_REQUIRED
+  /// CHECKOUT_REQUIRED
+  /// FINE_LATE_MORNING
+  /// WORKING_DAY
+  property String
+
+  /// Serialized value.
+  /// Time properties: HH:mm
+  /// Fine properties: numeric string
+  /// Boolean properties: "true"/"false"
+  value String
+
+  /// null = all employees
+  employeeCode String?
+
+  /// null = every weekday/date
+  weekday Int?
+
+  /// Inclusive date range.
+  /// startDate == endDate means one specific date.
+  startDate DateTime?
+  endDate   DateTime?
+
+  /// Higher priority wins when multiple rules match.
+  priority Int @default(0)
+
+  reason String?
+
+  enabled Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([employeeCode, enabled])
+  @@index([startDate, endDate, enabled])
+  @@index([property, enabled])
+}
+
+model EmployeeMonthlyFine {
+  id String @id @default(cuid())
+
+  employeeCode String
+  employeeName String?
+
+  /// First day of the month, e.g. 2026-09-01
+  month DateTime
+
+  /// Total of Fine.amount for this employee/month.
+  originalAmount Int @default(0)
+
+  /// Total approved reductions from FineFeedback.
+  reductionAmount Int @default(0)
+
+  /// Amount that the employee actually needs to pay.
+  /// Usually:
+  /// originalAmount - reductionAmount
+  payableAmount Int @default(0)
+
+  currency String @default("VND")
+
+  /// pending / completed / cancelled
+  status String @default("pending")
+
+  /// Optional: when this monthly fine was paid.
+  paidAt DateTime?
+
+  /// User/system that confirmed the payment.
+  paidBy     String?
+  paidByName String?
+
+  /// Optional note about the monthly settlement.
+  note String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([employeeCode, month])
+  @@index([month, status])
+  @@index([employeeCode, status])
+}
+
+model FinePayment {
+  id String @id @default(cuid())
+
+  employeeCode String
+  employeeName String?
+
+  /// Monthly fine IDs included in this payment.
+  /// JSON array of EmployeeMonthlyFine.id values.
+  monthlyFineIds String
+
+  /// Total amount being paid.
+  amount Int
+
+  currency String @default("VND")
+
+  /// pending / paid / cancelled / expired
+  status String @default("pending")
+
+  /// qr / bank_transfer / cash
+  paymentMethod String?
+
+  /// APIPAY / PAYOS / ...
+  provider String?
+
+  /// Provider order/payment ID.
+  providerPaymentId String?
+
+  providerMetadata String?
+
+  paidAt DateTime?
+
+  createdBy     String?
+  createdByName String?
+
+  expiresAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([employeeCode, status])
+  @@index([status])
+  @@index([providerPaymentId])
 }
 
 model FinancialTransaction {

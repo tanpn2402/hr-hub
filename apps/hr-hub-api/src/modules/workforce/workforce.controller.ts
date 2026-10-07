@@ -1,12 +1,9 @@
 import {
-  BadRequestException,
   Controller,
   Get,
-  Header,
   Param,
   Post,
   Query,
-  StreamableFile,
   UploadedFiles,
   UseGuards,
   UseInterceptors,
@@ -60,14 +57,6 @@ export class WorkforceController {
       limits: { fileSize: 10 * 1024 * 1024 },
     }),
   )
-  // @ts-ignore
-  importExcelFiles(@UploadedFiles() files: Express.Multer.File[], @CurrentUser() user: AuthenticatedUser) {
-    if (!files || files.length !== 2) {
-      throw new BadRequestException('Exactly two Excel files are required: one check-in/checkout file and one leave file');
-    }
-
-    return this.workforceService.importExcelFiles(files);
-  }
 
   @Get('metadata')
   getMetadata(@Query() query: any) {
@@ -84,17 +73,17 @@ export class WorkforceController {
     return this.workforceService.getMonthlyReport(month);
   }
 
-  @Get('reports/:month/export')
-  @Header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-  async exportReport(@Param('month') month: string): Promise<StreamableFile> {
-    const { buffer, fileName } = await this.workforceService.exportMonthlyReport(month);
-    return new StreamableFile(buffer, { disposition: `attachment; filename="${fileName}"` });
-  }
+  // @Get('reports/:month/export')
+  // @Header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+  // async exportReport(@Param('month') month: string): Promise<StreamableFile> {
+  //   const { buffer, fileName } = await this.workforceService.exportMonthlyReport(month);
+  //   return new StreamableFile(buffer, { disposition: `attachment; filename="${fileName}"` });
+  // }
 
-  @Get('export/:batchId')
-  @Header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-  async exportBatch(@Param('batchId') batchId: string): Promise<StreamableFile> {
-    const { buffer, fileName } = await this.workforceService.exportBatch(batchId);
-    return new StreamableFile(buffer, { disposition: `attachment; filename="${fileName}"` });
-  }
+  // @Get('export/:batchId')
+  // @Header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+  // async exportBatch(@Param('batchId') batchId: string): Promise<StreamableFile> {
+  //   const { buffer, fileName } = await this.workforceService.exportBatch(batchId);
+  //   return new StreamableFile(buffer, { disposition: `attachment; filename="${fileName}"` });
+  // }
 }

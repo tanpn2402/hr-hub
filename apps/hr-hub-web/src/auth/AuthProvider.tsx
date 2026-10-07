@@ -11,7 +11,7 @@ export type AuthContextType = {
   logout: () => Promise<void>;
   hasRole: (role: string) => boolean;
   hasPermission: (permission: string) => boolean;
-}
+};
 
 export const AuthContext = createContext<AuthContextType | null>(null);
 
@@ -29,13 +29,13 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         if (authStatus) {
           const userData = idenplane.getUserInfo();
 
-          console.log("UserInfo", idenplane.getUserInfo());
-          console.log("UserRole", idenplane.getClientRoles(idenplane.getConfig().clientId));
+          console.log('UserInfo', idenplane.getUserInfo());
+          console.log('UserRole', idenplane.getClientRoles(idenplane.getConfig().clientId));
 
           setUser(userData);
         }
       } catch (error) {
-        console.error("Auth check failed:", error);
+        console.error('Auth check failed:', error);
       } finally {
         setIsLoading(false);
       }
@@ -63,7 +63,6 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     return idenplane.logout();
   }, [idenplane]);
 
-
   const value = {
     user,
     isAuthenticated,
@@ -75,4 +74,4 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-}
+};

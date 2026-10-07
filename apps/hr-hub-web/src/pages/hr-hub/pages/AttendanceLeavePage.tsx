@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState } from 'react';
 import {
   Banknote,
   CalendarCheck,
@@ -10,131 +10,57 @@ import {
   BadgeCheck,
   Upload,
   Users,
-} from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+  DatabaseX,
+} from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 
-import { HRMetricCard } from "../components/HRMetricCard";
-import { ImportDataDialog } from "../components/ImportDataDialog";
-import { HRPageHeader } from "../components/HRPageHeader";
+import { HRMetricCard } from '../components/HRMetricCard';
+import { ImportDataDialog } from '../components/ImportDataDialog';
+import { HRPageHeader } from '../components/HRPageHeader';
 
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from '@/components/ui/select';
 
-import { apiClient } from "@/api/client";
-import { WorkforceImportHistory } from "../components/WorkforceImportHistory";
-import { LateHubReviewDialog } from "../components/LateHubReviewDialog";
-import { WorkforceRow } from "../api/workforce";
-import { getWorkforceFeedback } from "../api/workforce";
-import { FeedbackReviewDialog } from "../components/FeedbackReviewDialog";
-
-/* -------------------------------------------------------------------------- */
-/* Types                                                                      */
-/* -------------------------------------------------------------------------- */
-
-type EmployeeSummary = {
-  employeeCode: string;
-  name: string;
-  totalFine: number;
-  attendanceCount?: number;
-};
-
-type MonthlyReport = {
-  employeeSummaries: EmployeeSummary[];
-  grandTotal: number;
-  rows: WorkforceRow[];
-};
-
-/* -------------------------------------------------------------------------- */
-/* API                                                                        */
-/* -------------------------------------------------------------------------- */
-
-async function getAvailableMonths(): Promise<string[]> {
-  const { data } = await apiClient.get<string[]>(
-    "/workforce/reports",
-  );
-
-  return data;
-}
-
-async function getMonthlyReport(
-  month: string,
-): Promise<MonthlyReport> {
-  const { data } = await apiClient.get<MonthlyReport>(
-    `/workforce/reports/${month}`,
-  );
-
-  return data;
-}
-
-/* -------------------------------------------------------------------------- */
-/* Hook                                                                       */
-/* -------------------------------------------------------------------------- */
-
-function useMonthlyReport(
-  currentMonth: string | null
-) {
-  return useQuery({
-    queryKey: ["workforce", "report", currentMonth],
-    queryFn: () => getMonthlyReport(currentMonth ?? ""),
-    enabled: Boolean(currentMonth),
-  });
-}
-
-/* -------------------------------------------------------------------------- */
-/* Helpers                                                                    */
-/* -------------------------------------------------------------------------- */
-
-function formatMonth(value: string) {
-  const [year, month] = (value ?? "2026-08").split("-").map(Number);
-
-  return new Intl.DateTimeFormat("en-US", {
-    month: "long",
-    year: "numeric",
-  }).format(new Date(year, month - 1, 1));
-}
-
-function formatMoney(value: number) {
-  return new Intl.NumberFormat("vi-VN").format(value);
-}
-
-/* -------------------------------------------------------------------------- */
-/* Page                                                                       */
-/* -------------------------------------------------------------------------- */
+import { LateHubReviewDialog } from '../components/LateHubReviewDialog';
+import { getWorkforceFeedback } from '../api/workforce';
+import { FeedbackReviewDialog } from '../components/FeedbackReviewDialog';
+import { useTranslation } from 'react-i18next';
+import { formatMonth } from '@/lib/time-utils';
+import { useAvailableMonths, useMonthlyReport } from '../hooks/useWorkforce';
+import { formatMoney } from '@/lib/format-utils';
 
 export function AttendanceLeavePage() {
+  const { t } = useTranslation();
   const [importOpen, setImportOpen] = useState(false);
 
   const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
 
   const [reviewOpen, setReviewOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
-  const [feedbackFilter, setFeedbackFilter] = useState<"all" | "approved">("all");
+  const [feedbackFilter, setFeedbackFilter] = useState<'all' | 'approved'>('all');
 
   /* ---------------------------------------------------------------------- */
   /* Queries                                                                */
   /* ---------------------------------------------------------------------- */
 
-  const monthsQuery = useQuery({
-    queryKey: ["workforce", "report-months"],
-    queryFn: getAvailableMonths,
-  });
+  const monthsQuery = useAvailableMonths();
 
   const months = monthsQuery.data ?? [];
 
-  const currentMonth = selectedMonth ?? months[0] ?? "";
+  const currentMonth = selectedMonth ?? months[0] ?? '';
 
   const reportQuery = useMonthlyReport(currentMonth);
 
   const report = reportQuery.data;
   const feedbackQuery = useQuery({
-    queryKey: ["workforce", "feedback", currentMonth],
+    queryKey: ['workforce', 'feedback', currentMonth],
     queryFn: () => getWorkforceFeedback(currentMonth),
     enabled: Boolean(currentMonth),
   });
@@ -154,15 +80,12 @@ export function AttendanceLeavePage() {
     }
 
     const late = report.employeeSummaries.reduce(
-      (count, employee) =>
-        count +
-        (employee.totalFine > 0 ? 1 : 0),
+      (count, employee) => count + (employee.totalFine > 0 ? 1 : 0),
       0,
     );
 
     const attendance = report.employeeSummaries.reduce(
-      (count, employee) =>
-        count + (employee.attendanceCount ?? 0),
+      (count, employee) => count + (employee.attendanceCount ?? 0),
       0,
     );
 
@@ -182,25 +105,29 @@ export function AttendanceLeavePage() {
     setReviewOpen(true);
   }
 
-  function openFeedbackDialog(filter: "all" | "approved") {
+  function openFeedbackDialog(filter: 'all' | 'approved') {
     setFeedbackFilter(filter);
     setFeedbackOpen(true);
   }
 
   const feedbackSummary = feedbackQuery.data?.summary;
   const feedbackTotal = feedbackSummary?.total ?? 0;
-  const reviewedPercent = feedbackTotal ? Math.round(((feedbackSummary?.reviewed ?? 0) / feedbackTotal) * 100) : 0;
-  const approvedPercent = feedbackTotal ? Math.round(((feedbackSummary?.approved ?? 0) / feedbackTotal) * 100) : 0;
+  const reviewedPercent = feedbackTotal
+    ? Math.round(((feedbackSummary?.reviewed ?? 0) / feedbackTotal) * 100)
+    : 0;
+  const approvedPercent = feedbackTotal
+    ? Math.round(((feedbackSummary?.approved ?? 0) / feedbackTotal) * 100)
+    : 0;
 
   return (
     <div>
       <HRPageHeader
-        title="Attendance & Leave"
-        description="Review employee attendance, late hours, and leave records."
+        title={t('attendance_and_leave')}
+        description={t('review_employee_attendance_late_hours_and_leave_records')}
         actions={
           <Button onClick={() => setImportOpen(true)}>
             <Upload className="mr-2 size-4" />
-            Import data
+            {t('import_data')}
           </Button>
         }
       />
@@ -212,12 +139,10 @@ export function AttendanceLeavePage() {
 
         <div className="mt-6 flex items-center justify-between">
           <div>
-            <h2 className="text-sm font-semibold">
-              Attendance overview
-            </h2>
+            <h2 className="text-sm font-semibold">{t('attendance_overview')}</h2>
 
             <p className="mt-1 text-xs text-muted-foreground">
-              Monthly attendance and leave summary
+              {t('monthly_attendance_and_leave_summary')}
             </p>
           </div>
 
@@ -225,9 +150,13 @@ export function AttendanceLeavePage() {
             value={currentMonth}
             onValueChange={setSelectedMonth}
             disabled={!months.length}
+            items={months.map((month) => ({
+              value: month,
+              label: formatMonth(month),
+            }))}
           >
             <SelectTrigger className="w-47.5">
-              <SelectValue placeholder="Select month" />
+              <SelectValue placeholder={t('select_month')} />
             </SelectTrigger>
 
             <SelectContent>
@@ -246,47 +175,47 @@ export function AttendanceLeavePage() {
 
         <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
           <HRMetricCard
-            title="Employees"
+            title={t('employees')}
             value={stats.employees.toLocaleString()}
-            description="Employees in this report"
+            description={t('employees_in_this_report')}
             icon={Users}
           />
 
           <HRMetricCard
-            title="Attendance records"
+            title={t('attendance_records')}
             value={stats.attendance.toLocaleString()}
-            description="Imported attendance records"
+            description={t('imported_attendance_records')}
             icon={CalendarCheck}
           />
 
           <HRMetricCard
-            title="Late employees"
+            title={t('late_employees')}
             value={stats.late.toLocaleString()}
-            description="Employees with late records"
+            description={t('employees_with_late_records')}
             icon={Clock3}
           />
 
           <HRMetricCard
-            title="Total fines"
+            title={t('total_fines')}
             value={`${formatMoney(stats.fines)} ₫`}
-            description="Total attendance fines"
+            description={t('total_attendance_fines')}
             icon={Banknote}
           />
 
           <HRMetricCard
-            title="Feedback"
+            title={t('feedback')}
             value={`${feedbackSummary?.reviewed ?? 0} / ${feedbackTotal}`}
-            description={`${reviewedPercent}% reviewed`}
+            description={t('percent_reviewed', { percent: reviewedPercent })}
             icon={MessageSquareText}
-            onClick={() => openFeedbackDialog("all")}
+            onClick={() => openFeedbackDialog('all')}
           />
 
           <HRMetricCard
-            title="Approved Feedback"
+            title={t('approved_feedback')}
             value={`${feedbackSummary?.approved ?? 0} / ${feedbackTotal}`}
-            description={`${approvedPercent}% approved`}
+            description={t('percent_approved', { percent: approvedPercent })}
             icon={BadgeCheck}
-            onClick={() => openFeedbackDialog("approved")}
+            onClick={() => openFeedbackDialog('approved')}
           />
         </div>
 
@@ -298,23 +227,25 @@ export function AttendanceLeavePage() {
           <div className="flex items-center justify-between border-b px-4 py-3">
             <div>
               <div className="text-sm font-semibold">
-                {currentMonth
-                  ? formatMonth(currentMonth)
-                  : "Attendance report"}
+                {currentMonth ? formatMonth(currentMonth) : t('attendance_report')}
               </div>
 
               <div className="mt-1 text-xs text-muted-foreground">
-                Attendance and leave data
+                {t('attendance_and_leave_data')}
               </div>
             </div>
 
-            <Badge
-              variant="secondary"
-              className="gap-1"
-            >
-              <CheckCircle2 className="size-3.5" />
-              Imported
-            </Badge>
+            {!currentMonth ? (
+              <Badge variant="secondary" className="gap-1 text-destructive">
+                <DatabaseX className="size-3.5" />
+                {t('not_yet_imported')}
+              </Badge>
+            ) : (
+              <Badge variant="secondary" className="gap-1">
+                <CheckCircle2 className="size-3.5" />
+                {t('data_imported')}
+              </Badge>
+            )}
           </div>
 
           <div className="flex items-center justify-between px-4 py-4">
@@ -324,44 +255,39 @@ export function AttendanceLeavePage() {
               </div>
 
               <div>
-                <div className="text-sm font-medium">
-                  Review employee attendance
-                </div>
+                <div className="text-sm font-medium">{t('review_employee_attendance')}</div>
 
                 <div className="text-xs text-muted-foreground">
-                  Open the detailed Late Hub review for this month.
+                  {t('open_the_detailed_late_hub_review_for_this_month')}
                 </div>
               </div>
             </div>
 
-            <Button
-              variant="outline"
-              onClick={() => handleViewMonthly()}
-              disabled={!currentMonth}
-            >
+            <Button variant="outline" onClick={() => handleViewMonthly()} disabled={!currentMonth}>
               <Eye className="mr-2 size-4" />
-              View details
+              {t('view_details')}
             </Button>
           </div>
         </div>
-
-        <WorkforceImportHistory />
       </div>
 
-      <ImportDataDialog
-        open={importOpen}
-        onOpenChange={setImportOpen}
-      />
+      <ImportDataDialog open={importOpen} onOpenChange={setImportOpen} />
 
       <LateHubReviewDialog
         open={reviewOpen}
-        data={reportQuery.data ? {
-          batchId: "",
-          status: "confirmed",
-          employeeSummaries: reportQuery.data.employeeSummaries,
-          grandTotal: reportQuery.data.grandTotal,
-          rows: reportQuery.data.rows,
-        } : null}
+        data={
+          reportQuery.data
+            ? {
+                batchId: '',
+                month: reportQuery.data.month,
+                status: 'confirmed',
+                employeeSummaries: reportQuery.data.employeeSummaries,
+                grandTotal: reportQuery.data.grandTotal,
+                paidAmount: reportQuery.data.paidAmount,
+                rows: reportQuery.data.rows,
+              }
+            : null
+        }
         onOpenChange={setReviewOpen}
       />
 

@@ -1,5 +1,5 @@
 {
-  "name": "late-hub",
+  "name": "hr-hub-api",
   "version": "0.1.0",
   "description": "Employee portal backend for checking late hours and submitting attendance fines",
   "private": true,
@@ -29,6 +29,7 @@
     "dotenv": "^16.4.7",
     "exceljs": "^4.4.0",
     "nest-winston": "^1.10.2",
+    "p-queue": "^9.3.3",
     "prisma": "^7.10.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",

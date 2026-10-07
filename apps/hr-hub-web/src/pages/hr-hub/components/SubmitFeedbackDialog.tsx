@@ -1,56 +1,55 @@
-import { useEffect, useState } from "react";
-import { useMutation } from "@tanstack/react-query";
-import axios from "axios";
+import { useEffect, useState } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 
-
-import { Button } from "@/components/ui/button";
+import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import { WorkforceRow } from "../api/workforce";
-import dayjs from "dayjs";
-import { dateOfWeek } from "@/lib/time-utils";
-import { formatMoney } from "@/lib/format-utils";
-import { Loader2, SendIcon } from "lucide-react";
-
+} from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import { WorkforceRow } from '../api/workforce';
+import dayjs from 'dayjs';
+import { dateOfWeek } from '@/lib/time-utils';
+import { formatMoney } from '@/lib/format-utils';
+import { Loader2, SendIcon } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { apiClient } from '@/api/client';
 
 const FEEDBACK_REASONS = [
   {
-    value: "early_leave_permission",
-    label: "Có phép về sớm",
+    value: 'early_leave_permission',
+    label: 'early_leave_permission',
   },
   {
-    value: "late_permission",
-    label: "Có phép đi muộn",
+    value: 'late_permission',
+    label: 'late_permission',
   },
   {
-    value: "wrong_time",
-    label: "Sai thời gian chấm công",
+    value: 'wrong_time',
+    label: 'wrong_time',
   },
   {
-    value: "wrong_fine",
-    label: "Sai tiền phạt",
+    value: 'wrong_fine',
+    label: 'wrong_fine',
   },
   {
-    value: "other",
-    label: "Khác",
+    value: 'other',
+    label: 'other',
   },
 ] as const;
 
-type FeedbackReason = (typeof FEEDBACK_REASONS)[number]["value"];
+type FeedbackReason = (typeof FEEDBACK_REASONS)[number]['value'];
 
 type Props = {
   feedbackEmployee: WorkforceRow | null;
@@ -64,7 +63,7 @@ type FeedbackPayload = {
 };
 
 async function createFineFeedback(payload: FeedbackPayload) {
-  const { data } = await axios.post("/api/fines/" + payload.fineId + "/feedback", {
+  const { data } = await apiClient.post('/fines/' + payload.fineId + '/feedback', {
     reason: payload.reason,
     description: payload.description,
   });
@@ -79,10 +78,13 @@ function useCreateFineFeedbackMutation() {
 }
 
 export function SubmitFeedbackDialog({ feedbackEmployee, onOpenChange }: Props) {
-  const [feedbackReason, setFeedbackReason] = useState<FeedbackReason | "">("");
-  const [feedbackDescription, setFeedbackDescription] = useState("");
+  const { t } = useTranslation();
+  const [feedbackReason, setFeedbackReason] = useState<FeedbackReason | ''>('');
+  const [feedbackDescription, setFeedbackDescription] = useState('');
 
   const feedbackMutation = useCreateFineFeedbackMutation();
+
+  const queryClient = useQueryClient();
 
   const handleSubmitFeedback = () => {
     if (!feedbackEmployee || !feedbackReason || !feedbackEmployee.fineId) {
@@ -97,17 +99,21 @@ export function SubmitFeedbackDialog({ feedbackEmployee, onOpenChange }: Props) 
       },
       {
         onSuccess: () => {
-          setFeedbackReason("");
-          setFeedbackDescription("");
+          setFeedbackReason('');
+          setFeedbackDescription('');
           onOpenChange(false);
+
+          queryClient.invalidateQueries({
+            queryKey: ['workforce', 'report'],
+          });
         },
       },
     );
   };
 
   useEffect(() => {
-    setFeedbackReason("");
-    setFeedbackDescription("");
+    setFeedbackReason('');
+    setFeedbackDescription('');
   }, [open]);
 
   return (
@@ -116,70 +122,65 @@ export function SubmitFeedbackDialog({ feedbackEmployee, onOpenChange }: Props) 
         open={!!feedbackEmployee}
         onOpenChange={(open) => {
           if (!open && !feedbackMutation.isPending) {
-            setFeedbackReason("");
-            setFeedbackDescription("");
+            setFeedbackReason('');
+            setFeedbackDescription('');
             onOpenChange(false);
           }
         }}
       >
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Tạo Feedback</DialogTitle>
+            <DialogTitle>{t('new_feedback')}</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
             <div className="space-y-2">
-              <h3 className="text-xl font-semibold">
-                {feedbackEmployee?.employeeName}
-              </h3>
+              <h3 className="text-xl font-semibold">{feedbackEmployee?.employeeName}</h3>
 
               <p className="mt-1 text-sm text-muted-foreground">
-                {feedbackEmployee?.employeeCode} · {feedbackEmployee?.date ? dateOfWeek(feedbackEmployee?.date) : "—"} · {dayjs(feedbackEmployee?.date).format("DD/MM/YYYY")}
+                {feedbackEmployee?.employeeCode} ·{' '}
+                {feedbackEmployee?.date ? dateOfWeek(feedbackEmployee?.date) : '—'} ·{' '}
+                {dayjs(feedbackEmployee?.date).format('DD/MM/YYYY')}
               </p>
 
               <hr className="my-6" />
 
-              <h5 className="font-medium">Attendance</h5>
+              <h5 className="font-medium">{t('attendance_details')}</h5>
 
               <dl className="mt-3 grid grid-cols-2 gap-3 text-sm">
-                <dt className="text-muted-foreground">Check-in</dt>
+                <dt className="text-muted-foreground">{t('check_in')}</dt>
+                <dd>{feedbackEmployee?.checkIn ? feedbackEmployee?.checkIn : '—'}</dd>
+
+                <dt className="text-muted-foreground">{t('check_out')}</dt>
+                <dd>{feedbackEmployee?.checkOut ? feedbackEmployee?.checkOut : '—'}</dd>
+
+                <dt className="text-muted-foreground">{t('note')}</dt>
                 <dd>
-                  {feedbackEmployee?.checkIn
-                    ? feedbackEmployee?.checkIn
-                    : "—"}
+                  {feedbackEmployee?.note
+                    ? feedbackEmployee?.note.split(';').map((note) => <div key={note}>{note}</div>)
+                    : '—'}
                 </dd>
 
-                <dt className="text-muted-foreground">Check-out</dt>
+                <dt className="text-muted-foreground">{t('fine_amount')}</dt>
                 <dd>
-                  {feedbackEmployee?.checkOut
-                    ? feedbackEmployee?.checkOut
-                    : "—"}
-                </dd>
-
-                <dt className="text-muted-foreground">Note</dt>
-                <dd>{feedbackEmployee?.note || "—"}</dd>
-
-                <dt className="text-muted-foreground">Fine Amount</dt>
-                <dd>
-                  {feedbackEmployee?.fineAmount
-                    ? formatMoney(feedbackEmployee.fineAmount)
-                    : "—"}
+                  {feedbackEmployee?.fineAmount ? formatMoney(feedbackEmployee.fineAmount) : '—'}
                 </dd>
               </dl>
 
               <hr className="my-6" />
 
-              <h5 className="font-medium mb-4">Employee feedback</h5>
+              <h5 className="font-medium mb-4">{t('employee_feedback')}</h5>
 
-              <Label className="text-muted-foreground">Reason</Label>
+              <Label className="text-muted-foreground">{t('reason')}</Label>
 
               <Select
                 value={feedbackReason}
-                onValueChange={(value) =>
-                  setFeedbackReason(value as FeedbackReason)
-                }
+                onValueChange={(value) => setFeedbackReason(value as FeedbackReason)}
                 disabled={feedbackMutation.isPending}
-                items={FEEDBACK_REASONS}
+                items={FEEDBACK_REASONS.map(({ label, value }) => ({
+                  value,
+                  label: t(label),
+                }))}
               >
                 <SelectTrigger className="w-full">
                   <SelectValue />
@@ -187,11 +188,8 @@ export function SubmitFeedbackDialog({ feedbackEmployee, onOpenChange }: Props) 
 
                 <SelectContent>
                   {FEEDBACK_REASONS.map((reason) => (
-                    <SelectItem
-                      key={reason.value}
-                      value={reason.value}
-                    >
-                      {reason.label}
+                    <SelectItem key={reason.value} value={reason.value}>
+                      {t(reason.label)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -199,13 +197,11 @@ export function SubmitFeedbackDialog({ feedbackEmployee, onOpenChange }: Props) 
             </div>
 
             <div className="space-y-2">
-              <Label className="text-muted-foreground">Description</Label>
+              <Label className="text-muted-foreground">{t('description')}</Label>
 
               <Textarea
                 value={feedbackDescription}
-                onChange={(event) =>
-                  setFeedbackDescription(event.target.value)
-                }
+                onChange={(event) => setFeedbackDescription(event.target.value)}
                 placeholder=""
                 rows={5}
                 disabled={feedbackMutation.isPending}
@@ -213,9 +209,7 @@ export function SubmitFeedbackDialog({ feedbackEmployee, onOpenChange }: Props) 
             </div>
 
             {feedbackMutation.isError && (
-              <p className="text-sm text-destructive">
-                Không thể gửi feedback. Vui lòng thử lại.
-              </p>
+              <p className="text-sm text-destructive">{t('feedback_submit_failed')}</p>
             )}
           </div>
 
@@ -227,7 +221,7 @@ export function SubmitFeedbackDialog({ feedbackEmployee, onOpenChange }: Props) 
               disabled={feedbackMutation.isPending}
               className="min-w-32"
             >
-              Hủy
+              {t('cancel')}
             </Button>
 
             <Button
@@ -235,24 +229,18 @@ export function SubmitFeedbackDialog({ feedbackEmployee, onOpenChange }: Props) 
               onClick={handleSubmitFeedback}
               disabled={
                 !feedbackReason ||
-                (!feedbackDescription.trim() && feedbackReason === "other") ||
+                (!feedbackDescription.trim() && feedbackReason === 'other') ||
                 feedbackMutation.isPending ||
                 !feedbackEmployee?.fineId
               }
               className="min-w-32"
             >
-              {feedbackMutation.isPending ? (
-                <Loader2 className="animate-spin" />
-              ) : (
-                <SendIcon />
-              )}
-              {feedbackMutation.isPending
-                ? "Đang gửi..."
-                : "Gửi Feedback"}
+              {feedbackMutation.isPending ? <Loader2 className="animate-spin" /> : <SendIcon />}
+              {feedbackMutation.isPending ? t('sending') : t('send_feedback')}
             </Button>
           </DialogFooter>
         </DialogContent>
-      </Dialog >
+      </Dialog>
     </>
   );
 }

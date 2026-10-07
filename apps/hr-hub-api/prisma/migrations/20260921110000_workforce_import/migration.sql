@@ -1,5 +1,6 @@
 CREATE TABLE "WorkforceImport" (
     "id" TEXT NOT NULL PRIMARY KEY,
+    "month" TEXT,
     "status" TEXT NOT NULL DEFAULT 'preview',
     "attendanceFileName" TEXT NOT NULL,
     "leaveFileName" TEXT NOT NULL,

@@ -2,6 +2,7 @@ import { ConfigService } from '@nestjs/config';
 import { TraceContextService } from '../../app/trace/trace-context.service';
 import { ApiPayProvider } from './apipay.provider';
 import { IntegratedPaymentProvider } from './integrated-payment.provider';
+import { VietQrProvider } from './vietqr.provider';
 
 export const INTEGRATED_PAYMENT_PROVIDER = Symbol('INTEGRATED_PAYMENT_PROVIDER');
 
@@ -11,6 +12,8 @@ export function paymentProviderFactory(config: ConfigService, traceContext: Trac
   switch (provider) {
     case 'APIPAY':
       return new ApiPayProvider(config, traceContext);
+    case 'VIETQR':
+      return new VietQrProvider(config, traceContext);
     default:
       throw new Error(`Unsupported payment provider: ${provider}`);
   }

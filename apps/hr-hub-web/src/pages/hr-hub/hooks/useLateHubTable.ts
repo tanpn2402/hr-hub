@@ -1,60 +1,49 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState } from 'react';
 
 import {
+  metaHelper,
   stockFeatures,
   tableFeatures,
   TableState,
   useTable,
   type ColumnDef,
-} from "@tanstack/react-table";
+} from '@tanstack/react-table';
+import { EmployeeSummary, WorkforceFeedback, WorkforceRow } from '../api/workforce';
 
 /* -------------------------------------------------------------------------- */
 /* Types                                                                      */
 /* -------------------------------------------------------------------------- */
 
-export type WorkforceRow = {
-  employeeCode: string;
-  employeeName: string;
-  date: string;
-  checkIn: string;
-  checkOut: string;
-  note: string;
-  fineAmount: number;
-};
-
-export type EmployeeSummary = {
-  employeeCode: string;
-  employeeName?: string | null;
-  totalFine: number;
-};
-
 export type WorkforceImportResult = {
   batchId: string;
-  status?: "preview" | "confirmed";
+  status?: 'preview' | 'confirmed';
   rows: WorkforceRow[];
   employeeSummaries: EmployeeSummary[];
   grandTotal: number;
+  paidAmount: number;
 };
 
 export type ReviewDetailRow = WorkforceRow & {
-  rowType: "detail";
+  rowType: 'detail';
   id: string;
+  feedback?: WorkforceFeedback[];
 };
 
 export type ReviewSummaryRow = {
-  rowType: "summary";
+  rowType: 'summary';
   id: string;
   employeeCode: string;
   employeeName: string;
   totalFine: number;
   violationCount: number;
+  monthFinePaidStatus: string;
 };
 
 export type ReviewTableRow = ReviewDetailRow | ReviewSummaryRow;
 
 export type LateHubSorting = {
   column: string;
-  direction: "asc" | "desc";
+  direction: 'asc' | 'desc';
 } | null;
 
 /* -------------------------------------------------------------------------- */
@@ -84,7 +73,7 @@ function buildReviewRows(result: WorkforceImportResult): ReviewTableRow[] {
 
       output.push({
         ...row,
-        rowType: "detail",
+        rowType: 'detail',
         id: `${employeeCode}-${row.date}-${index}`,
       });
     }
@@ -92,15 +81,13 @@ function buildReviewRows(result: WorkforceImportResult): ReviewTableRow[] {
     const summary = summaryMap.get(employeeCode);
 
     output.push({
-      rowType: "summary",
+      rowType: 'summary',
       id: `summary-${employeeCode}`,
       employeeCode,
-      employeeName:
-        summary?.employeeName ?? rows[0]?.employeeName ?? employeeCode,
-      totalFine:
-        summary?.totalFine ??
-        rows.reduce((total, row) => total + row.fineAmount, 0),
+      employeeName: summary?.employeeName ?? rows[0]?.employeeName ?? employeeCode,
+      totalFine: summary?.totalFine ?? rows.reduce((total, row) => total + row.fineAmount, 0),
       violationCount: rows.length,
+      monthFinePaidStatus: rows[0].monthFinePaidStatus,
     });
   }
 
@@ -140,19 +127,15 @@ function groupRows(rows: ReviewTableRow[]): ReviewTableRow[][] {
  *
  * Date sorting uses the requested direction.
  */
-function sortGroupDetails(group: ReviewTableRow[], direction: "asc" | "desc") {
-  const details = group.filter(
-    (row): row is ReviewDetailRow => row.rowType === "detail",
-  );
+function sortGroupDetails(group: ReviewTableRow[], direction: 'asc' | 'desc') {
+  const details = group.filter((row): row is ReviewDetailRow => row.rowType === 'detail');
 
-  const summaries = group.filter(
-    (row): row is ReviewSummaryRow => row.rowType === "summary",
-  );
+  const summaries = group.filter((row): row is ReviewSummaryRow => row.rowType === 'summary');
 
   details.sort((a, b) => {
     const result = a.date.localeCompare(b.date);
 
-    return direction === "asc" ? result : -result;
+    return direction === 'asc' ? result : -result;
   });
 
   return [...details, ...summaries];
@@ -179,51 +162,40 @@ function sortGroupDetails(group: ReviewTableRow[], direction: "asc" | "desc") {
  *   Employee groups -> latest date DESC
  *   Details -> date DESC
  */
-function sortReviewRows(
-  rows: ReviewTableRow[],
-  sorting: LateHubSorting,
-): ReviewTableRow[] {
+function sortReviewRows(rows: ReviewTableRow[], sorting: LateHubSorting): ReviewTableRow[] {
   const groups = groupRows(rows);
 
   if (!sorting) {
-    return groups.map((group) => sortGroupDetails(group, "asc")).flat();
+    return groups.map((group) => sortGroupDetails(group, 'asc')).flat();
   }
 
-  if (sorting.column === "employeeName") {
+  if (sorting.column === 'employeeName') {
     groups.sort((a, b) => {
-      const aDetail = a.find(
-        (row): row is ReviewDetailRow => row.rowType === "detail",
-      );
+      const aDetail = a.find((row): row is ReviewDetailRow => row.rowType === 'detail');
 
-      const bDetail = b.find(
-        (row): row is ReviewDetailRow => row.rowType === "detail",
-      );
+      const bDetail = b.find((row): row is ReviewDetailRow => row.rowType === 'detail');
 
-      const aName = aDetail?.employeeName ?? "";
-      const bName = bDetail?.employeeName ?? "";
+      const aName = aDetail?.employeeName ?? '';
+      const bName = bDetail?.employeeName ?? '';
 
-      const result = aName.localeCompare(bName, "vi", {
-        sensitivity: "base",
+      const result = aName.localeCompare(bName, 'vi', {
+        sensitivity: 'base',
         numeric: true,
       });
 
-      return sorting.direction === "asc" ? result : -result;
+      return sorting.direction === 'asc' ? result : -result;
     });
 
     // IMPORTANT:
     // Name sorting always keeps dates ASC.
-    return groups.map((group) => sortGroupDetails(group, "asc")).flat();
+    return groups.map((group) => sortGroupDetails(group, 'asc')).flat();
   }
 
-  if (sorting.column === "date") {
+  if (sorting.column === 'date') {
     groups.sort((a, b) => {
-      const aDetails = a.filter(
-        (row): row is ReviewDetailRow => row.rowType === "detail",
-      );
+      const aDetails = a.filter((row): row is ReviewDetailRow => row.rowType === 'detail');
 
-      const bDetails = b.filter(
-        (row): row is ReviewDetailRow => row.rowType === "detail",
-      );
+      const bDetails = b.filter((row): row is ReviewDetailRow => row.rowType === 'detail');
 
       if (aDetails.length === 0) {
         return 1;
@@ -238,19 +210,15 @@ function sortReviewRows(
        * DESC -> latest date determines group position
        */
       const aDate =
-        sorting.direction === "asc"
-          ? aDetails[0].date
-          : aDetails[aDetails.length - 1].date;
+        sorting.direction === 'asc' ? aDetails[0].date : aDetails[aDetails.length - 1].date;
 
       const bDate =
-        sorting.direction === "asc"
-          ? bDetails[0].date
-          : bDetails[bDetails.length - 1].date;
+        sorting.direction === 'asc' ? bDetails[0].date : bDetails[bDetails.length - 1].date;
 
       const result = aDate.localeCompare(bDate);
 
       if (result !== 0) {
-        return sorting.direction === "asc" ? result : -result;
+        return sorting.direction === 'asc' ? result : -result;
       }
 
       /**
@@ -261,15 +229,13 @@ function sortReviewRows(
       const aName = aDetails[0].employeeName;
       const bName = bDetails[0].employeeName;
 
-      return aName.localeCompare(bName, "vi", {
-        sensitivity: "base",
+      return aName.localeCompare(bName, 'vi', {
+        sensitivity: 'base',
         numeric: true,
       });
     });
 
-    return groups
-      .map((group) => sortGroupDetails(group, sorting.direction))
-      .flat();
+    return groups.map((group) => sortGroupDetails(group, sorting.direction)).flat();
   }
 
   return rows;
@@ -279,7 +245,10 @@ function sortReviewRows(
 /* Hook                                                                       */
 /* -------------------------------------------------------------------------- */
 
-const features = tableFeatures(stockFeatures);
+const features = tableFeatures({
+  ...stockFeatures,
+  columnMeta: metaHelper<{ textRight?: boolean }>(),
+});
 
 export type UseLateHubTableOptions = {
   data: WorkforceImportResult;
@@ -287,11 +256,7 @@ export type UseLateHubTableOptions = {
   initialState?: Partial<TableState<typeof stockFeatures>>;
 };
 
-export function useLateHubTable({
-  data,
-  columns,
-  initialState,
-}: UseLateHubTableOptions) {
+export function useLateHubTable({ data, columns, initialState }: UseLateHubTableOptions) {
   const [sorting, setSorting] = useState<LateHubSorting>(null);
 
   /**
@@ -334,14 +299,14 @@ export function useLateHubTable({
       if (!current || current.column !== column) {
         return {
           column,
-          direction: "asc",
+          direction: 'asc',
         };
       }
 
-      if (current.direction === "asc") {
+      if (current.direction === 'asc') {
         return {
           column,
-          direction: "desc",
+          direction: 'desc',
         };
       }
 

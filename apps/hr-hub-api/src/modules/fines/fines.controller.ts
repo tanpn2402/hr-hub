@@ -2,7 +2,7 @@ import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/co
 import { AuthGuard } from '../auth/auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { AuthenticatedUser } from '../auth/auth.types';
-import { FinesService } from './fines.service';
+import { ApproveFineFeedback, FeedbackQuery, FinesService, RejectFineFeedback, SubmitFineFeedback } from './fines.service';
 
 @Controller()
 export class FinesController {
@@ -27,11 +27,11 @@ export class FinesController {
 
   @UseGuards(AuthGuard)
   @Get('fines')
-  list(@Query() query: any) {
+  list(@Query() query: FeedbackQuery) {
     return this.fines.list(query);
   }
 
-  @Post('fines/:fineId/feedback') submit(@Param('fineId') id: string, @Body() body: any) {
+  @Post('fines/:fineId/feedback') submit(@Param('fineId') id: string, @Body() body: SubmitFineFeedback) {
     return this.fines.submit(id, body);
   }
 
@@ -55,13 +55,13 @@ export class FinesController {
 
   @UseGuards(AuthGuard)
   @Post('fine-feedback/:id/approve')
-  approve(@Param('id') id: string, @Body() body: any, @CurrentUser() user: AuthenticatedUser) {
+  approve(@Param('id') id: string, @Body() body: ApproveFineFeedback, @CurrentUser() user: AuthenticatedUser) {
     return this.fines.approve(id, body, user);
   }
 
   @UseGuards(AuthGuard)
   @Post('fine-feedback/:id/reject')
-  reject(@Param('id') id: string, @Body() body: any, @CurrentUser() user: AuthenticatedUser) {
+  reject(@Param('id') id: string, @Body() body: RejectFineFeedback, @CurrentUser() user: AuthenticatedUser) {
     return this.fines.reject(id, body, user);
   }
 }

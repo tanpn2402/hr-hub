@@ -25,7 +25,7 @@ export class ApiPayProvider extends BaseHTTPService implements IntegratedPayment
   private readonly account: IntegratedPaymentAccount;
 
   constructor(
-    private readonly config: ConfigService,
+    readonly config: ConfigService,
     traceContext: TraceContextService,
   ) {
     super(
@@ -70,7 +70,11 @@ export class ApiPayProvider extends BaseHTTPService implements IntegratedPayment
 
       const paymentResponse = response.data as ApiPayResponse;
       this.logger.log(`QR generated publicId=${paymentResponse.data.publicId}`);
-      return paymentResponse.data;
+
+      return {
+        ...paymentResponse.data,
+        provider: 'APIPAY',
+      };
     } catch (error: any) {
       if (error instanceof BadGatewayException) throw error;
       throw new BadGatewayException('Apipay QR generation failed');

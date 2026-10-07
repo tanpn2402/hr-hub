@@ -18,5 +18,6 @@ import { INTEGRATED_PAYMENT_PROVIDER, paymentProviderFactory } from './providers
     },
     PaymentService,
   ],
+  exports: [PaymentService],
 })
 export class PaymentModule {}

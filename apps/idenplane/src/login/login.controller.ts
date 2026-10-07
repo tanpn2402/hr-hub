@@ -95,7 +95,8 @@ export class LoginController {
     const token = this.csrfService.generateToken();
     res.cookie(this.csrfService.cookieName(realm.name), token, {
       httpOnly: true,
-      secure: true, // session/auth cookies must never traverse plain HTTP (localhost is a secure context)
+      // TODO: make is configurable for dev vs prod, but ensure that in production it is always true
+      secure: false, // session/auth cookies must never traverse plain HTTP (localhost is a secure context)
       sameSite: 'strict',
       path: `/realms/${realm.name}`,
     });

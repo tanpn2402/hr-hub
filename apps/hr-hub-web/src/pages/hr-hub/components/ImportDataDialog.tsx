@@ -1,6 +1,6 @@
-import { useRef, useState } from "react";
-import { FileSpreadsheet, Loader2, Upload, X } from "lucide-react";
-import { z } from "zod";
+import { useRef, useState } from 'react';
+import { FileSpreadsheet, Loader2, Upload } from 'lucide-react';
+import { z } from 'zod';
 
 import {
   Dialog,
@@ -9,24 +9,25 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { useImportWorkforce } from "../hooks/useImportWorkforce";
-import { WorkforceImportResult } from "./LateHubReviewTable";
-import { LateHubReviewDialog } from "./LateHubReviewDialog";
-import { useQueryClient } from "@tanstack/react-query";
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { useImportWorkforce } from '../hooks/useImportWorkforce';
+import { LateHubReviewDialog } from './LateHubReviewDialog';
+import { useQueryClient } from '@tanstack/react-query';
+import i18n from '@/locates';
+import { useTranslation } from 'react-i18next';
+import { ImportWorkforceResponse } from '../api/workforce';
 
 const excelFileSchema = z
   .instanceof(File)
   .refine(
-    (file) =>
-      /\.(xlsx|xls)$/i.test(file.name),
-    "Only Excel files (.xlsx, .xls) are supported.",
+    (file) => /\.(xlsx|xls)$/i.test(file.name),
+    i18n.t('only_excel_files_xlsx_xls_are_supported'),
   );
 
 const importFilesSchema = z
   .array(excelFileSchema)
-  .min(2, "Please select at least 2 Excel files.");
+  .min(2, i18n.t('please_select_at_least_2_excel_files'));
 
 type ImportFiles = {
   attendance: File;
@@ -38,10 +39,8 @@ type Props = {
   onOpenChange: (open: boolean) => void;
 };
 
-export function ImportDataDialog({
-  open,
-  onOpenChange,
-}: Props) {
+export function ImportDataDialog({ open, onOpenChange }: Props) {
+  const { t } = useTranslation();
   const inputRef = useRef<HTMLInputElement>(null);
 
   const queryClient = useQueryClient();
@@ -50,64 +49,47 @@ export function ImportDataDialog({
   const [files, setFiles] = useState<File[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  const [reviewData, setReviewData] = useState<WorkforceImportResult | null>(null);
+  const [reviewData, setReviewData] = useState<ImportWorkforceResponse | null>(null);
 
   const [reviewOpen, setReviewOpen] = useState(false);
 
-  const [classifiedFiles, setClassifiedFiles] =
-    useState<ImportFiles | null>(null);
+  const [classifiedFiles, setClassifiedFiles] = useState<ImportFiles | null>(null);
 
-  const handleFilesChange = (
-    event: React.ChangeEvent<HTMLInputElement>,
-  ) => {
-    const selectedFiles = Array.from(
-      event.target.files ?? [],
-    );
+  const handleFilesChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = Array.from(event.target.files ?? []);
 
     setError(null);
     setClassifiedFiles(null);
 
-    const result = importFilesSchema.safeParse(
-      selectedFiles,
-    );
+    const result = importFilesSchema.safeParse(selectedFiles);
 
     if (!result.success) {
       setFiles(selectedFiles);
-      setError(result.error.issues[0]?.message ?? "Invalid files.");
+      setError(result.error.issues[0]?.message ?? 'Invalid files.');
       return;
     }
 
-    const attendanceFiles = selectedFiles.filter((file) =>
-      file.name.toUpperCase().includes("BCC"),
-    );
+    const attendanceFiles = selectedFiles.filter((file) => file.name.toUpperCase().includes('BCC'));
 
     if (attendanceFiles.length === 0) {
       setFiles(selectedFiles);
-      setError(
-        'Attendance file must contain "BCC" in its filename.',
-      );
+      setError('Attendance file must contain "BCC" in its filename.');
       return;
     }
 
     if (attendanceFiles.length > 1) {
       setFiles(selectedFiles);
-      setError(
-        'Only one attendance file containing "BCC" is allowed.',
-      );
+      setError('Only one attendance file containing "BCC" is allowed.');
       return;
     }
 
     const attendanceFile = attendanceFiles[0];
 
-    const leaveFiles = selectedFiles.filter(
-      (file) => file !== attendanceFile,
-    );
+    const leaveFiles = selectedFiles.filter((file) => file !== attendanceFile);
 
     if (leaveFiles.length !== 1) {
       setFiles(selectedFiles);
-      setError(
-        "Please select exactly 2 files: one BCC attendance file and one leave file.",
-      );
+      setError('Please select exactly 2 files: one BCC attendance file and one leave file.');
       return;
     }
 
@@ -140,18 +122,14 @@ export function ImportDataDialog({
           reset();
 
           queryClient.invalidateQueries({
-            queryKey: ["workforce", "import-history"],
+            queryKey: ['workforce', 'import-history'],
           });
         },
 
         onError: (error) => {
-          console.error("Import failed:", error);
+          console.error('Import failed:', error);
 
-          setError(
-            error instanceof Error
-              ? error.message
-              : "Failed to import workforce data.",
-          );
+          setError(error instanceof Error ? error.message : 'Failed to import workforce data.');
         },
       },
     );
@@ -163,7 +141,7 @@ export function ImportDataDialog({
     setClassifiedFiles(null);
 
     if (inputRef.current) {
-      inputRef.current.value = "";
+      inputRef.current.value = '';
     }
   };
 
@@ -177,23 +155,17 @@ export function ImportDataDialog({
 
   return (
     <>
-      <Dialog
-        open={open}
-        onOpenChange={handleOpenChange}
-      >
+      <Dialog open={open} onOpenChange={handleOpenChange}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>
-              Import HR data
-            </DialogTitle>
+            <DialogTitle>{t('import_hr_data')}</DialogTitle>
 
             <DialogDescription>
-              Select at least two Excel files. The file containing
-              <span className="mx-1 font-medium text-foreground">
-                BCC
-              </span>
-              will be treated as attendance details. The other file
-              will be treated as leave details.
+              {t('select_at_least_two_excel_files_the_file_containing')}
+              <span className="mx-1 font-medium text-foreground">BCC</span>
+              {t(
+                'will_be_treated_as_attendance_details_the_other_file_will_be_treated_as_leave_details',
+              )}
             </DialogDescription>
           </DialogHeader>
 
@@ -201,13 +173,13 @@ export function ImportDataDialog({
             {/* File picker */}
             <div
               className={[
-                "rounded-lg border border-dashed p-6",
-                "text-center transition-colors",
-                "hover:bg-muted/50",
-                error && "border-destructive",
+                'rounded-lg border border-dashed p-6',
+                'text-center transition-colors',
+                'hover:bg-muted/50',
+                error && 'border-destructive',
               ]
                 .filter(Boolean)
-                .join(" ")}
+                .join(' ')}
             >
               <input
                 ref={inputRef}
@@ -228,16 +200,14 @@ export function ImportDataDialog({
                   <Upload className="size-5 text-muted-foreground" />
                 </div>
 
-                <div className="mt-3 text-sm font-medium">
-                  Choose Excel files
-                </div>
+                <div className="mt-3 text-sm font-medium">{t('choose_excel_files')}</div>
 
                 <div className="mt-1 text-xs text-muted-foreground">
-                  Select attendance and leave files
+                  {t('select_attendance_and_leave_files')}
                 </div>
 
                 <div className="mt-3 rounded-md border px-3 py-1.5 text-xs font-medium">
-                  Browse files
+                  {t('browse_files')}
                 </div>
               </label>
             </div>
@@ -253,14 +223,11 @@ export function ImportDataDialog({
             {files.length > 0 && (
               <div className="space-y-2">
                 <div className="text-xs font-medium text-muted-foreground">
-                  Selected files
+                  {t('selected_files')}
                 </div>
 
                 {files.map((file) => {
-                  const isAttendance =
-                    file.name
-                      .toUpperCase()
-                      .includes("BCC");
+                  const isAttendance = file.name.toUpperCase().includes('BCC');
 
                   return (
                     <div
@@ -270,9 +237,7 @@ export function ImportDataDialog({
                       <FileSpreadsheet className="size-4 shrink-0 text-muted-foreground" />
 
                       <div className="min-w-0 flex-1">
-                        <div className="truncate text-sm font-medium">
-                          {file.name}
-                        </div>
+                        <div className="truncate text-sm font-medium">{file.name}</div>
 
                         <div className="text-xs text-muted-foreground">
                           {formatFileSize(file.size)}
@@ -281,15 +246,13 @@ export function ImportDataDialog({
 
                       <span
                         className={[
-                          "shrink-0 rounded-full px-2 py-1 text-[11px] font-medium",
+                          'shrink-0 rounded-full px-2 py-1 text-[11px] font-medium',
                           isAttendance
-                            ? "bg-primary/10 text-primary"
-                            : "bg-muted text-muted-foreground",
-                        ].join(" ")}
+                            ? 'bg-primary/10 text-primary'
+                            : 'bg-muted text-muted-foreground',
+                        ].join(' ')}
                       >
-                        {isAttendance
-                          ? "Attendance"
-                          : "Leave"}
+                        {isAttendance ? t('attendance') : t('leave')}
                       </span>
                     </div>
                   );
@@ -301,28 +264,20 @@ export function ImportDataDialog({
             {classifiedFiles && (
               <div className="rounded-lg bg-muted/50 p-3">
                 <div className="text-xs font-medium text-muted-foreground">
-                  Import mapping
+                  {t('import_mapping')}
                 </div>
 
                 <div className="mt-2 space-y-2 text-sm">
                   <div className="flex items-center justify-between gap-3">
-                    <span className="text-muted-foreground">
-                      Attendance
-                    </span>
+                    <span className="text-muted-foreground">{t('attendance')}</span>
 
-                    <span className="truncate font-medium">
-                      {classifiedFiles.attendance.name}
-                    </span>
+                    <span className="truncate font-medium">{classifiedFiles.attendance.name}</span>
                   </div>
 
                   <div className="flex items-center justify-between gap-3">
-                    <span className="text-muted-foreground">
-                      Leave
-                    </span>
+                    <span className="text-muted-foreground">{t('leave')}</span>
 
-                    <span className="truncate font-medium">
-                      {classifiedFiles.leave.name}
-                    </span>
+                    <span className="truncate font-medium">{classifiedFiles.leave.name}</span>
                   </div>
                 </div>
               </div>
@@ -336,7 +291,7 @@ export function ImportDataDialog({
               onClick={() => handleOpenChange(false)}
               disabled={importMutation.isPending}
             >
-              Cancel
+              {t('cancel')}
             </Button>
 
             <Button
@@ -350,18 +305,14 @@ export function ImportDataDialog({
                 <Upload className="mr-2 size-4" />
               )}
 
-              Import data
+              {t('import_data')}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/*  */}
-      <LateHubReviewDialog
-        open={reviewOpen}
-        data={reviewData}
-        onOpenChange={setReviewOpen}
-      />
+      <LateHubReviewDialog open={reviewOpen} data={reviewData} onOpenChange={setReviewOpen} />
     </>
   );
 }

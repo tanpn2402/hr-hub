@@ -8,9 +8,19 @@ import { RequestLoggingInterceptor } from './modules/app/trace/request-logging.i
 import { TraceModule } from './modules/app/trace/trace.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { FinesModule } from './modules/fines/fines.module';
+import { EmployeesModule } from './modules/employee/employees.module';
 
 @Module({
-  imports: [ConfigModule.forRoot({ isGlobal: true }), PrismaModule, TraceModule, AuthModule, PaymentModule, WorkforceModule, FinesModule],
+  imports: [
+    ConfigModule.forRoot({ isGlobal: true }),
+    PrismaModule,
+    TraceModule,
+    AuthModule,
+    PaymentModule,
+    WorkforceModule,
+    FinesModule,
+    EmployeesModule,
+  ],
   providers: [
     {
       provide: APP_INTERCEPTOR,

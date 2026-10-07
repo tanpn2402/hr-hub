@@ -21,4 +21,8 @@ export class PaymentService {
       amount: request.amount,
     });
   }
+
+  isTransactionFullyFilled(transactionId: string): Promise<boolean> {
+    return this.provider.isTransactionFullyFilled(transactionId);
+  }
 }

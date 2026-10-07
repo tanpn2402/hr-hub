@@ -27,8 +27,9 @@ export abstract class BaseHTTPService {
     // @ts-ignore
     headers?: AxiosHeaders | Record<string, string>,
   ): Promise<HttpResponse<T, V>> {
-    this.logger.debug(`[BaseHTTPService] request [${method}] ${url}`);
-    this.logger.debug(`[BaseHTTPService] request data: ${JSON.stringify(data ?? {})}`);
+    this.logger.log(`[BaseHTTPService] request [${method}] ${url}`);
+    this.logger.log(`[BaseHTTPService] request data: ${JSON.stringify(data ?? {})}`);
+    this.logger.log(`[BaseHTTPService] request headers: ${JSON.stringify(headers ?? {})}`);
 
     try {
       const response = await this.axiosInstance.request<T>({

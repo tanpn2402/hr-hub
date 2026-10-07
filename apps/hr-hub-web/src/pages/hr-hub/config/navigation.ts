@@ -1,9 +1,20 @@
-import { CalendarDays, FileText, LayoutDashboard, Users } from "lucide-react";
+import {
+  CalendarDays,
+  FileText,
+  LayoutDashboard,
+  Settings,
+  Users,
+  History,
+  CreditCard,
+} from 'lucide-react';
 
-import { OverviewPage } from "../pages/OverviewPage";
-import { EmployeesPage } from "../pages/EmployeesPage";
-import { AttendanceLeavePage } from "../pages/AttendanceLeavePage";
-import { DocumentsPage } from "../pages/DocumentsPage";
+import { OverviewPage } from '../pages/OverviewPage';
+import { EmployeesPage } from '../pages/EmployeesPage';
+import { AttendanceLeavePage } from '../pages/AttendanceLeavePage';
+import { DocumentsPage } from '../pages/DocumentsPage';
+import { AttendanceImportHistoryPage } from '../pages/AttendanceImportHistoryPage';
+import { AttendanceSettingsPage } from '../pages/AttendanceSettingsPage';
+import { FinePaymentHistoryPage } from '../pages/FinePaymentHistoryPage';
 
 export type HRHubNavItem = {
   id: string;
@@ -11,35 +22,59 @@ export type HRHubNavItem = {
   icon: React.ComponentType<{ className?: string }>;
   path: string;
   component: React.ComponentType;
+  children?: HRHubNavItem[];
 };
 
 export const hrHubNavigation: HRHubNavItem[] = [
   {
-    id: "overview",
-    label: "Overview",
+    id: 'overview',
+    label: 'overview',
     icon: LayoutDashboard,
-    path: "",
+    path: '',
     component: OverviewPage,
   },
   {
-    id: "employees",
-    label: "Employees",
+    id: 'employees',
+    label: 'employees',
     icon: Users,
-    path: "employees",
+    path: 'employees',
     component: EmployeesPage,
   },
   {
-    id: "attendance-leave",
-    label: "Attendance & Leave",
+    id: 'attendance-leave',
+    label: 'attendance_and_leave',
     icon: CalendarDays,
-    path: "attendance",
+    path: 'attendance',
     component: AttendanceLeavePage,
+    children: [
+      {
+        id: 'attendance-import-history',
+        label: 'import_history',
+        icon: History,
+        path: 'attendance/import-history',
+        component: AttendanceImportHistoryPage,
+      },
+      {
+        id: 'fine-payment-history',
+        label: 'fine_payment_history',
+        icon: CreditCard,
+        path: 'attendance/fine-payment-history',
+        component: FinePaymentHistoryPage,
+      },
+      {
+        id: 'attendance-settings',
+        label: 'settings',
+        icon: Settings,
+        path: 'attendance/settings',
+        component: AttendanceSettingsPage,
+      },
+    ],
   },
   {
-    id: "documents",
-    label: "Documents",
+    id: 'documents',
+    label: 'documents',
     icon: FileText,
-    path: "documents",
+    path: 'documents',
     component: DocumentsPage,
   },
 ];

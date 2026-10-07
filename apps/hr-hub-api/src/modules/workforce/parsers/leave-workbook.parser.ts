@@ -1,11 +1,17 @@
 import { BadRequestException } from '@nestjs/common';
 import * as XLSX from 'xlsx';
 import { LeaveCoverageMap, leaveCoverageKey } from '../models/leave-coverage.model';
-import { effectiveRules, WorkforceRules } from '../models/workforce-rules.model';
+import { WorkforceRules } from '../models/workforce-rules.model';
 import { isoDate, nextLocalDay, startOfLocalDay, timeOfDayMinutes } from '../utils/time.util';
+import { TraceLogger } from '@app/modules/app/trace/trace-logger.service';
+import dayjs from 'dayjs';
+
+interface WorkforceRuleResolver {
+  resolve(employeeCode: string, date: string | Date): WorkforceRules;
+}
 
 /** Parses the "leavedetailsreportbydate_*.xlsx" workbook into per-day AM/PM leave coverage. */
-export function parseLeaveWorkbook(workbook: XLSX.WorkBook, rules: WorkforceRules): LeaveCoverageMap {
+export function parseLeaveWorkbook(workbook: XLSX.WorkBook, ruleResolver: WorkforceRuleResolver, logger?: TraceLogger): LeaveCoverageMap {
   const sheet = workbook.Sheets[workbook.SheetNames[0]];
   if (!sheet) {
     throw new BadRequestException('Leave workbook has no sheets');
@@ -34,11 +40,49 @@ export function parseLeaveWorkbook(workbook: XLSX.WorkBook, rules: WorkforceRule
   const coverage: LeaveCoverageMap = new Map();
   for (const row of rows.slice(headerIndex + 1)) {
     const employeeCode = String(row[employeeCodeIndex] ?? '').trim();
-    const leaveFrom = row[leaveFromIndex];
-    const leaveTo = row[leaveToIndex];
-    if (!employeeCode || !(leaveFrom instanceof Date) || !(leaveTo instanceof Date)) continue;
+    let leaveFrom = row[leaveFromIndex];
+    let leaveTo = row[leaveToIndex];
 
-    markDailyCoverage(coverage, employeeCode, leaveFrom, leaveTo, effectiveRules(rules, employeeCode));
+    if (employeeCode === '510') {
+      logger?.debug(
+        '[parseLeaveWorkbook]' +
+          JSON.stringify({
+            employeeCode,
+            leaveFrom,
+            leaveTo,
+          }),
+      );
+    }
+
+    if (!employeeCode) {
+      continue;
+    }
+
+    if (!(leaveFrom instanceof Date) || !(leaveTo instanceof Date)) {
+      try {
+        // raw = 09-11-2026 08:00:00 -> 2026-09-11T00:59:29.999Z
+        leaveFrom = dayjs.utc(String(leaveFrom), 'MM-DD-YYYY HH:mm:ss').subtract(7, 'hour').subtract(30, 'millisecond').toDate();
+        leaveTo = dayjs.utc(String(leaveTo), 'MM-DD-YYYY HH:mm:ss').subtract(7, 'hour').subtract(30, 'millisecond').toDate();
+      } catch (error) {
+        logger?.error(
+          '[parseLeaveWorkbook] failed to parse leave dates for employee ' +
+            JSON.stringify({
+              employeeCode,
+              leaveFrom,
+              leaveTo,
+              error: error instanceof Error ? error.message : String(error),
+            }),
+        );
+        continue;
+      }
+    }
+
+    if (!(leaveFrom instanceof Date) || !(leaveTo instanceof Date)) {
+      continue;
+    }
+
+    const employeeRules = ruleResolver.resolve(employeeCode, dayjs.utc(leaveFrom).toDate());
+    markDailyCoverage(coverage, employeeCode, leaveFrom, leaveTo, employeeRules, logger);
   }
 
   return coverage;
@@ -49,13 +93,22 @@ export function parseLeaveWorkbook(workbook: XLSX.WorkBook, rules: WorkforceRule
  * A multi-day leave is treated as fully off on every day strictly between the first and last;
  * the first/last day's coverage instead depends on the actual start/end time of the request.
  */
-function markDailyCoverage(coverage: LeaveCoverageMap, employeeCode: string, leaveFrom: Date, leaveTo: Date, rules: WorkforceRules): void {
+function markDailyCoverage(
+  coverage: LeaveCoverageMap,
+  employeeCode: string,
+  leaveFrom: Date,
+  leaveTo: Date,
+  rules: WorkforceRules,
+  logger?: TraceLogger,
+): void {
   const lastDay = startOfLocalDay(leaveTo);
   const isSingleDay = startOfLocalDay(leaveFrom).getTime() === lastDay.getTime();
 
   for (let cursor = startOfLocalDay(leaveFrom); cursor.getTime() <= lastDay.getTime(); cursor = nextLocalDay(cursor)) {
     const isFirstDay = cursor.getTime() === startOfLocalDay(leaveFrom).getTime();
     const isLastDay = cursor.getTime() === lastDay.getTime();
+
+    logger?.debug('[Employee ' + employeeCode + '] ' + '[markDailyCoverage]' + JSON.stringify({ cursor }));
 
     let morning: boolean;
     let afternoon: boolean;
@@ -75,7 +128,11 @@ function markDailyCoverage(coverage: LeaveCoverageMap, employeeCode: string, lea
 
     const key = leaveCoverageKey(employeeCode, isoDate(cursor));
     const existing = coverage.get(key) ?? { morning: false, afternoon: false };
-    coverage.set(key, { morning: existing.morning || morning, afternoon: existing.afternoon || afternoon });
+    const leave = { morning: existing.morning || morning, afternoon: existing.afternoon || afternoon };
+
+    logger?.debug('[Employee ' + employeeCode + '] ' + '[markDailyCoverage]' + JSON.stringify({ key, existing, leave }));
+
+    coverage.set(key, leave);
   }
 }
 
