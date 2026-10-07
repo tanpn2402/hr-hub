@@ -1,5 +1,5 @@
 {
-  "name": "@hr-hub/payment-proxy",
+  "name": "payment-proxy",
   "private": true,
   "version": "1.0.0",
   "scripts": {

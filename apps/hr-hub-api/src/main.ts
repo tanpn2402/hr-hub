@@ -23,7 +23,7 @@ async function bootstrap() {
       if (type === 'console') {
         return [
           new transports.Console({
-            format: nestWinstonUtilities.format.nestLike('LateHub', { colors: true, prettyPrint: true }),
+            format: nestWinstonUtilities.format.nestLike('HRHubAPI', { colors: true, prettyPrint: true }),
           }),
         ];
       }
@@ -37,7 +37,7 @@ async function bootstrap() {
             level: process.env.LOGGER_FILE_LEVEL ?? 'info',
             maxSize: process.env.LOGGER_FILE_MAX_SIZE ?? '10m',
             zippedArchive: process.env.LOGGER_FILE_ZIPPED_ARCHIVE === 'Y',
-            format: nestWinstonUtilities.format.nestLike('LateHub', { colors: false, prettyPrint: true }),
+            format: nestWinstonUtilities.format.nestLike('HRHubAPI', { colors: false, prettyPrint: true }),
           }),
         ];
       }

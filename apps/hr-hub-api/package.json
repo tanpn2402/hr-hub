@@ -1,5 +1,5 @@
 {
-  "name": "late-hub",
+  "name": "hr-hub-api",
   "version": "0.1.0",
   "description": "Employee portal backend for checking late hours and submitting attendance fines",
   "private": true,
