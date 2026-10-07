@@ -27,14 +27,14 @@ export class RequestLoggingInterceptor implements NestInterceptor {
       let subscription: { unsubscribe: () => void } | undefined;
 
       this.traceContext.run(traceId, () => {
-        this.logger.log(`START [${request.method}] ${requestUrl} ${clientIp} ${this.serialize(request.body)}`);
+        this.logger.log(`START [${request.method}] ${requestUrl} ${clientIp} ${this.serializeFor(requestUrl, request.body)}`);
 
         subscription = next
           .handle()
           .pipe(
             tap((data) => {
               this.logger.log(
-                `END [${request.method}] ${requestUrl} ${clientIp} ${response.statusCode} ${this.serialize(data)} ${Date.now() - startedAt}ms`,
+                `END [${request.method}] ${requestUrl} ${clientIp} ${response.statusCode} ${this.serializeFor(requestUrl, data)} ${Date.now() - startedAt}ms`,
               );
             }),
             catchError((error: unknown) => {
@@ -64,6 +64,11 @@ export class RequestLoggingInterceptor implements NestInterceptor {
     const forwardedIp = Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor?.split(',')[0];
 
     return forwardedIp?.trim() || String(request.headers?.['x-real-ip'] ?? request.ip ?? request.socket?.remoteAddress ?? 'unknown');
+  }
+
+  /** Web app payloads (archives, user data) can be large and are not useful in logs. */
+  private serializeFor(url: string, value: unknown): string {
+    return url.includes('/web-apps') ? '[omitted]' : this.serialize(value);
   }
 
   private serialize(value: unknown): string {

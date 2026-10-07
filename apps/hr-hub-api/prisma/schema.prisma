@@ -340,3 +340,69 @@ model FinancialTransaction {
   @@index([status])
   @@index([transactionDate])
 }
+
+model WebApp {
+  id String @id @default(cuid())
+
+  /// URL slug, immutable. Also the directory name under WEBAPPS_ROOT.
+  slug        String  @unique
+  name        String
+  description String?
+
+  /// draft / published / disabled / deleted
+  status String @default("draft")
+
+  /// JSON array of role names. "[]" = every authenticated user.
+  /// Non-empty = user needs at least one of the roles (OR).
+  requiredRoles String @default("[]")
+
+  /// Published version. null = nothing published yet.
+  currentVersionId String? @unique
+
+  createdBy     String?
+  createdByName String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  versions WebAppVersion[]
+
+  @@index([status])
+}
+
+model WebAppVersion {
+  id String @id @default(cuid())
+
+  webAppId String
+  webApp   WebApp @relation(fields: [webAppId], references: [id])
+
+  /// Monotonic per web app (1, 2, 3, ...).
+  version Int
+
+  archiveName String
+  /// zip / tar.gz
+  archiveType String
+  archiveSize Int
+
+  /// Relative to the web app directory, e.g. versions/2
+  storagePath String
+  /// Total extracted bytes.
+  size        Int
+  fileCount   Int
+
+  /// sha256 of the uploaded archive.
+  checksum String
+
+  /// ready / failed / deleted
+  status String @default("ready")
+
+  note String?
+
+  createdBy     String?
+  createdByName String?
+
+  createdAt DateTime @default(now())
+
+  @@unique([webAppId, version])
+  @@index([webAppId, status])
+}

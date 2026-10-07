@@ -1,4 +1,4 @@
-import { Check, Grid2X2 } from 'lucide-react';
+import { AppWindow, Check, Grid2X2 } from 'lucide-react';
 
 import {
   DropdownMenu,
@@ -15,6 +15,7 @@ import { Link } from 'react-router-dom';
 
 import { apps } from './app-registry';
 import { useTranslation } from 'react-i18next';
+import { useWebApps } from '@/pages/hr-hub/hooks/useWebApps';
 
 type AppSwitcherProps = {
   currentApp?: string;
@@ -22,6 +23,8 @@ type AppSwitcherProps = {
 
 export function AppSwitcher({ currentApp = 'late-hub' }: AppSwitcherProps) {
   const { t } = useTranslation();
+  // The API filters by the caller's roles (anonymous callers get public apps); admins also receive drafts/disabled apps.
+  const webApps = (useWebApps().data ?? []).filter((app) => app.status === 'published');
 
   const handleNavigate = (href: string) => {
     window.location.href = href;
@@ -86,6 +89,53 @@ export function AppSwitcher({ currentApp = 'late-hub' }: AppSwitcherProps) {
               );
             })}
           </div>
+
+          {webApps.length > 0 && (
+            <>
+              <DropdownMenuSeparator />
+
+              <DropdownMenuLabel className="px-2 py-2">{t('web_apps')}</DropdownMenuLabel>
+
+              <div className="max-h-64 space-y-1 overflow-y-auto">
+                {webApps.map((webApp) => {
+                  const active = currentApp === `web-app:${webApp.slug}`;
+                  const href = `/hr-hub/apps/${webApp.slug}`;
+
+                  return (
+                    <DropdownMenuItem
+                      key={webApp.slug}
+                      className="cursor-pointer gap-3 rounded-lg p-2.5"
+                      onClick={() => handleNavigate(href)}
+                      render={
+                        <Link to={href}>
+                          <div
+                            className={[
+                              'flex size-9 shrink-0 items-center justify-center rounded-lg',
+                              active ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground',
+                            ].join(' ')}
+                          >
+                            <AppWindow className="size-4" />
+                          </div>
+
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate text-sm font-medium">{webApp.name}</div>
+
+                            {webApp.description && (
+                              <div className="truncate text-xs text-muted-foreground">
+                                {webApp.description}
+                              </div>
+                            )}
+                          </div>
+
+                          {active && <Check className="size-4 text-primary" />}
+                        </Link>
+                      }
+                    />
+                  );
+                })}
+              </div>
+            </>
+          )}
         </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>

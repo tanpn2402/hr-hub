@@ -6,6 +6,11 @@ import { IdenplaneTokenIntrospection } from './idenplane.types';
 
 @Injectable()
 export class IdenplaneAuthProvider implements AuthProvider {
+  /** Short-lived cache so chatty callers (web app data API) don't introspect on every request. */
+  private readonly cache = new Map<string, { user: AuthenticatedUser; expiresAt: number }>();
+  private static readonly CACHE_TTL_MS = 30_000;
+  private static readonly CACHE_MAX = 500;
+
   constructor(private readonly idenplane: IdenplaneClient) {}
 
   async authenticate(credentials: AuthCredentials): Promise<AuthenticatedUser | null> {
@@ -13,8 +18,17 @@ export class IdenplaneAuthProvider implements AuthProvider {
       return null;
     }
 
-    const user = await this.idenplane.introspect(credentials.token);
-    return user?.active && user.sub ? this.toAuthenticatedUser(user) : null;
+    const cached = this.cache.get(credentials.token);
+    if (cached && cached.expiresAt > Date.now()) return cached.user;
+    this.cache.delete(credentials.token);
+
+    const introspection = await this.idenplane.introspect(credentials.token);
+    if (!introspection?.active || !introspection.sub) return null;
+
+    const user = this.toAuthenticatedUser(introspection);
+    if (this.cache.size >= IdenplaneAuthProvider.CACHE_MAX) this.cache.clear();
+    this.cache.set(credentials.token, { user, expiresAt: Date.now() + IdenplaneAuthProvider.CACHE_TTL_MS });
+    return user;
   }
 
   private toAuthenticatedUser(user: IdenplaneTokenIntrospection): AuthenticatedUser {

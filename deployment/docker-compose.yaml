@@ -10,6 +10,8 @@ services:
       PORT: 3000
     volumes:
       - ./.env.hr-hub-api:/app/apps/hr-hub-api/.env:ro
+      # Web apps: static versions + per-app SQLite (served by hr-hub-api)
+      - ./webapps:/data/webapps:rw
     expose:
       - '3000'
     networks:

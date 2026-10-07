@@ -17,7 +17,8 @@ export function HRHubNavItem({ item, collapsed, level = 0 }: Props) {
   const { t } = useTranslation();
   const location = useLocation();
 
-  const hasChildren = !!item.children?.length;
+  const visibleChildren = item.children?.filter((child) => !child.hidden);
+  const hasChildren = !!visibleChildren?.length;
 
   const isChildActive = hasChildren
     ? item.children!.some(
@@ -86,7 +87,7 @@ export function HRHubNavItem({ item, collapsed, level = 0 }: Props) {
 
       {hasChildren && !collapsed && open && (
         <div className="mt-1 space-y-1">
-          {item.children!.map((child) => (
+          {visibleChildren!.map((child) => (
             <HRHubNavItem key={child.id} item={child} collapsed={collapsed} level={level + 1} />
           ))}
         </div>

@@ -9,6 +9,7 @@ import { TraceModule } from './modules/app/trace/trace.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { FinesModule } from './modules/fines/fines.module';
 import { EmployeesModule } from './modules/employee/employees.module';
+import { WebAppsModule } from './modules/web-apps/web-apps.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { EmployeesModule } from './modules/employee/employees.module';
     WorkforceModule,
     FinesModule,
     EmployeesModule,
+    WebAppsModule,
   ],
   providers: [
     {

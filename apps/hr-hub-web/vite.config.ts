@@ -32,6 +32,7 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       port: 5170,
+      cors: true,
       strictPort: true,
 
       proxy: {

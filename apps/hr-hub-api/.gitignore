@@ -5,3 +5,5 @@ logs/
 uploads/workforce/
 *.log
 generated/*
+# Web apps runtime data
+data/webapps/

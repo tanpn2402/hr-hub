@@ -1,20 +1,23 @@
 import {
   CalendarDays,
-  FileText,
   LayoutDashboard,
   Settings,
   Users,
   History,
   CreditCard,
+  AppWindow,
+  Globe,
 } from 'lucide-react';
 
 import { OverviewPage } from '../pages/OverviewPage';
 import { EmployeesPage } from '../pages/EmployeesPage';
 import { AttendanceLeavePage } from '../pages/AttendanceLeavePage';
-import { DocumentsPage } from '../pages/DocumentsPage';
 import { AttendanceImportHistoryPage } from '../pages/AttendanceImportHistoryPage';
 import { AttendanceSettingsPage } from '../pages/AttendanceSettingsPage';
 import { FinePaymentHistoryPage } from '../pages/FinePaymentHistoryPage';
+import { AppsIndexPage } from '../pages/AppsIndexPage';
+import { WebAppsPage } from '../pages/WebAppsPage';
+import { WebAppDetailPage } from '../pages/WebAppDetailPage';
 
 export type HRHubNavItem = {
   id: string;
@@ -22,6 +25,8 @@ export type HRHubNavItem = {
   icon: React.ComponentType<{ className?: string }>;
   path: string;
   component: React.ComponentType;
+  /** Routed but not shown in the sidebar (e.g. detail pages). */
+  hidden?: boolean;
   children?: HRHubNavItem[];
 };
 
@@ -70,11 +75,35 @@ export const hrHubNavigation: HRHubNavItem[] = [
       },
     ],
   },
+  // {
+  //   id: 'documents',
+  //   label: 'documents',
+  //   icon: FileText,
+  //   path: 'documents',
+  //   component: DocumentsPage,
+  // },
   {
-    id: 'documents',
-    label: 'documents',
-    icon: FileText,
-    path: 'documents',
-    component: DocumentsPage,
+    id: 'apps',
+    label: 'apps',
+    icon: AppWindow,
+    path: 'apps-admin',
+    component: AppsIndexPage,
+    children: [
+      {
+        id: 'web-apps',
+        label: 'web_apps',
+        icon: Globe,
+        path: 'apps-admin/web-apps',
+        component: WebAppsPage,
+      },
+      {
+        id: 'web-app-detail',
+        label: 'web_apps',
+        icon: Globe,
+        path: 'apps-admin/web-apps/:id',
+        component: WebAppDetailPage,
+        hidden: true,
+      },
+    ],
   },
 ];

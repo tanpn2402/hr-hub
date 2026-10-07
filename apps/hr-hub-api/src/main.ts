@@ -1,5 +1,6 @@
 import 'winston-daily-rotate-file';
 import { NestFactory } from '@nestjs/core';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { ConfigService } from '@nestjs/config';
 import { format, transports, createLogger } from 'winston';
 import TransportStream from 'winston-transport';
@@ -50,9 +51,12 @@ async function bootstrap() {
     transports: loggerTransports.length > 0 ? loggerTransports : [new transports.Console()],
   });
 
-  const app = await NestFactory.create(AppModule, {
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     logger: WinstonModule.createLogger({ instance: logger }),
   });
+
+  // Web app data values can be up to WEBAPPS_MAX_VALUE_KB; the default 100kb JSON limit is too small.
+  app.useBodyParser('json', { limit: '2mb' });
 
   if (config.get('CORS_ENABLED') === 'Y') {
     app.enableCors({ origin: config.get('CORS_ORIGIN'), credentials: true });
