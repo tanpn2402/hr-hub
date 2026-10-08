@@ -223,6 +223,7 @@ Tokens (CSS variables): `--background --foreground --card --primary --primary-fo
 | Surface | `.hh-card` (add `.hh-card-clickable` for clickable tiles) |
 | Buttons | `.hh-btn` (primary) `.hh-btn-outline` `.hh-btn-secondary` `.hh-btn-ghost` `.hh-btn-destructive`; sizes `-sm` `-xs` `-lg` |
 | Form | `.hh-field` > `.hh-label` + `.hh-input` / `.hh-select` / `.hh-textarea`, `.hh-hint` for help text |
+| Searchable select / dialog / checkbox | `hrhub.ui.combobox/dialog/alert/confirm/checkbox` from `/hr-hub/hrhub-ui.js` (load after the SDK), never native `<select>`/`<input type=checkbox>`/`alert()`; see `reference/components.md` |
 | Rating 1-5 | `.hh-scale` > `.hh-scale-item` (radio + span) |
 | Data table | `.hh-table-wrap` > `table.hh-table` (`.hh-num` right-aligned numbers, `tr.hh-clickable`) |
 | Status | `.hh-badge` `-secondary` `-outline` `-destructive` `-success` `-warning`, `.hh-dot` |

@@ -257,3 +257,60 @@ code, kbd, pre, .hh-mono { font-family: var(--font-mono); font-size: 0.8125rem; 
   border-radius: 999px; animation: hh-spin 0.7s linear infinite;
 }
 @keyframes hh-spin { to { transform: rotate(360deg); } }
+
+/* ---------- dialog (hrhub-ui.js: hrhub.ui.dialog / alert / confirm) ---------- */
+
+.hh-dialog {
+  width: min(var(--hh-dialog-width, 28rem), calc(100vw - 2rem)); max-height: calc(100vh - 2rem); padding: 0; overflow: auto;
+  color: var(--popover-foreground); background: var(--popover); border: 1px solid var(--border);
+  border-radius: var(--radius-xl); box-shadow: 0 10px 40px rgb(0 0 0 / 0.18);
+  /* shadcn-like: fade + zoom 95% -> 100%; hrhub-ui.js flips data-state open/closed */
+  opacity: 0; transform: scale(0.95); transition: opacity 0.15s ease, transform 0.15s ease;
+}
+.hh-dialog[data-state='open'] { opacity: 1; transform: scale(1); }
+.hh-dialog::backdrop {
+  background: rgb(0 0 0 / 0.4); opacity: 0; -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px);
+  transition: opacity 0.15s ease;
+}
+.hh-dialog[data-state='open']::backdrop { opacity: 1; }
+@media (prefers-reduced-motion: reduce) {
+  .hh-dialog, .hh-dialog::backdrop { transition: none; }
+}
+.hh-dialog-header { padding: 1rem 1.25rem 0; }
+.hh-dialog-header h2 { margin: 0; font-size: 1.125rem; font-weight: 600; }
+.hh-dialog-body { padding: 0.75rem 1.25rem; font-size: 0.875rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+.hh-dialog-footer { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.5rem; padding: 0.5rem 1.25rem 1rem; }
+
+/* ---------- searchable select (hrhub-ui.js: hrhub.ui.combobox) ---------- */
+
+.hh-combobox { position: relative; }
+.hh-combobox-input { padding-right: 2rem; cursor: text;
+  background-image: linear-gradient(45deg, transparent 50%, var(--muted-foreground) 50%), linear-gradient(135deg, var(--muted-foreground) 50%, transparent 50%);
+  background-position: calc(100% - 1rem) 50%, calc(100% - 0.7rem) 50%; background-size: 0.3rem 0.3rem; background-repeat: no-repeat; }
+.hh-combobox-list {
+  position: absolute; z-index: 50; top: calc(100% + 0.25rem); left: 0; right: 0; max-height: 16rem; margin: 0; padding: 0.25rem;
+  overflow-y: auto; list-style: none; color: var(--popover-foreground); background: var(--popover);
+  border: 1px solid var(--border); border-radius: var(--radius-xl); box-shadow: 0 8px 24px rgb(0 0 0 / 0.12);
+}
+.hh-combobox-list[hidden] { display: none; }
+.hh-combobox-option { display: flex; flex-direction: column; gap: 0.0625rem; padding: 0.375rem 0.625rem; font-size: 0.875rem; cursor: pointer; border-radius: var(--radius-md); }
+.hh-combobox-option[data-active] { background: var(--accent); }
+.hh-combobox-option[aria-selected='true'] > span { font-weight: 600; color: var(--primary); }
+.hh-combobox-empty { padding: 0.75rem; font-size: 0.875rem; text-align: center; color: var(--muted-foreground); }
+
+/* ---------- checkbox (hrhub-ui.js: hrhub.ui.checkbox; button[role=checkbox], not a native input) ---------- */
+
+.hh-checkbox {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.125rem 0; font: inherit; font-size: 0.875rem;
+  color: var(--foreground); text-align: left; background: none; border: 0; cursor: pointer; outline: none;
+}
+.hh-checkbox-box {
+  display: grid; place-items: center; flex: none; width: 1.125rem; height: 1.125rem; color: var(--primary-foreground);
+  background: color-mix(in oklch, var(--input) 50%, transparent); border: 1px solid var(--input);
+  border-radius: var(--radius-sm); transition: background-color 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+.hh-checkbox-box svg { width: 0.75rem; height: 0.75rem; opacity: 0; }
+.hh-checkbox[aria-checked='true'] .hh-checkbox-box { background: var(--primary); border-color: var(--primary); }
+.hh-checkbox[aria-checked='true'] .hh-checkbox-box svg { opacity: 1; }
+.hh-checkbox:focus-visible .hh-checkbox-box { border-color: var(--ring); box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 30%, transparent); }
+.hh-checkbox:disabled { opacity: 0.5; cursor: not-allowed; }

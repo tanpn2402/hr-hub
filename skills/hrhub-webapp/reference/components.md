@@ -150,3 +150,26 @@ function badges(container, department, position) {
   if (position) { const p = document.createElement('span'); p.className = 'hh-badge hh-badge-secondary'; p.textContent = position; container.appendChild(p); }
 }
 ```
+
+## Dialog, searchable select, checkbox (hrhub-ui.js)
+
+Never use native `<select>`, `alert()/confirm()` (blocked by the sandbox) or `<input type="checkbox">` in apps:
+load `/hr-hub/hrhub-ui.js` **after** the SDK and use `hrhub.ui.*` (styles come from `hrhub-theme.css`).
+
+```html
+<script src="/hr-hub/hrhub-sdk.js"></script>
+<script src="/hr-hub/hrhub-ui.js"></script>
+<div class="hh-field"><label class="hh-label" for="employee">Nhân viên</label><div id="employee-host"></div></div>
+```
+```js
+const cb = hrhub.ui.combobox(document.getElementById('employee-host'), {
+  id: 'employee', placeholder: '— Chọn nhân viên —',
+  options: employees.map((e) => ({ value: e.employeeCode, label: e.employeeCode + ' - ' + e.name, hint: e.department })),
+  onChange: (code) => load(code),
+});                                   // cb.getValue() / setValue() / setOptions() / setDisabled()
+const c = hrhub.ui.checkbox(host, { label: 'Đồng ý', onChange: (checked) => {} });   // c.getChecked() / setChecked()
+await hrhub.ui.alert('Đã gửi.', { title: 'Thành công' });
+if (await hrhub.ui.confirm('Bỏ dữ liệu đang nhập?', { destructive: true })) { /* ... */ }
+const v = await hrhub.ui.dialog({ title: 'Chi tiết', content: nodeOrText, actions: [{ label: 'Đóng', value: 'x', variant: 'outline' }] });
+```
+Dialog text is plain text; pass a DOM `Node` (built with `textContent`) for rich content. Search ignores case and accents.
