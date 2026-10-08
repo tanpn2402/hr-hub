@@ -22,7 +22,7 @@ my-app/
 
 Run `python3 .claude/skills/hrhub-webapp/scripts/package.py my-app` → creates and validates `my-app.zip`.
 Tell the user the slug to use (lowercase letters, digits, hyphens; 2-63 chars; not `api`, `assets`, `admin`,
-`console`, `launch`, `web-apps`, `late-attendance`) and which **required roles** to set.
+`console`, `launch`, `web-apps`, `late-attendance`; `manage-app-accesses` is reserved for the access-request app) and which **required roles** to set.
 
 ## Access model (decide this with the user)
 
@@ -31,8 +31,15 @@ Tell the user the slug to use (lowercase letters, digits, hyphens; 2-63 chars; n
 - **Required roles** (e.g. `hr`; any one role is enough): visitors are sent to login first; users without the role
   get "no access", and the data API answers 401/403 for them. Enforcement is always **server-side**.
 - Role names are case-insensitive in the HR Hub portal itself, but for web apps use the exact Idenplane role name.
-- Opened directly (outside HR Hub's viewer) an app redirects itself into `/hr-hub/apps/<slug>`; the SDK only works
-  inside the viewer.
+- A signed-in user **without the role** does not see the app: HR Hub shows a screen with the app's info, a
+  "Yêu cầu quyền truy cập" button and a sign-out button. The request is only a **notification**: HR Hub writes it
+  into the data of the normal web app **`manage-app-accesses`** (key `request:<slug>:<userId>`, statuses `pending` /
+  `approved` / `rejected`) so administrators see who is asking. It never changes who can open an app: **roles are
+  granted in Idenplane Admin**, and the administrator then marks the request as handled in that app. The requester
+  must sign out and in again to receive a new role.
+- `manage-app-accesses` is an ordinary web app (`webapps/manage-app-accesses`): create it once with the slug
+  `manage-app-accesses` and give it the administrators' roles. Its slug is the one the request button writes to, so
+  do not use it for anything else. If it is missing, the button reports that requests are not set up.
 - A reporting app that reads a form app's data should get **restricted roles**, but the form app's data is still
   readable by anyone allowed to open the form app. For sensitive results ask the admin to restrict the form app too.
 
@@ -93,11 +100,18 @@ await hrhub.data.set('settings', { theme: 'x' });          // -> { key, updatedA
 const settings = await hrhub.data.get('settings');         // -> value, or null when missing
 const entry = await hrhub.data.getEntry('settings');       // -> { key, value, updatedAt } or null
 const keys = await hrhub.data.list();                      // -> [{ key, updatedAt }]
-await hrhub.data.remove('settings');
+const all = await hrhub.data.all();                        // -> [{ key, value, updatedAt, createdAt, createdBy, updatedBy }] (batch-fetched)
+await hrhub.data.remove('settings');                       // SOFT delete (state X); creator or admin only, else 403
 
 // optimistic concurrency (avoid overwriting someone else's edit)
 const e = await hrhub.data.getEntry('board');
 await hrhub.data.set('board', newValue, { ifUpdatedAt: e ? e.updatedAt : 0 });  // 409 if changed meanwhile
+
+// --- sub-routes: every app has its own URLs /hr-hub/apps/<slug>/<path> (deep links, browser back) ---
+const path = await hrhub.route.get();            // '' | 'list' | 'review:517:...'  (the part after the slug)
+await hrhub.route.navigate('review:517:abc');    // pushes /hr-hub/apps/<slug>/review:517:abc
+await hrhub.route.back('list');                  // history back, or go to the fallback when entered directly
+const off = hrhub.route.onChange((path) => render(path));   // fires on navigate, back and forward
 
 // --- logged-in user (no tokens; anonymous visitors get authenticated:false) ---
 const me = await hrhub.user.get();   // { authenticated, id, username, name, email, roles: [], groups: [] }
@@ -111,19 +125,57 @@ const employees = await hrhub.employees.list();  // [{ id, employeeCode, name, d
 const entries = await hrhub.apps.readData('other-app-slug');  // [{ key, value, updatedAt }]
 ```
 
-Key rules: `^[A-Za-z0-9._:-]{1,128}$`, max 1000 keys per app, ~1 MB per value.
+Key rules: `^[A-Za-z0-9._:-]{1,128}$`, max 1000 active keys per app, ~1 MB per value.
+
+### Audit, soft delete and client IP (done by the platform)
+
+- Every record has `createdAt`, `createdBy`, `updatedAt`, `updatedBy` (`"username <email>"`, or `null` when an anonymous
+  visitor of a public app wrote it). Use them instead of inventing `author` fields; they come from the session, not
+  from your JS, so they cannot be forged. Writing over an existing key records the editor in `updatedBy`.
+- **Delete is soft**: `remove()` sets the record to state `X`; reads (`get`, `list`, `all`) only return active (`A`)
+  records. Writing the same key again creates a new record. Only the **creator or an administrator** may delete
+  (`403` otherwise); records created anonymously can only be deleted by administrators. Show the delete button only
+  to the creator (`record.createdBy` vs the current user) and still handle a `403`.
+- **Client IP**: on every write the API records the client IP it receives in the headers nginx forwards
+  (`X-Real-IP`) next to `createdBy`/`updatedBy`, for auditing. Apps do not look up or send an IP, and must not call IP
+  lookup services.
 
 ### Data modelling patterns
 
 - **Append-only submissions** (forms): one key per record, e.g. `review:<code>:<timestamp>-<rand>`. Never read-modify-write
   a shared array for this: concurrent users would overwrite each other.
 - **Small shared document** (settings, board): one key + `ifUpdatedAt`; on `409` reload and retry.
+- **"My records" list inside a form app**: `hrhub.data.all()`, then filter client-side by the record's `createdBy`
+  (or by a `reviewer.id` you stored). This is a UX filter only: the data API returns every record to anyone who can
+  open the app. Delete with `hrhub.data.remove(entry.key)` (soft delete, creator or admin) and keep the entry `key`
+  from `all()` for it.
 - **Reporting app**: a separate app that reads the form app via `hrhub.apps.readData(slug)`; sort/filter in JS.
 - Store ISO timestamps (`new Date().toISOString()`), employee codes (not only names), and a `schemaVersion` if
   the shape may change.
 - Anyone who can open the app can read its data through the API (anonymous visitors too when it is public): don't
   store secrets or sensitive data in an app that is public or has broad roles. A form app and its reporting app should use different required roles when the
   results are sensitive (ask the administrator to restrict roles).
+
+### Sub-routes (list → detail)
+
+Apps with a list and a detail view **must use sub-routes** so each record has a shareable URL and the browser back
+button works. Convention: `''` = main view, `'list'` = list (when the main view is a form), anything else = a record:
+
+```js
+function applyRoute(path) {
+  if (path === '') return showMain();
+  if (path === 'list') return showList();
+  return showDetail(path);                       // path = record key, e.g. "review:517:1791372641284-yxfwxj"
+}
+hrhub.route.get().then(applyRoute);              // initial URL (deep link)
+hrhub.route.onChange(applyRoute);                // navigate / back / forward
+row.onclick = () => hrhub.route.navigate(entry.key);          // -> /hr-hub/apps/<slug>/<key>
+backBtn.onclick = () => hrhub.route.back('list');             // fallback when opened directly on the detail URL
+```
+
+Do not use `location`, `history` or `#hash` for this (the app is sandboxed). Load the record from the route
+(`hrhub.data.getEntry(key)`) instead of relying on a list loaded earlier, handle "not found" (null), and keep keys URL
+friendly. Do not use dots in keys or path segments: the dev server treats a path with a dot as a file.
 
 ### Using the logged-in user
 
@@ -187,6 +239,8 @@ Full snippets: `reference/components.md`. Working examples (copy their structure
 - [ ] Uses `hh-*` classes and theme variables only; no custom palette or font
 - [ ] Loading, empty and error states; submit disabled while saving
 - [ ] Data keys documented; one key per record for append-only data
+- [ ] List/detail apps use `hrhub.route` (deep-linkable detail URL, back button works)
+- [ ] Delete UI handles `403` (not creator / not admin); audit info comes from `createdBy`/`updatedBy`, not app JS
 - [ ] Access decided with the user (public vs required roles) and stated in the handover
 - [ ] `hrhub.user.get()` used for display only; handles anonymous visitors
 - [ ] `package.py` passes

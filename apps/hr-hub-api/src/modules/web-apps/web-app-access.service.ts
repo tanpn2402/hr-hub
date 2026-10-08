@@ -69,7 +69,12 @@ export class WebAppAccessService {
       this.logger.warn(
         `Access denied: user ${user.id} [${user.roles.join(',')}] lacks any of [${requiredRoles.join(',')}] for web app ${slug}`,
       );
-      throw new ForbiddenException('You do not have access to this web app');
+      // The body carries the app info so the viewer can offer "request access".
+      throw new ForbiddenException({
+        message: 'You do not have access to this web app',
+        code: 'ROLE_REQUIRED',
+        app: { slug: app.slug, name: app.name, description: app.description, requiredRoles },
+      });
     }
 
     this.logger.debug(`Access granted: user ${user.id} to web app ${slug}`);

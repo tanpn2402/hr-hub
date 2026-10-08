@@ -154,7 +154,37 @@ export async function getWebAppAccess(slug: string): Promise<WebAppAccess> {
   return data;
 }
 
-export type WebAppDataOp = 'list' | 'get' | 'set' | 'remove' | 'employees' | 'readApp' | 'me';
+/* --------------------------- access requests --------------------------- */
+
+export type AccessRequestStatus = 'none' | 'pending' | 'approved' | 'rejected';
+
+export type AccessRequestState = {
+  status: AccessRequestStatus;
+  requestedAt: string | null;
+  decidedAt: string | null;
+  note: string | null;
+};
+
+export async function getMyAccessRequest(slug: string): Promise<AccessRequestState> {
+  const { data } = await apiClient.get<AccessRequestState>(
+    `/web-apps/${encodeURIComponent(slug)}/access-request`,
+  );
+  return data;
+}
+
+export async function requestWebAppAccess(
+  slug: string,
+  message: string,
+): Promise<AccessRequestState> {
+  const { data } = await apiClient.post<AccessRequestState>(
+    `/web-apps/${encodeURIComponent(slug)}/access-request`,
+    { message },
+  );
+  return data;
+}
+
+export type WebAppDataOp =
+  'list' | 'get' | 'set' | 'remove' | 'employees' | 'readApp' | 'me' | 'all';
 
 /** Executes a data operation for the app identified by the route slug (never by the app itself). */
 export async function runWebAppDataOp(
@@ -164,6 +194,8 @@ export async function runWebAppDataOp(
 ) {
   if (op === 'readApp') return readOtherAppData(String(args.app ?? ''));
   if (op === 'me') return readCurrentUser();
+  // Every record of THIS app (slug comes from the route, never from the app).
+  if (op === 'all') return readOtherAppData(slug);
 
   const base = `/web-apps/${encodeURIComponent(slug)}/data`;
   const key = encodeURIComponent(String(args.key ?? ''));

@@ -43,7 +43,7 @@ export function AppRoutes() {
 
       {/* Hosts a published web app in a sandboxed iframe. Static segments (late-attendance) win over :slug. */}
       <Route
-        path="/hr-hub/apps/:slug"
+        path="/hr-hub/apps/:slug/*"
         element={
           <Suspense fallback={<AppLoadingFallback />}>
             {/* Public apps open anonymously; the viewer sends users to login only when needed. */}

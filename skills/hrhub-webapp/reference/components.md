@@ -105,3 +105,26 @@ hrhub.user.get().then((me) => {
   document.getElementById('admin-tools').hidden = !me.roles.some((r) => r.toLowerCase() === 'hr');
 });
 ```
+
+## Sub-route navigation (list → detail → back)
+```js
+// list row -> detail URL /hr-hub/apps/<slug>/<key>
+row.addEventListener('click', () => hrhub.route.navigate(entry.key));
+
+// one place decides what is on screen from the URL
+function applyRoute(path) {
+  if (!path) return showList();
+  hrhub.data.getEntry(path).then((entry) => (entry ? showDetail(entry) : showList()));
+}
+hrhub.route.get().then(applyRoute);
+hrhub.route.onChange(applyRoute);
+
+document.getElementById('back').addEventListener('click', () => hrhub.route.back(''));
+```
+
+## Delete only for the creator (UI hint; the server enforces it)
+```js
+const mine = record.createdBy && me.authenticated && record.createdBy.indexOf(me.username) === 0;
+deleteBtn.hidden = !mine;           // admins can still delete: try it and show the 403 message otherwise
+hrhub.data.remove(record.key).catch((e) => showError(e.message));   // 403: only the creator or an admin
+```

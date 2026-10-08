@@ -82,14 +82,21 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
    * its session cookie) and come back through the registered redirect URI.
    */
   const logout = useCallback(async () => {
+    // Remember the page (including an app's sub-route) so signing out and back in lands on the same URL.
+    sessionStorage.setItem(
+      'auth:returnTo',
+      window.location.pathname + window.location.search + window.location.hash,
+    );
+
     const idToken = localStorage.getItem('idenplane_id_token');
     const { url, realm, redirectUri } = idenplane.getConfig();
 
+    // Do not touch React state here: flipping isAuthenticated would make ProtectedRoute start a new login
+    // right now, racing with the logout navigation below (and the IdP session would log the user straight back in).
     try {
       await idenplane.logout();
-    } finally {
-      setUser(null);
-      setIsAuthenticated(false);
+    } catch {
+      // tokens are cleared locally either way; continue to end the IdP session
     }
 
     const endSession = new URL(`${url}/realms/${encodeURIComponent(realm)}/protocol/openid-connect/logout`);

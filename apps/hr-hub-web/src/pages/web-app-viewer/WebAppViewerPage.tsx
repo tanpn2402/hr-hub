@@ -2,12 +2,13 @@ import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft } from 'lucide-react';
 import { useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useLocation, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 
 import { apiClient } from '@/api/client';
 import { AppSwitcher } from '@/apps/AppSwitcher';
 import { useAuth } from '@/auth/useAuth';
 
+import { RequestAccessPanel, type RequestAccessApp } from './RequestAccessPanel';
 import {
   getErrorMessage,
   getWebAppAccess,
@@ -15,19 +16,42 @@ import {
   type WebAppDataOp,
 } from '@/pages/hr-hub/api/web-apps';
 
-const OPS: WebAppDataOp[] = ['list', 'get', 'set', 'remove', 'employees', 'readApp', 'me'];
+const OPS: WebAppDataOp[] = ['list', 'get', 'set', 'remove', 'employees', 'readApp', 'me', 'all'];
+
+/** URL of a sub-route of a web app: /hr-hub/apps/:slug/<path>. Segments are encoded but ':' stays readable. */
+function appUrl(slug: string, path: string) {
+  const segments = path
+    .split('/')
+    // "." and ".." would let the app climb out of its own URL space.
+    .filter((segment) => segment && segment !== '.' && segment !== '..')
+    .map((segment) => encodeURIComponent(segment).replace(/%3A/gi, ':'));
+  return `/hr-hub/apps/${encodeURIComponent(slug)}${segments.length ? `/${segments.join('/')}` : ''}`;
+}
 
 /**
- * Served at /hr-hub/apps/:slug (login is enforced client-side by ProtectedRoute). Hosts a web app inside a sandboxed iframe (no allow-same-origin => opaque origin, so the app cannot read
- * the session token from localStorage). The app talks to the data API only through postMessage; this page
+ * Served at /hr-hub/apps/:slug/* (the part after the slug is the app's own sub-route). Hosts a web app inside a
+ * sandboxed iframe (no allow-same-origin => opaque origin, so the app cannot read the session token from localStorage). The app talks to the data API only through postMessage; this page
  * performs the call with the user's token and the slug taken from the route, never from the app.
  */
 export function WebAppViewerPage() {
   const { t } = useTranslation();
-  const { slug = '' } = useParams<{ slug: string }>();
+  const params = useParams<{ slug: string; '*': string }>();
+  const slug = params.slug ?? '';
+  // Sub-route of the app, e.g. "review:517:..." for /hr-hub/apps/<slug>/review:517:...
+  const subPath = params['*'] ?? '';
+  const navigate = useNavigate();
   const frameRef = useRef<HTMLIFrameElement>(null);
+  const subPathRef = useRef(subPath);
   const { login, isLoading: authLoading } = useAuth();
   const location = useLocation();
+  const locationStateRef = useRef<unknown>(location.state);
+  locationStateRef.current = location.state;
+
+  // Tell the app when its sub-route changes (links, browser back/forward).
+  useEffect(() => {
+    subPathRef.current = subPath;
+    frameRef.current?.contentWindow?.postMessage({ type: 'hrhub:route', path: subPath }, '*');
+  }, [subPath]);
 
   /** Same flow as ProtectedRoute: remember where we were, then go to the identity provider. */
   const requireLogin = useCallback(() => {
@@ -61,7 +85,7 @@ export function WebAppViewerPage() {
       const message = event.data as {
         type?: string;
         id?: number;
-        op?: WebAppDataOp;
+        op?: string;
         args?: Record<string, unknown>;
       };
       if (message?.type !== 'hrhub:request' || typeof message.id !== 'number') return;
@@ -73,12 +97,33 @@ export function WebAppViewerPage() {
         // Sandboxed frames have an opaque origin, so '*' is the only possible target; event.source pins the window.
         frame.postMessage({ type: 'hrhub:response', id: message.id, ...payload }, '*');
 
-      if (!message.op || !OPS.includes(message.op)) {
+      // Sub-routing: the app asks, this page owns the URL (always under /hr-hub/apps/<slug>).
+      if (message.op === 'route.get') {
+        reply({ ok: true, result: subPathRef.current });
+        return;
+      }
+      if (message.op === 'route.navigate') {
+        navigate(appUrl(slug, String(message.args?.path ?? '')), {
+          replace: Boolean(message.args?.replace),
+          state: { inApp: true },
+        });
+        reply({ ok: true, result: null });
+        return;
+      }
+      if (message.op === 'route.back') {
+        const inApp = (locationStateRef.current as { inApp?: boolean } | null)?.inApp;
+        if (inApp) navigate(-1);
+        else navigate(appUrl(slug, String(message.args?.fallback ?? '')), { replace: true });
+        reply({ ok: true, result: null });
+        return;
+      }
+
+      if (!message.op || !OPS.includes(message.op as WebAppDataOp)) {
         reply({ ok: false, error: { message: 'Unsupported operation', status: 400 } });
         return;
       }
 
-      runWebAppDataOp(slug, message.op, message.args ?? {})
+      runWebAppDataOp(slug, message.op as WebAppDataOp, message.args ?? {})
         .then((result) => reply({ ok: true, result }))
         .catch((error: unknown) => {
           const status = (error as { response?: { status?: number } }).response?.status ?? 500;
@@ -93,9 +138,17 @@ export function WebAppViewerPage() {
 
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
-  }, [access.data, slug, requireLogin]);
+  }, [access.data, slug, requireLogin, navigate]);
 
   if (authLoading || access.isLoading || needsLogin) return null;
+
+  // Signed in but missing the roles: show the app and offer to request access.
+  const errorBody = (
+    access.error as { response?: { data?: { code?: string; app?: RequestAccessApp } } } | null
+  )?.response?.data;
+  if (status === 403 && errorBody?.code === 'ROLE_REQUIRED' && errorBody.app) {
+    return <RequestAccessPanel app={errorBody.app} />;
+  }
 
   if (access.isError || !access.data) {
     return (

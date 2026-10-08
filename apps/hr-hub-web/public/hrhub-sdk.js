@@ -7,8 +7,22 @@
  * Apps run in a sandboxed iframe (no localStorage / cookies / direct API access). Persist data through:
  *   await hrhub.data.set('employees', [{ id: '001', name: 'Peter' }]);
  *   const employees = await hrhub.data.get('employees');   // value, or null when missing
+ *   const everything = await hrhub.data.all();             // [{ key, value, updatedAt }] all records of this app
  *   const keys = await hrhub.data.list();                  // [{ key, updatedAt }]
- *   await hrhub.data.remove('employees');
+ *   await hrhub.data.remove('employees');                  // soft delete (state X): creator or admin only
+ *
+ * Every record returned by get/getEntry/list/all also carries audit info:
+ *   { key, value, updatedAt, createdAt, createdBy, updatedBy }   // createdBy/updatedBy: "username <email>" or null
+ * Records are never physically deleted: remove() marks them deleted (state X) and reads only return active ones.
+ * Only the creator or an administrator may delete a record (403 otherwise); anonymous records: administrators only.
+ * Writes are also audited with the client IP, which the API takes from the headers nginx forwards: apps do
+ * not need to do anything.
+ *
+ * Sub-routes: each app has its own URLs /hr-hub/apps/<slug>/<path> (deep links, back button):
+ *   const path = await hrhub.route.get();               // '' | 'list' | 'review:517:...'
+ *   await hrhub.route.navigate('review:517:abc');       // pushes /hr-hub/apps/<slug>/review:517:abc
+ *   await hrhub.route.back('list');                     // history back, or navigate to the fallback when entered directly
+ *   const off = hrhub.route.onChange(function (path) { ... });   // fires on navigate/back/forward
  *
  * Logged-in user (never includes tokens; anonymous visitors get authenticated:false):
  *   const me = await hrhub.user.get();
@@ -37,10 +51,24 @@
 
   var pending = {};
   var seq = 0;
+  var routeListeners = [];
 
   window.addEventListener('message', function (event) {
     if (event.source !== window.parent) return;
     var data = event.data;
+
+    // The viewer pushes the current sub-route whenever it changes.
+    if (data && data.type === 'hrhub:route') {
+      routeListeners.slice().forEach(function (listener) {
+        try {
+          listener(data.path || '');
+        } catch (e) {
+          if (window.console) console.error(e);
+        }
+      });
+      return;
+    }
+
     if (!data || data.type !== 'hrhub:response') return;
 
     var entry = pending[data.id];
@@ -65,6 +93,25 @@
   }
 
   window.hrhub = {
+    route: {
+      get: function () {
+        return call('route.get');
+      },
+      navigate: function (path, options) {
+        return call('route.navigate', { path: path || '', replace: !!(options && options.replace) });
+      },
+      back: function (fallback) {
+        return call('route.back', { fallback: fallback || '' });
+      },
+      onChange: function (listener) {
+        routeListeners.push(listener);
+        return function () {
+          routeListeners = routeListeners.filter(function (item) {
+            return item !== listener;
+          });
+        };
+      },
+    },
     user: {
       get: function () {
         return call('me');
@@ -81,6 +128,9 @@
       },
     },
     data: {
+      all: function () {
+        return call('all');
+      },
       list: function () {
         return call('list');
       },

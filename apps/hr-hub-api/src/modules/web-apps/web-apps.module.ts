@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TraceModule } from '../app/trace/trace.module';
 import { AuthModule } from '../auth/auth.module';
 import { ArchiveExtractorService } from './archive-extractor.service';
+import { WebAppAccessRequestService } from './web-app-access-request.service';
 import { WebAppAccessService } from './web-app-access.service';
 import { WebAppDataService } from './web-app-data.service';
 import { WebAppRuntimeController } from './web-app-runtime.controller';
@@ -23,6 +24,7 @@ import { WebAppsService } from './web-apps.service';
     ArchiveExtractorService,
     WebAppDataService,
     WebAppAccessService,
+    WebAppAccessRequestService,
     WebAppsAdminGuard,
     OptionalAuthGuard,
     WebAppsService,

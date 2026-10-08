@@ -12,10 +12,15 @@ export function OpenIDConnectCallbackPage() {
 
     async function handleCallback() {
       // Landing here without an authorization response means we returned from the IdP's logout
-      // (post_logout_redirect_uri): go home, where ProtectedRoute starts a fresh login.
+      // (post_logout_redirect_uri): go back to the page the user logged out from. Protected pages start a
+      // fresh login themselves and come back to the same URL; public apps just open anonymously.
       const params = new URLSearchParams(window.location.search);
       if (!params.has('code') && !params.has('error')) {
-        window.location.replace('/hr-hub/');
+        // Read only, never remove: React StrictMode runs this effect twice in dev, and a second run that finds
+        // nothing would navigate to /hr-hub/ over the first one. The next login overwrites the key anyway.
+        const previous = sessionStorage.getItem('auth:returnTo');
+        const safe = previous && previous.startsWith('/') && !previous.startsWith('//');
+        window.location.replace(safe ? previous : '/hr-hub/');
         return;
       }
 

@@ -1,7 +1,9 @@
 import { type ReactNode, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/auth/useAuth';
+import { Button } from '@/components/ui/button';
+import { LogOut } from 'lucide-react';
 
 type ProtectedRouteProps = {
   children: ReactNode;
@@ -40,19 +42,10 @@ export function ProtectedRoute({ children, roles }: ProtectedRouteProps) {
         <h1 className="text-xl font-semibold tracking-tight">{t('access_denied')}</h1>
         <p className="max-w-md text-sm text-muted-foreground">{t('access_denied_description')}</p>
         <div className="flex items-center gap-4 text-sm">
-          <Link
-            to="/hr-hub/apps/late-attendance"
-            className="text-primary underline underline-offset-4"
-          >
-            {t('late_hub')}
-          </Link>
-          <button
-            type="button"
-            className="text-muted-foreground underline underline-offset-4"
-            onClick={() => void logout()}
-          >
-            {t('logout')}
-          </button>
+          <Button variant="outline" className="w-64 mt-4" onClick={() => void logout()}>
+            <LogOut className="mr-2 size-4" />
+            {t('sign_out')}
+          </Button>
         </div>
       </div>
     );

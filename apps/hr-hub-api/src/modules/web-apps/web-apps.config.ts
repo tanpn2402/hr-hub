@@ -5,6 +5,17 @@ import { resolve } from 'node:path';
 /** Slugs that would collide with SPA routes or internal directories. */
 export const RESERVED_SLUGS = new Set(['late-attendance', 'web-apps', 'launch', 'api', 'assets', 'admin', 'console']);
 
+/**
+ * Slug of the (normal) web app that receives access requests: when a signed-in user without the roles of an app
+ * clicks "request access", HR Hub writes the request into this app's data so administrators can see it. Roles are
+ * granted in Idenplane; nothing here changes who can open an app.
+ */
+export const ACCESS_REQUESTS_SLUG = 'manage-app-accesses';
+
+export function accessRequestKey(appSlug: string, userId: string): string {
+  return `request:${appSlug}:${userId}`;
+}
+
 export const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{1,62}$/;
 
 /** Hard cap enforced by multer; the configured WEBAPPS_MAX_ARCHIVE_MB is enforced by the service. */
