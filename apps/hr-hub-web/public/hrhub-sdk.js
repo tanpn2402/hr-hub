@@ -29,6 +29,10 @@
  *   // { authenticated, id, username, name, email, roles: [...], groups: [...] }
  *   // roles = realm + client roles. groups = the identity provider's "groups" claim (empty when not released).
  *   if (me.roles.includes('hr')) { ... }   // UI convenience only: the data API enforces access server-side
+ *   await hrhub.user.login();    // visitors of public apps: sign in, then come back to this exact page
+ *   await hrhub.user.logout();   // sign out (ends the session), then come back to this exact page
+ * HR Hub's own top bar already shows the signed-in user with a logout menu (or a login button), so apps do not
+ * need their own unless they show extra details.
  *
  * Employee directory (read-only, no contact details):
  *   const employees = await hrhub.employees.list();   // [{ id, employeeCode, name, department, position }]
@@ -115,6 +119,12 @@
     user: {
       get: function () {
         return call('me');
+      },
+      login: function () {
+        return call('user.login');
+      },
+      logout: function () {
+        return call('user.logout');
       },
     },
     apps: {

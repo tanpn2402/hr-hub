@@ -128,3 +128,25 @@ const mine = record.createdBy && me.authenticated && record.createdBy.indexOf(me
 deleteBtn.hidden = !mine;           // admins can still delete: try it and show the 403 message otherwise
 hrhub.data.remove(record.key).catch((e) => showError(e.message));   // 403: only the creator or an admin
 ```
+
+## Sticky submit bar + department / position badges
+```html
+<div class="hh-card"><!-- general comment: its own card --></div>
+<div class="action-bar">   <!-- .action-bar { position: sticky; bottom: .75rem; z-index: 10; padding: .75rem 1rem;
+                               background: var(--card); border: 1px solid var(--border);
+                               border-radius: var(--radius-xl); box-shadow: 0 -4px 16px rgb(0 0 0 / .08); } -->
+  <div class="hh-row hh-between">
+    <div>Tổng: <strong id="total">—</strong></div>
+    <button class="hh-btn" type="submit">Gửi</button>
+  </div>
+</div>
+```
+```js
+// department is a comma list: one outline badge per entry; position as a secondary badge
+function badges(container, department, position) {
+  String(department || '').split(',').map((s) => s.trim()).filter(Boolean).forEach((d) => {
+    const b = document.createElement('span'); b.className = 'hh-badge hh-badge-outline'; b.textContent = d; container.appendChild(b);
+  });
+  if (position) { const p = document.createElement('span'); p.className = 'hh-badge hh-badge-secondary'; p.textContent = position; container.appendChild(p); }
+}
+```

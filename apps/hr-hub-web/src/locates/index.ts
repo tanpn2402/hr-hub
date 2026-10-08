@@ -23,6 +23,7 @@ export const resources = {
       documents: 'Tài liệu',
       profile: 'Hồ sơ',
       logout: 'Đăng xuất',
+      login: 'Đăng nhập',
       user: 'Người dùng',
       expand_sidebar: 'Mở rộng thanh bên',
       collapse_sidebar: 'Thu gọn thanh bên',

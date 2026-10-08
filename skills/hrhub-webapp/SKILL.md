@@ -115,11 +115,15 @@ const off = hrhub.route.onChange((path) => render(path));   // fires on navigate
 
 // --- logged-in user (no tokens; anonymous visitors get authenticated:false) ---
 const me = await hrhub.user.get();   // { authenticated, id, username, name, email, roles: [], groups: [] }
+await hrhub.user.login();            // visitor of a public app: sign in, then return to this exact page
+await hrhub.user.logout();           // end the session, then return to this exact page
 // roles = realm + client roles; groups only when the identity provider releases a "groups" claim (else []).
 // Use it for UI only (greeting, hiding buttons): real access control is enforced by the server, never by app JS.
 
 // --- HR Hub employee directory (read-only; no email/phone; available to anonymous visitors of public apps too) ---
-const employees = await hrhub.employees.list();  // [{ id, employeeCode, name, department, position }]
+const employees = await hrhub.employees.list();  // [{ id, employeeCode, name, email, department, position }] (active only)
+// department is a COMMA LIST: main department first, then teams, e.g. "dev,dev_api,dev_web" (a dev in the api and web
+// teams). Never compare the whole string: split on ',' and trim. position is free text (member, leader, manager, ...).
 
 // --- read ANOTHER app's data (read-only; user must be allowed to open that app) ---
 const entries = await hrhub.apps.readData('other-app-slug');  // [{ key, value, updatedAt }]
@@ -177,7 +181,25 @@ Do not use `location`, `history` or `#hash` for this (the app is sandboxed). Loa
 (`hrhub.data.getEntry(key)`) instead of relying on a list loaded earlier, handle "not found" (null), and keep keys URL
 friendly. Do not use dots in keys or path segments: the dev server treats a path with a dot as a file.
 
+### Employees, departments and who-reviewed-whom
+
+- Parse `department` into a list (`d.split(',').map(s => s.trim().toLowerCase()).filter(Boolean)`). "Is a dev" means
+  the list **contains** `dev`; "shares a team" means the lists overlap (`dev_api` in both). Weighting by shared
+  department is done by counting the overlap.
+- To know the **signed-in user's own employee record**, match `me` against `hrhub.employees.list()` inside the app:
+  by `email` (case-insensitive), else `employeeCode === me.username`, else every part of a dotted username
+  (`tan.pham`) appears in the normalized employee name (strip diacritics); accept only a **unique** match, otherwise
+  treat the department as unknown. Example: `webapps/employee-performance-review/app.js` (`findMyEmployee`).
+- When a rule depends on the reviewer's department, store `employeeCode`/`department`/`position` of the reviewer in the
+  record at submit time; the roles and department a record carries are self-reported by the app, only
+  `createdBy`/`createdAt` are authoritative.
+
 ### Using the logged-in user
+
+HR Hub's own top bar (above every app) already shows the **signed-in user at the top right** (name, e-mail, a menu with
+**logout**) or a **login** button for visitors of public apps. Do not draw a second login/logout UI; add an
+in-app badge only when it shows extra details (department, roles) and, if you offer a logout button, call
+`hrhub.user.logout()` (it returns the user to the same URL after signing out).
 
 `hrhub.user.get()` is for **display and UX only** (greeting, pre-filling a "reviewer" field, hiding buttons the user
 can't use, e.g. `if (me.roles.some((r) => r.toLowerCase() === 'hr'))`). Never rely on it for security: the
@@ -217,6 +239,11 @@ Full snippets: `reference/components.md`. Working examples (copy their structure
 - Title = `h1` in `.hh-page-header` with a muted one-line description; primary action top-right.
 - Tables in a bordered rounded container; whole row clickable (also `Enter`/`Space`, `tabindex="0"`) when it opens detail.
 - Always handle **loading** (`.hh-spinner` or text), **empty** (`.hh-empty`), **error** (`.hh-alert-error` with `error.message`).
+- Long forms: keep the submit button together with the running total in a **sticky bar at the bottom** of the form
+  (`position: sticky; bottom: .75rem`, card background, border, shadow), and give free-text fields such as a general
+  comment their own card above it.
+- Show `department` (comma list) and `position` as **badges** (`hh-badge-outline` per department entry,
+  `hh-badge-secondary` for the position), not as plain text, and keep dropdown option text short (name and code).
 - Disable the submit button while saving and until the form is valid; confirm success with `.hh-alert-success`.
 - Numbers right-aligned (`.hh-num`); dates `toLocaleString('vi-VN')`; money `toLocaleString('vi-VN')` + ` ₫`.
 - Responsive down to ~360 px (grids use `auto-fit`; tables scroll horizontally inside `.hh-table-wrap`).

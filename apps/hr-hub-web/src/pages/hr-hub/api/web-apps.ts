@@ -202,14 +202,16 @@ export async function runWebAppDataOp(
 
   switch (op) {
     case 'employees': {
-      // Capability granted to web apps: a minimal employee directory (no contact details).
+      // Capability granted to web apps: a minimal employee directory. E-mail is included so an app can link the
+      // signed-in user to their employee record; phone and other personal fields are not.
       const { data } = await apiClient.get<Array<Record<string, unknown>>>('/employees');
       return data
         .filter((employee) => employee.active !== false)
-        .map(({ id, employeeCode, name, department, position }) => ({
+        .map(({ id, employeeCode, name, email, department, position }) => ({
           id,
           employeeCode,
           name,
+          email,
           department,
           position,
         }));

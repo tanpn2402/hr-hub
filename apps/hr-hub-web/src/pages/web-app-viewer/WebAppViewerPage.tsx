@@ -7,6 +7,8 @@ import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { apiClient } from '@/api/client';
 import { AppSwitcher } from '@/apps/AppSwitcher';
 import { useAuth } from '@/auth/useAuth';
+import { Button } from '@/components/ui/button';
+import { HRHubUserMenu } from '@/pages/hr-hub/components/HRHubUserMenu';
 
 import { RequestAccessPanel, type RequestAccessApp } from './RequestAccessPanel';
 import {
@@ -42,7 +44,7 @@ export function WebAppViewerPage() {
   const navigate = useNavigate();
   const frameRef = useRef<HTMLIFrameElement>(null);
   const subPathRef = useRef(subPath);
-  const { login, isLoading: authLoading } = useAuth();
+  const { login, logout, isAuthenticated, isLoading: authLoading } = useAuth();
   const location = useLocation();
   const locationStateRef = useRef<unknown>(location.state);
   locationStateRef.current = location.state;
@@ -118,6 +120,14 @@ export function WebAppViewerPage() {
         return;
       }
 
+      // Session: the app may offer its own login / logout buttons. Both leave the page, so answer first.
+      if (message.op === 'user.login' || message.op === 'user.logout') {
+        reply({ ok: true, result: null });
+        if (message.op === 'user.login') requireLogin();
+        else void logout();
+        return;
+      }
+
       if (!message.op || !OPS.includes(message.op as WebAppDataOp)) {
         reply({ ok: false, error: { message: 'Unsupported operation', status: 400 } });
         return;
@@ -138,7 +148,7 @@ export function WebAppViewerPage() {
 
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
-  }, [access.data, slug, requireLogin, navigate]);
+  }, [access.data, slug, requireLogin, navigate, logout]);
 
   if (authLoading || access.isLoading || needsLogin) return null;
 
@@ -175,6 +185,17 @@ export function WebAppViewerPage() {
           HR Hub
         </Link>
         <span className="font-medium">{access.data.name}</span>
+
+        {/* Signed-in user (name, e-mail, logout) or a login button for visitors of public apps */}
+        <div className="ml-auto flex items-center">
+          {isAuthenticated ? (
+            <HRHubUserMenu onLogout={() => void logout()} />
+          ) : (
+            <Button variant="outline" size="sm" onClick={requireLogin}>
+              {t('login')}
+            </Button>
+          )}
+        </div>
       </div>
 
       <iframe
