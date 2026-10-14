@@ -173,3 +173,25 @@ if (await hrhub.ui.confirm('Bỏ dữ liệu đang nhập?', { destructive: true
 const v = await hrhub.ui.dialog({ title: 'Chi tiết', content: nodeOrText, actions: [{ label: 'Đóng', value: 'x', variant: 'outline' }] });
 ```
 Dialog text is plain text; pass a DOM `Node` (built with `textContent`) for rich content. Search ignores case and accents.
+
+## Preact + htm hooks for the SDK (no build)
+```js
+import { html, useState, useEffect } from './lib.js';          // lib.js re-exports /hr-hub/vendor/hrhub-preact.module.js
+
+export function useRoute() {                                     // '' | 'list' | '<key>'; null until HR Hub answers
+  const [path, setPath] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    hrhub.route.get().then((p) => alive && setPath(p));
+    const off = hrhub.route.onChange(setPath);
+    return () => { alive = false; off(); };
+  }, []);
+  return path;
+}
+
+export function useData() {                                      // all records of this app
+  const [state, setState] = useState({ status: 'loading', entries: [] });
+  useEffect(() => { hrhub.data.all().then((entries) => setState({ status: 'ready', entries })).catch((error) => setState({ status: 'error', entries: [], error })); }, []);
+  return state;
+}
+```

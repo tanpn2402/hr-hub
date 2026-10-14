@@ -43,6 +43,33 @@ Tell the user the slug to use (lowercase letters, digits, hyphens; 2-63 chars; n
 - A reporting app that reads a form app's data should get **restricted roles**, but the form app's data is still
   readable by anyone allowed to open the form app. For sensitive results ask the admin to restrict the form app too.
 
+## Bigger apps: Preact + htm, still no build
+
+For apps with several views (lists, details, tables with many columns) write **ES modules with Preact + htm** instead
+of one long DOM-building script. There is no build and no npm: HR Hub serves the library at
+`/hr-hub/vendor/hrhub-preact.module.js` (Preact 10, hooks, and `html` = htm bound to Preact, ~16 KB).
+Working example: `webapps/performance-review-result-preact/`.
+
+```
+index.html   theme + sdk + ui links, <div id="app">, <script type="module" src="main.js">
+lib.js       export * from '/hr-hub/vendor/hrhub-preact.module.js';   // the only place that knows the URL
+rules.js / scoring.js   pure logic, no DOM and no Preact (testable with Node)
+hooks.js     useRoute (hrhub.route), useResults (load data)
+ui.js        small shared components (badges, Combobox wrapper around hrhub.ui.combobox)
+list.js / detail.js / main.js   views and the router-by-state in <App/>
+```
+
+```js
+import { html, render, useState, useEffect } from './lib.js';
+const Row = ({ item, onOpen }) => html`<tr class="hh-clickable" onClick=${() => onOpen(item)}><td>${item.name}</td></tr>`;
+render(html`<${App} />`, document.getElementById('app'));      // components: <${Comp} prop=${x} /> ; fragments: <${Fragment}>…<//>
+```
+
+Rules: plain `.js` modules with relative imports (include the extension); text in `${}` is escaped for you (never
+use `innerHTML`); use `class=` (not className) and `colSpan="2"`; do **not** use browser history/`BrowserRouter` (sandbox):
+derive the view from `hrhub.route` in a hook; wrap `hrhub.ui.*` widgets (imperative) in a component with a ref and
+effects. Use `hrhub-theme.css` classes as before. Keep scoring/business rules in pure modules and test them in Node.
+
 ## Page skeleton (always start from this)
 
 ```html
