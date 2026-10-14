@@ -57,11 +57,18 @@ export class StageOneWorkforceService {
 
     const attendanceFile = attendanceFiles[0];
     const leaveFile = files.find((file) => file !== attendanceFile)!;
-    const attendance = parseAttendanceWorkbook(this.read(attendanceFile), {
-      resolve: (employeeCode, date) => this.workforceRules.resolve(employeeCode, date),
-    });
+
     const leaveCoverage = parseLeaveWorkbook(
       this.read(leaveFile),
+      {
+        resolve: (employeeCode, date) => this.workforceRules.resolve(employeeCode, date),
+      },
+      this.logger,
+    );
+
+    const attendance = parseAttendanceWorkbook(
+      this.read(attendanceFile),
+      leaveCoverage,
       {
         resolve: (employeeCode, date) => this.workforceRules.resolve(employeeCode, date),
       },

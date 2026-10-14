@@ -5,6 +5,7 @@ import { AttendanceRecord } from '../models/attendance-record.model';
 import { WorkforceRules } from '../models/workforce-rules.model';
 import { isoDate, timeOfDayMinutes } from '../utils/time.util';
 import { TraceLogger } from '@app/modules/app/trace/trace-logger.service';
+import { leaveCoverageKey, LeaveCoverageMap } from '../models/leave-coverage.model';
 
 type AttendanceColumn = 'employeeCode' | 'employeeName' | 'date' | 'checkIn' | 'checkOut';
 
@@ -28,6 +29,7 @@ const REQUIRED_COLUMNS: AttendanceColumn[] = ['employeeCode', 'employeeName', 'd
  */
 export function parseAttendanceWorkbook(
   workbook: XLSX.WorkBook,
+  leaveCoverage: LeaveCoverageMap,
   ruleResolver: WorkforceRuleResolver,
   logger?: TraceLogger,
 ): AttendanceRecord[] {
@@ -82,7 +84,7 @@ export function parseAttendanceWorkbook(
 
     const date = isoDate(dateCell);
     const recordKey = `${employeeCode}_${date}`;
-    
+
     // Prevent duplicated attendance records
     if (recordKeys.has(recordKey)) {
       continue;
@@ -106,16 +108,49 @@ export function parseAttendanceWorkbook(
     const employeeRules = ruleResolver.resolve(employeeCode, date);
 
     /**
-     * The timekeeping system always puts a lone scan in
-     * the "Giờ vào" column, even when it is clearly a
-     * departure.
-     *
-     * If that lone value falls after the end of the
-     * morning shift, treat it as checkout instead.
+     * If there is only one scan for the day, we will attempt to determine if it is a check-in or check-out scan based on the employee's rules and leave coverage.
      */
-    if (checkIn && !checkOut && timeOfDayMinutes(checkIn) > employeeRules.morningEndMinutes) {
-      checkOut = checkIn;
-      checkIn = null;
+    if (checkIn && !checkOut) {
+      const leaveCoverageForEmployee = leaveCoverage.get(leaveCoverageKey(employeeCode, date));
+      if (employeeCode === '579') {
+        logger?.debug(
+          '[parseAttendanceWorkbook] lone scan for employee ' +
+            JSON.stringify({
+              employeeCode,
+              date,
+              checkIn,
+              checkOut,
+              leaveCoverageForEmployee: {
+                morning: leaveCoverageForEmployee?.morning,
+                afternoon: leaveCoverageForEmployee?.afternoon,
+              },
+              employeeRules: {
+                morningStartMinutes: employeeRules.morningStartMinutes,
+                morningEndMinutes: employeeRules.morningEndMinutes,
+                afternoonStartMinutes: employeeRules.afternoonStartMinutes,
+                afternoonCheckoutDeadlineMinutes: employeeRules.afternoonCheckoutDeadlineMinutes,
+              },
+            }),
+        );
+      }
+      if (leaveCoverageForEmployee && leaveCoverageForEmployee.morning) {
+        // If the employee is on AM leave
+        if (timeOfDayMinutes(checkIn) < employeeRules.afternoonStartMinutes) {
+          // Employee is on AM leave, but the lone scan is before the afternoon shift starts.
+          // This is likely a check-in scan, so we will treat it as such and not override it to be a checkout scan.
+        } else {
+          // Employee is on AM leave, and the lone scan is after the afternoon shift starts.
+          // This is likely a checkout scan, so we will treat it as such and override it to be a checkout scan.
+          checkOut = checkIn;
+          checkIn = null;
+        }
+      } else {
+        // If the employee is not on AM leave, we will check if the lone scan is after the morning shift ends.
+        if (timeOfDayMinutes(checkIn) > employeeRules.morningEndMinutes) {
+          checkOut = checkIn;
+          checkIn = null;
+        }
+      }
     }
 
     records.push({
