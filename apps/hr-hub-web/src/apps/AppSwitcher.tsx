@@ -1,4 +1,4 @@
-import { AppWindow, Check, Grid2X2 } from 'lucide-react';
+import { Check, Grid2X2 } from 'lucide-react';
 
 import {
   DropdownMenu,
@@ -16,6 +16,7 @@ import { Link } from 'react-router-dom';
 import { apps } from './app-registry';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/auth/useAuth';
+import { WebAppIcon } from '@/pages/hr-hub/components/WebAppIcon';
 import { useWebApps } from '@/pages/hr-hub/hooks/useWebApps';
 
 type AppSwitcherProps = {
@@ -123,7 +124,7 @@ export function AppSwitcher({ currentApp = 'late-hub' }: AppSwitcherProps) {
                                 : 'bg-muted text-muted-foreground',
                             ].join(' ')}
                           >
-                            <AppWindow className="size-4" />
+                            <WebAppIcon app={webApp} className="size-5" />
                           </div>
 
                           <div className="min-w-0 flex-1">

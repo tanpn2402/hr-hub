@@ -47,7 +47,15 @@ export class WebAppRuntimeController {
   @UseGuards(OptionalAuthGuard)
   async checkAccess(@Param('slug') slug: string, @CurrentUser() user: AuthenticatedUser | undefined) {
     const app = await this.access.assertAccess(slug, user ?? null);
-    return { slug: app.slug, name: app.name, description: app.description, status: app.status };
+    const current = await this.webApps.currentVersion(app);
+    return {
+      slug: app.slug,
+      name: app.name,
+      description: app.description,
+      status: app.status,
+      currentVersion: current?.version ?? null,
+      icon: current?.icon ?? null,
+    };
   }
 
   @Get(':slug/data')

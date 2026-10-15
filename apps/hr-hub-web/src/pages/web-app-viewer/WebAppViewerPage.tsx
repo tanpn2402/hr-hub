@@ -11,10 +11,13 @@ import { Button } from '@/components/ui/button';
 import { HRHubUserMenu } from '@/pages/hr-hub/components/HRHubUserMenu';
 
 import { RequestAccessPanel, type RequestAccessApp } from './RequestAccessPanel';
+import { useDocumentHead } from './useDocumentHead';
+import { WebAppIcon } from '@/pages/hr-hub/components/WebAppIcon';
 import {
   getErrorMessage,
   getWebAppAccess,
   runWebAppDataOp,
+  webAppIconUrl,
   type WebAppDataOp,
 } from '@/pages/hr-hub/api/web-apps';
 
@@ -67,6 +70,12 @@ export function WebAppViewerPage() {
     retry: false,
     // Re-check once auth state is known (a stale/expired token is treated as anonymous by the API).
     enabled: !authLoading,
+  });
+
+  useDocumentHead({
+    title: access.data?.name,
+    description: access.data?.description,
+    iconUrl: access.data ? webAppIconUrl(access.data) : null,
   });
 
   const status = (access.error as { response?: { status?: number } } | null)?.response?.status;
@@ -184,7 +193,10 @@ export function WebAppViewerPage() {
           <ArrowLeft className="size-4" />
           HR Hub
         </Link>
-        <span className="font-medium">{access.data.name}</span>
+        <span className="flex items-center gap-2 font-medium">
+          <WebAppIcon app={access.data} className="size-4 text-muted-foreground" />
+          {access.data.name}
+        </span>
 
         {/* Signed-in user (name, e-mail, logout) or a login button for visitors of public apps */}
         <div className="ml-auto flex items-center">

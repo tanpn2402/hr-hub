@@ -14,6 +14,7 @@ import { Textarea } from '@/components/ui/textarea';
 
 import { formatBytes, getErrorMessage } from '../api/web-apps';
 import { HRPageHeader } from '../components/HRPageHeader';
+import { PrivateWebAppCheckbox } from '../components/PrivateWebAppCheckbox';
 import { RolesInput } from '../components/RolesInput';
 import { UploadWebAppVersionDialog } from '../components/UploadWebAppVersionDialog';
 import { WebAppStatusBadge } from '../components/WebAppStatusBadge';
@@ -41,6 +42,7 @@ export function WebAppDetailPage() {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [roles, setRoles] = useState<string[]>([]);
+  const [isPrivate, setIsPrivate] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
 
   const app = appQuery.data;
@@ -50,6 +52,7 @@ export function WebAppDetailPage() {
     setName(app.name);
     setDescription(app.description ?? '');
     setRoles(app.requiredRoles);
+    setIsPrivate(app.isPrivate);
   }, [app]);
 
   if (appQuery.isLoading) {
@@ -64,7 +67,7 @@ export function WebAppDetailPage() {
 
   const save = () =>
     update.mutate(
-      { id: app.id, name, description, requiredRoles: roles },
+      { id: app.id, name, description, requiredRoles: roles, isPrivate },
       { onSuccess: () => toast.success(t('saved')), onError },
     );
 
@@ -120,7 +123,8 @@ export function WebAppDetailPage() {
 
           <div className="space-y-1.5">
             <Label>{t('web_app_required_roles')}</Label>
-            <RolesInput value={roles} onChange={setRoles} />
+            <PrivateWebAppCheckbox checked={isPrivate} onChange={setIsPrivate} />
+            {!isPrivate && <RolesInput value={roles} onChange={setRoles} />}
           </div>
 
           <Button onClick={save} disabled={update.isPending || !name.trim()}>

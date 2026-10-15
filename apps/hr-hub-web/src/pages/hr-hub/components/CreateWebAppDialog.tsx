@@ -1,5 +1,6 @@
 import { Loader2, Upload } from 'lucide-react';
 import { useState } from 'react';
+import { Controller, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
@@ -12,12 +13,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { FieldError } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 
 import { getErrorMessage, type WebApp } from '../api/web-apps';
 import { useCreateWebApp } from '../hooks/useWebApps';
+import { PrivateWebAppCheckbox } from './PrivateWebAppCheckbox';
 import { RolesInput } from './RolesInput';
 import { isSupportedArchive, WebAppUploadField } from './WebAppUploadField';
 
@@ -25,6 +28,24 @@ type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCreated?: (app: WebApp) => void;
+};
+
+type FormValues = {
+  name: string;
+  slug: string;
+  description: string;
+  roles: string[];
+  isPrivate: boolean;
+  file: File | null;
+};
+
+const DEFAULT_VALUES: FormValues = {
+  name: '',
+  slug: '',
+  description: '',
+  roles: [],
+  isPrivate: false,
+  file: null,
 };
 
 const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{1,62}$/;
@@ -42,53 +63,58 @@ const slugify = (value: string) =>
 export function CreateWebAppDialog({ open, onOpenChange, onCreated }: Props) {
   const { t } = useTranslation();
   const createMutation = useCreateWebApp();
-
-  const [name, setName] = useState('');
-  const [slug, setSlug] = useState('');
-  const [slugTouched, setSlugTouched] = useState(false);
-  const [description, setDescription] = useState('');
-  const [roles, setRoles] = useState<string[]>([]);
-  const [file, setFile] = useState<File | null>(null);
   const [progress, setProgress] = useState(0);
-  const [error, setError] = useState<string | null>(null);
 
-  const reset = () => {
-    setName('');
-    setSlug('');
-    setSlugTouched(false);
-    setDescription('');
-    setRoles([]);
-    setFile(null);
+  const {
+    register,
+    control,
+    handleSubmit,
+    reset,
+    setValue,
+    getFieldState,
+    setError,
+    watch,
+    formState: { errors },
+  } = useForm<FormValues>({ defaultValues: DEFAULT_VALUES });
+
+  const pending = createMutation.isPending;
+  const slug = watch('slug');
+  const isPrivate = watch('isPrivate');
+  const file = watch('file');
+
+  const resetForm = () => {
+    reset(DEFAULT_VALUES);
     setProgress(0);
-    setError(null);
   };
 
   const handleOpenChange = (value: boolean) => {
-    if (createMutation.isPending) return;
-    if (!value) reset();
+    if (pending) return;
+    if (!value) resetForm();
     onOpenChange(value);
   };
 
-  const submit = () => {
-    setError(null);
-
-    if (!name.trim()) return setError(t('web_app_name_required'));
-    if (!SLUG_PATTERN.test(slug)) return setError(t('web_app_slug_invalid'));
-    if (file && !isSupportedArchive(file)) return setError(t('web_app_archive_unsupported'));
-
+  const onSubmit = (values: FormValues) =>
     createMutation.mutate(
-      { name, slug, description, requiredRoles: roles, file, publish: Boolean(file), onProgress: setProgress },
+      {
+        name: values.name,
+        slug: values.slug,
+        description: values.description,
+        requiredRoles: values.isPrivate ? [] : values.roles,
+        isPrivate: values.isPrivate,
+        file: values.file,
+        publish: Boolean(values.file),
+        onProgress: setProgress,
+      },
       {
         onSuccess: (app) => {
           toast.success(t('web_app_created'));
-          reset();
+          resetForm();
           onOpenChange(false);
           onCreated?.(app);
         },
-        onError: (err) => setError(getErrorMessage(err)),
+        onError: (err) => setError('root.server', { message: getErrorMessage(err) }),
       },
     );
-  };
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -98,70 +124,105 @@ export function CreateWebAppDialog({ open, onOpenChange, onCreated }: Props) {
           <DialogDescription>{t('create_web_app_description')}</DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <form id="create-web-app" className="space-y-4" onSubmit={handleSubmit(onSubmit)} noValidate>
           <div className="space-y-1.5">
-            <Label>{t('name')}</Label>
+            <Label htmlFor="web-app-name">{t('name')}</Label>
             <Input
-              value={name}
-              disabled={createMutation.isPending}
-              onChange={(event) => {
-                setName(event.target.value);
-                if (!slugTouched) setSlug(slugify(event.target.value));
-              }}
+              id="web-app-name"
+              disabled={pending}
+              aria-invalid={!!errors.name}
+              {...register('name', {
+                validate: (value) => !!value.trim() || t('web_app_name_required'),
+                // Suggest the slug from the name until the user edits the slug themselves.
+                onChange: (event) => {
+                  if (!getFieldState('slug').isDirty) setValue('slug', slugify(event.target.value));
+                },
+              })}
             />
+            <FieldError errors={[errors.name]} />
           </div>
 
           <div className="space-y-1.5">
-            <Label>{t('web_app_slug')}</Label>
+            <Label htmlFor="web-app-slug">{t('web_app_slug')}</Label>
             <Input
-              value={slug}
-              disabled={createMutation.isPending}
-              onChange={(event) => {
-                setSlugTouched(true);
-                setSlug(event.target.value.toLowerCase());
-              }}
+              id="web-app-slug"
+              disabled={pending}
+              aria-invalid={!!errors.slug}
+              {...register('slug', {
+                onChange: (event) => {
+                  const value: string = event.target.value;
+                  if (value !== value.toLowerCase()) setValue('slug', value.toLowerCase(), { shouldDirty: true });
+                },
+                pattern: { value: SLUG_PATTERN, message: t('web_app_slug_invalid') },
+                required: t('web_app_slug_invalid'),
+              })}
             />
             <p className="text-xs text-muted-foreground">
               /hr-hub/apps/{slug || '…'}/ — {t('web_app_slug_hint')}
             </p>
+            <FieldError errors={[errors.slug]} />
           </div>
 
           <div className="space-y-1.5">
-            <Label>{t('description')}</Label>
-            <Textarea
-              rows={2}
-              value={description}
-              disabled={createMutation.isPending}
-              onChange={(event) => setDescription(event.target.value)}
-            />
+            <Label htmlFor="web-app-description">{t('description')}</Label>
+            <Textarea id="web-app-description" rows={2} disabled={pending} {...register('description')} />
           </div>
 
           <div className="space-y-1.5">
             <Label>{t('web_app_required_roles')}</Label>
-            <RolesInput value={roles} onChange={setRoles} disabled={createMutation.isPending} />
+            <Controller
+              control={control}
+              name="isPrivate"
+              render={({ field }) => (
+                <PrivateWebAppCheckbox checked={field.value} onChange={field.onChange} disabled={pending} />
+              )}
+            />
+            {!isPrivate && (
+              <Controller
+                control={control}
+                name="roles"
+                render={({ field }) => (
+                  <RolesInput value={field.value} onChange={field.onChange} disabled={pending} />
+                )}
+              />
+            )}
           </div>
 
           <div className="space-y-1.5">
             <Label>{t('web_app_archive_optional')}</Label>
-            <WebAppUploadField file={file} onChange={setFile} disabled={createMutation.isPending} />
+            <Controller
+              control={control}
+              name="file"
+              rules={{
+                validate: (value) => !value || isSupportedArchive(value) || t('web_app_archive_unsupported'),
+              }}
+              render={({ field }) => (
+                <WebAppUploadField file={field.value} onChange={field.onChange} disabled={pending} />
+              )}
+            />
+            <FieldError errors={[errors.file]} />
           </div>
 
-          {error && (
-            <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</div>
+          {errors.root?.server && (
+            <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              {errors.root.server.message}
+            </div>
           )}
-        </div>
+        </form>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => handleOpenChange(false)} disabled={createMutation.isPending}>
+          <Button
+            type="button"
+            variant="outline"
+            className="min-w-32"
+            onClick={() => handleOpenChange(false)}
+            disabled={pending}
+          >
             {t('cancel')}
           </Button>
-          <Button onClick={submit} disabled={createMutation.isPending}>
-            {createMutation.isPending ? (
-              <Loader2 className="mr-2 size-4 animate-spin" />
-            ) : (
-              <Upload className="mr-2 size-4" />
-            )}
-            {createMutation.isPending && file ? `${progress}%` : t('create')}
+          <Button type="submit" form="create-web-app" disabled={pending}>
+            {pending ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Upload className="mr-2 size-4" />}
+            {pending && file ? `${progress}%` : t('upload_and_publish')}
           </Button>
         </DialogFooter>
       </DialogContent>

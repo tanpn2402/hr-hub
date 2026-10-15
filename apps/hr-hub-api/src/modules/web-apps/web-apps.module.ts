@@ -4,6 +4,7 @@ import { AuthModule } from '../auth/auth.module';
 import { ArchiveExtractorService } from './archive-extractor.service';
 import { WebAppAccessRequestService } from './web-app-access-request.service';
 import { WebAppAccessService } from './web-app-access.service';
+import { WebAppOwnerGuard } from './web-app-owner.guard';
 import { WebAppDataService } from './web-app-data.service';
 import { WebAppRuntimeController } from './web-app-runtime.controller';
 import { WebAppStorageService } from './web-app-storage.service';
@@ -26,6 +27,7 @@ import { WebAppsService } from './web-apps.service';
     WebAppAccessService,
     WebAppAccessRequestService,
     WebAppsAdminGuard,
+    WebAppOwnerGuard,
     OptionalAuthGuard,
     WebAppsService,
   ],

@@ -1,12 +1,15 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
   OnModuleInit,
   UnprocessableEntityException,
 } from '@nestjs/common';
 import type { WebApp, WebAppVersion } from '@generated/prisma';
+import { stat } from 'node:fs/promises';
+import { join } from 'node:path';
 import { PrismaService } from '../../prisma/prisma.service';
 import { TraceContextService } from '../app/trace/trace-context.service';
 import { TraceLogger } from '../app/trace/trace-logger.service';
@@ -18,6 +21,9 @@ import { WebAppStorageService } from './web-app-storage.service';
 import { RESERVED_SLUGS, SLUG_PATTERN, WebAppsConfig } from './web-apps.config';
 import { CreateWebAppInput, UpdateWebAppInput, UploadedArchive, UploadVersionInput } from './web-apps.types';
 
+/** Looked up at the root of an uploaded version, first match wins. */
+const ICON_FILES = ['favicon.svg', 'favicon.png', 'favicon.ico'];
+
 interface StagedVersion {
   tempDir: string;
   baseDir: string;
@@ -25,6 +31,7 @@ interface StagedVersion {
   totalBytes: number;
   checksum: string;
   archiveType: 'zip' | 'tar.gz';
+  icon: string | null;
 }
 
 @Injectable()
@@ -55,11 +62,14 @@ export class WebAppsService implements OnModuleInit {
 
   // ---------------------------------------------------------------- queries
 
-  async list() {
-    const apps = await this.prisma.webApp.findMany({
-      where: { status: { not: 'deleted' } },
-      orderBy: { createdAt: 'desc' },
-    });
+  /** Management list. Private apps are only listed for their owner. */
+  async list(user: AuthenticatedUser) {
+    const apps = (
+      await this.prisma.webApp.findMany({
+        where: { status: { not: 'deleted' } },
+        orderBy: { createdAt: 'desc' },
+      })
+    ).filter((app) => this.access.canSee(user, app));
     const versionIds = apps.map((app) => app.currentVersionId).filter((id): id is string => !!id);
     const versions = await this.prisma.webAppVersion.findMany({ where: { id: { in: versionIds } } });
     const byId = new Map(versions.map((version) => [version.id, version]));
@@ -72,7 +82,7 @@ export class WebAppsService implements OnModuleInit {
    * published apps their roles allow, without management details.
    */
   async listFor(user: AuthenticatedUser | null) {
-    if (user && this.access.isAdmin(user)) return this.list();
+    if (user && this.access.isAdmin(user)) return this.list(user);
 
     // Anonymous callers have no roles, so they only get apps without required roles.
     const apps = await this.access.listAccessible(user ?? { roles: [] });
@@ -93,6 +103,10 @@ export class WebAppsService implements OnModuleInit {
     const app = await this.findApp(id);
     const current = app.currentVersionId ? await this.prisma.webAppVersion.findUnique({ where: { id: app.currentVersionId } }) : null;
     return this.toView(app, current ?? undefined);
+  }
+
+  currentVersion(app: WebApp) {
+    return app.currentVersionId ? this.prisma.webAppVersion.findUnique({ where: { id: app.currentVersionId } }) : null;
   }
 
   async listVersions(id: string) {
@@ -121,6 +135,7 @@ export class WebAppsService implements OnModuleInit {
     if (RESERVED_SLUGS.has(slug)) throw new BadRequestException(`slug "${slug}" is reserved`);
     if (!name) throw new BadRequestException('name is required');
     const requiredRoles = this.parseRoles(input.requiredRoles);
+    const isPrivate = this.truthy(input.isPrivate);
 
     this.logger.log(`Create web app ${slug} by ${user.id} (archive: ${file?.originalname ?? 'none'})`);
     return this.withLock(slug, async () => {
@@ -143,6 +158,7 @@ export class WebAppsService implements OnModuleInit {
             name,
             description: input.description?.trim() || null,
             requiredRoles: JSON.stringify(requiredRoles),
+            isPrivate,
             createdBy: user.id,
             createdByName: user.username ?? user.email ?? null,
           },
@@ -169,9 +185,9 @@ export class WebAppsService implements OnModuleInit {
     });
   }
 
-  async update(id: string, input: UpdateWebAppInput) {
+  async update(id: string, input: UpdateWebAppInput, user: AuthenticatedUser) {
     const app = await this.findApp(id);
-    const data: { name?: string; description?: string | null; requiredRoles?: string } = {};
+    const data: { name?: string; description?: string | null; requiredRoles?: string; isPrivate?: boolean } = {};
 
     if (input.name !== undefined) {
       if (!input.name.trim()) throw new BadRequestException('name cannot be empty');
@@ -179,6 +195,13 @@ export class WebAppsService implements OnModuleInit {
     }
     if (input.description !== undefined) data.description = input.description?.trim() || null;
     if (input.requiredRoles !== undefined) data.requiredRoles = JSON.stringify(this.parseRoles(input.requiredRoles));
+    if (input.isPrivate !== undefined) {
+      data.isPrivate = this.truthy(input.isPrivate);
+      // Only the creator can lock an app to themselves (otherwise it would be hidden from the admin who did it).
+      if (data.isPrivate && !app.isPrivate && !this.access.isOwner(user, app)) {
+        throw new ForbiddenException('Only the creator can make this web app private');
+      }
+    }
 
     await this.prisma.webApp.update({ where: { id: app.id }, data });
     return this.get(id);
@@ -315,7 +338,8 @@ export class WebAppsService implements OnModuleInit {
       const archiveType = await this.extractor.detectType(file.path);
       const checksum = await this.extractor.checksum(file.path);
       const result = await this.extractor.extract(file.path, archiveType, tempDir);
-      return { tempDir, baseDir: result.baseDir, fileCount: result.fileCount, totalBytes: result.totalBytes, checksum, archiveType };
+      const icon = await this.findIcon(result.baseDir);
+      return { tempDir, baseDir: result.baseDir, fileCount: result.fileCount, totalBytes: result.totalBytes, checksum, archiveType, icon };
     } catch (error) {
       await this.storage.removeDir(tempDir);
       if (error instanceof ArchiveValidationError) {
@@ -352,6 +376,7 @@ export class WebAppsService implements OnModuleInit {
           size: staged.totalBytes,
           fileCount: staged.fileCount,
           checksum: staged.checksum,
+          icon: staged.icon,
           note: note?.trim() || null,
           createdBy: user.id,
           createdByName: user.username ?? user.email ?? null,
@@ -363,6 +388,14 @@ export class WebAppsService implements OnModuleInit {
     }
   }
 
+  private async findIcon(dir: string): Promise<string | null> {
+    for (const name of ICON_FILES) {
+      const info = await stat(join(dir, name)).catch(() => null);
+      if (info?.isFile()) return name;
+    }
+    return null;
+  }
+
   private async cleanup(staged: StagedVersion | null, file: UploadedArchive | undefined) {
     if (staged) await this.storage.removeDir(staged.tempDir);
     await this.discard(file);
@@ -370,6 +403,15 @@ export class WebAppsService implements OnModuleInit {
 
   private async discard(file: UploadedArchive | undefined) {
     if (file) await this.storage.removeFile(file.path);
+  }
+
+  /** Management by id: private apps of other users answer 404, like apps that don't exist. */
+  async assertManageable(id: string, user: AuthenticatedUser) {
+    const app = await this.prisma.webApp.findUnique({ where: { id } });
+    if (app && !this.access.canSee(user, app)) {
+      this.logger.warn(`Management denied: user ${user.id} is not the owner of private web app ${app.slug}`);
+      throw new NotFoundException('Web app not found');
+    }
   }
 
   private async findApp(id: string): Promise<WebApp> {
@@ -432,8 +474,10 @@ export class WebAppsService implements OnModuleInit {
       description: app.description,
       status: app.status,
       requiredRoles: parseRequiredRoles(app.requiredRoles),
+      isPrivate: app.isPrivate,
       currentVersionId: app.currentVersionId,
       currentVersion: current?.version ?? null,
+      icon: current?.icon ?? null,
       url: `/hr-hub/apps/${app.slug}/`,
       createdBy: app.createdBy,
       createdByName: app.createdByName,

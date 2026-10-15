@@ -22,6 +22,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { getErrorMessage, type WebApp } from '../api/web-apps';
 import { CreateWebAppDialog } from '../components/CreateWebAppDialog';
 import { HRPageHeader } from '../components/HRPageHeader';
+import { WebAppIcon } from '../components/WebAppIcon';
 import { WebAppStatusBadge } from '../components/WebAppStatusBadge';
 import { useDeleteWebApp, useSetWebAppEnabled, useWebApps } from '../hooks/useWebApps';
 
@@ -99,7 +100,11 @@ export function WebAppsPage() {
                 {apps.map((app) => (
                   <TableRow key={app.id}>
                     <TableCell className="font-medium">
-                      <Link to={`/hr-hub/apps-admin/web-apps/${app.id}`} className="hover:underline">
+                      <Link
+                        to={`/hr-hub/apps-admin/web-apps/${app.id}`}
+                        className="flex items-center gap-2 hover:underline"
+                      >
+                        <WebAppIcon app={app} className="size-4 shrink-0 text-muted-foreground" />
                         {app.name}
                       </Link>
                     </TableCell>
@@ -111,7 +116,9 @@ export function WebAppsPage() {
                       {app.currentVersion ? `v${app.currentVersion}` : '—'}
                     </TableCell>
                     <TableCell>
-                      {app.requiredRoles.length === 0 ? (
+                      {app.isPrivate ? (
+                        <Badge variant="secondary">{t('web_app_private')}</Badge>
+                      ) : app.requiredRoles.length === 0 ? (
                         <span className="text-xs text-muted-foreground">{t('web_app_public')}</span>
                       ) : (
                         <div className="flex flex-wrap gap-1">

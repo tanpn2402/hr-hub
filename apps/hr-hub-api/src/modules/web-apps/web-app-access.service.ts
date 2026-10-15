@@ -2,6 +2,7 @@ import { ForbiddenException, Injectable, NotFoundException, UnauthorizedExceptio
 import { PrismaService } from '../../prisma/prisma.service';
 import { TraceContextService } from '../app/trace/trace-context.service';
 import { TraceLogger } from '../app/trace/trace-logger.service';
+import type { WebApp } from '@generated/prisma';
 import { AuthenticatedUser } from '../auth/auth.types';
 import { WebAppsConfig } from './web-apps.config';
 
@@ -36,11 +37,36 @@ export class WebAppAccessService {
     return requiredRoles.length === 0 || this.isAdmin(user) || user.roles.some((role) => requiredRoles.includes(role));
   }
 
+  /** Private ("only me") apps belong to their creator alone, admins included. */
+  isOwner(user: { id?: string } | null, app: Pick<WebApp, 'createdBy'>): boolean {
+    return !!user?.id && !!app.createdBy && user.id === app.createdBy;
+  }
+
+  /** Whether `user` may see the app at all (lists, management). Only private apps of other users are hidden. */
+  canSee(user: { id?: string } | null, app: Pick<WebApp, 'isPrivate' | 'createdBy'>): boolean {
+    return !app.isPrivate || this.isOwner(user, app);
+  }
+
+  canUseApp(user: { id?: string; roles: string[] }, app: Pick<WebApp, 'isPrivate' | 'createdBy' | 'requiredRoles'>): boolean {
+    if (app.isPrivate) return this.isOwner(user, app);
+    return this.canUse(user, parseRequiredRoles(app.requiredRoles));
+  }
+
   /** `user` is null for anonymous callers: allowed for public apps, 401 (log in) for restricted ones. */
   async assertAccess(slug: string, user: AuthenticatedUser | null) {
     const app = await this.prisma.webApp.findUnique({ where: { slug } });
     if (!app || app.status === 'deleted') {
       this.logger.warn(`Access denied: web app ${slug} not found`);
+      throw new NotFoundException('Web app not found');
+    }
+
+    if (app.isPrivate && !this.isOwner(user, app)) {
+      if (!user) {
+        this.logger.warn(`Access denied: private web app ${slug} requires login (anonymous caller)`);
+        throw new UnauthorizedException();
+      }
+      // Other users (admins included) must not learn that the app exists.
+      this.logger.warn(`Access denied: user ${user.id} is not the owner of private web app ${slug}`);
       throw new NotFoundException('Web app not found');
     }
 
@@ -65,7 +91,7 @@ export class WebAppAccessService {
       return app;
     }
 
-    if (!this.canUse(user, requiredRoles)) {
+    if (!this.canUseApp(user, app)) {
       this.logger.warn(
         `Access denied: user ${user.id} [${user.roles.join(',')}] lacks any of [${requiredRoles.join(',')}] for web app ${slug}`,
       );
@@ -81,8 +107,8 @@ export class WebAppAccessService {
     return app;
   }
 
-  async listAccessible(user: { roles: string[] }) {
+  async listAccessible(user: { id?: string; roles: string[] }) {
     const apps = await this.prisma.webApp.findMany({ where: { status: 'published' }, orderBy: { name: 'asc' } });
-    return apps.filter((app) => this.canUse(user, parseRequiredRoles(app.requiredRoles)));
+    return apps.filter((app) => this.canUseApp(user, app));
   }
 }

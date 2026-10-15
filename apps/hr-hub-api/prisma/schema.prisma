@@ -356,6 +356,9 @@ model WebApp {
   /// Non-empty = user needs at least one of the roles (OR).
   requiredRoles String @default("[]")
 
+  /// true = "only me": only the creator (createdBy) can see and use the app; requiredRoles is ignored.
+  isPrivate Boolean @default(false)
+
   /// Published version. null = nothing published yet.
   currentVersionId String? @unique
 
@@ -392,6 +395,9 @@ model WebAppVersion {
 
   /// sha256 of the uploaded archive.
   checksum String
+
+  /// Favicon file at the version root (favicon.svg / favicon.png / favicon.ico), null when the package has none.
+  icon String?
 
   /// ready / failed / deleted
   status String @default("ready")

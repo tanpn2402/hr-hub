@@ -11,6 +11,7 @@ import zipfile
 ALLOWED = set(
     "html htm css js mjs json map txt md xml csv svg png jpg jpeg gif webp avif ico woff woff2 ttf otf webmanifest wasm mp3 mp4 webm ogg wav".split()
 )
+ICON_FILES = ("favicon.svg", "favicon.png", "favicon.ico")  # HR Hub picks the first one found at the root
 MAX_FILES, MAX_FILE, MAX_TOTAL, MAX_ARCHIVE = 2000, 20 * 2**20, 200 * 2**20, 50 * 2**20
 
 
@@ -41,6 +42,18 @@ def main() -> int:
 
     if not any(rel == "index.html" for _, rel in files):
         errors.append("index.html must exist at the root of the folder")
+    icons = [name for name in ICON_FILES if any(rel == name for _, rel in files)]
+    if not icons:
+        warnings.append("no favicon.svg / favicon.png / favicon.ico at the root (the app switcher and browser tab show a generic icon)")
+    elif icons[0] == "favicon.svg":
+        svg = open(os.path.join(src, "favicon.svg"), encoding="utf-8", errors="ignore").read()
+        if os.path.getsize(os.path.join(src, "favicon.svg")) > 10 * 1024:
+            warnings.append("favicon.svg is larger than 10 KB; keep it a simple shape")
+        if "viewBox" not in svg:
+            warnings.append("favicon.svg has no viewBox (it will not scale to 16-32 px)")
+        if re.search(r"<script|<foreignObject|(href|src)=['\"]https?://", svg, re.I):
+            warnings.append("favicon.svg must not contain scripts, foreignObject or external references")
+
     if len(files) > MAX_FILES:
         errors.append(f"more than {MAX_FILES} files")
     if sum(os.path.getsize(p) for p, _ in files) > MAX_TOTAL:
@@ -64,6 +77,10 @@ def main() -> int:
         if rel == "index.html":
             if "/hr-hub/hrhub-sdk.js" not in text:
                 warnings.append("index.html does not load /hr-hub/hrhub-sdk.js (needed to persist data)")
+            if not re.search(r"<title>\s*\S", text):
+                warnings.append("index.html has no <title> (use the app name; HR Hub shows it in the browser tab)")
+            if icons and not re.search(r"<link[^>]+rel=['\"](shortcut )?icon['\"]", text):
+                warnings.append(f"index.html does not link {icons[0]} (<link rel=\"icon\" href=\"{icons[0]}\" />)")
             if "/hr-hub/hrhub-theme.css" not in text:
                 warnings.append("index.html does not load /hr-hub/hrhub-theme.css (HR Hub styling)")
 

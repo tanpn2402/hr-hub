@@ -50,7 +50,7 @@ export class WebAppAccessRequestService {
     if (slug === ACCESS_REQUESTS_SLUG) throw new BadRequestException('This app cannot be requested');
 
     const app = await this.prisma.webApp.findUnique({ where: { slug } });
-    if (!app || app.status !== 'published') throw new NotFoundException('Web app not found');
+    if (!app || app.status !== 'published' || !this.access.canSee(user, app)) throw new NotFoundException('Web app not found');
 
     const requiredRoles = parseRequiredRoles(app.requiredRoles);
     if (this.access.canUse(user, requiredRoles)) {

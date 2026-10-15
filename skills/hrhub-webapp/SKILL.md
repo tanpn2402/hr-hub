@@ -16,13 +16,15 @@ A folder containing at least `index.html` **at its root**, packaged with `script
 ```
 my-app/
   index.html     (required, at the root)
+  favicon.svg    (always create one, at the root; see "Favicon, title and description")
   app.js         (your logic; classic script, no modules/bundler needed)
   style.css      (only app-specific tweaks; the theme comes from hrhub-theme.css)
 ```
 
 Run `python3 .claude/skills/hrhub-webapp/scripts/package.py my-app` → creates and validates `my-app.zip`.
 Tell the user the slug to use (lowercase letters, digits, hyphens; 2-63 chars; not `api`, `assets`, `admin`,
-`console`, `launch`, `web-apps`, `late-attendance`; `manage-app-accesses` is reserved for the access-request app) and which **required roles** to set.
+`console`, `launch`, `web-apps`, `late-attendance`; `manage-app-accesses` is reserved for the access-request app), the **name** and one-line **description** to type in
+HR Hub (they become the browser tab title and the app switcher text), and which **required roles** to set.
 
 ## Access model (decide this with the user)
 
@@ -30,6 +32,10 @@ Tell the user the slug to use (lowercase letters, digits, hyphens; 2-63 chars; n
   too (anyone can read and write that app's data). Good for open forms; not for anything sensitive.
 - **Required roles** (e.g. `hr`; any one role is enough): visitors are sent to login first; users without the role
   get "no access", and the data API answers 401/403 for them. Enforcement is always **server-side**.
+- **"Chỉ mình tôi" (only me)**: a checkbox next to the roles. Only the administrator who created the app can see,
+  open, manage it and use its data API; everyone else, other administrators included, gets "not found", and the
+  roles are ignored. Good for personal tools and drafts; the static files are still public (only data is protected).
+  Only the creator can turn it on.
 - Role names are case-insensitive in the HR Hub portal itself, but for web apps use the exact Idenplane role name.
 - A signed-in user **without the role** does not see the app: HR Hub shows a screen with the app's info, a
   "Yêu cầu quyền truy cập" button and a sign-out button. The request is only a **notification**: HR Hub writes it
@@ -42,6 +48,37 @@ Tell the user the slug to use (lowercase letters, digits, hyphens; 2-63 chars; n
   do not use it for anything else. If it is missing, the button reports that requests are not set up.
 - A reporting app that reads a form app's data should get **restricted roles**, but the form app's data is still
   readable by anyone allowed to open the form app. For sensitive results ask the admin to restrict the form app too.
+
+## Favicon, title and description
+
+HR Hub shows each web app with **its own icon** in the app switcher, the admin list and the viewer's top bar, and,
+while the app is open, the **browser tab** uses that icon, the app **name** as title and the **description** as
+`<meta name="description">` (the HR Hub ones come back when the user leaves the app).
+
+- **Icon**: HR Hub takes the first of `favicon.svg`, `favicon.png`, `favicon.ico` found **at the archive root** when a
+  version is uploaded (no setting to change; uploading a version with a new file changes the icon). Always ship
+  **`favicon.svg`**; add a PNG only when the user provides a raster logo.
+- **Title / description** come from the **name** and **description** typed in HR Hub (not from the package), so put
+  the same text in `<title>` and the page header and hand both to the user. Name: short (2-4 words, it is the tab
+  title). Description: one sentence, under ~120 characters.
+
+Drawing `favicon.svg` (you write it by hand; no external tools or images):
+
+```svg
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="14" fill="#16a34a"/>                         <!-- HR Hub green tile -->
+  <path d="M20 18h18l8 8v20a2 2 0 0 1-2 2H20a2 2 0 0 1-2-2V20a2 2 0 0 1 2-2z" fill="#fff"/>  <!-- one glyph -->
+  <path d="M24 32h16M24 39h11" stroke="#16a34a" stroke-width="3" stroke-linecap="round"/>
+</svg>
+```
+
+- `viewBox="0 0 64 64"`, a rounded tile filling the square (`rx` 12-16), **one** bold white glyph that says what the
+  app does (form = document with lines, report = bars, calendar, people, laptop, checkmark, coin…), at most 2-3 shapes.
+- It must read at **16 px**: no text except at most 1-2 big letters, no thin strokes (>= 3 at this scale), no shadows.
+- Colour: HR Hub green `#16a34a` by default; to tell sibling apps apart use another solid Tailwind-600 tone
+  (`#2563eb` blue, `#d97706` amber, `#9333ea` purple, `#e11d48` rose, `#0891b2` cyan) with the white glyph.
+- Plain shapes only: no `<script>`, `<foreignObject>`, external `href`, embedded fonts or bitmaps; keep it < 2 KB.
+- Link it in `index.html` (`<link rel="icon" href="favicon.svg" />`) so it also shows when the folder is opened on its own.
 
 ## Bigger apps: Preact + htm, still no build
 
@@ -79,6 +116,8 @@ effects. Use `hrhub-theme.css` classes as before. Keep scoring/business rules in
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>App name</title>
+    <meta name="description" content="One-line description" />
+    <link rel="icon" href="favicon.svg" />
     <link rel="stylesheet" href="/hr-hub/hrhub-theme.css" />
     <link rel="stylesheet" href="style.css" />
     <script src="/hr-hub/hrhub-sdk.js"></script>
@@ -280,22 +319,24 @@ Full snippets: `reference/components.md`. Working examples (copy their structure
 ## Workflow
 
 1. Clarify: what data is captured/shown, who may use it (public or roles), whether it needs employees.
-2. Create the folder from the skeleton; write `index.html`, `app.js`, optional `style.css`.
+2. Create the folder from the skeleton; write `index.html`, `favicon.svg`, `app.js`, optional `style.css`.
 3. Persist only through `hrhub.data`; handle all SDK errors (show `error.message`).
 4. Run `python3 .claude/skills/hrhub-webapp/scripts/package.py <folder>`; fix whatever it reports.
-5. Give the user: the zip path, the suggested slug and name, the required roles, and what keys the app writes.
-6. Upload: HR Hub → Apps → Web Apps → Create Web App (set name, slug, roles, choose the zip) — publishing makes it live;
+5. Give the user: the zip path, the suggested slug, name and description, the access (roles, public or "Chỉ mình tôi"),
+   and what keys the app writes.
+6. Upload: HR Hub → Apps → Web Apps → Create Web App (set name, slug, description, roles, choose the zip) — publishing makes it live;
    new versions: open the app → Upload new version → Publish (or Rollback to an older one).
 
 ## Checklist before handing over
 
 - [ ] `index.html` at archive root; paths relative; SDK + theme linked with the absolute `/hr-hub/...` URLs
+- [ ] `favicon.svg` at the root (tile + one glyph, readable at 16 px) and linked; `<title>` = app name, meta description set
 - [ ] No localStorage/cookies/direct API calls/eval/innerHTML with data; no external CDN
 - [ ] Uses `hh-*` classes and theme variables only; no custom palette or font
 - [ ] Loading, empty and error states; submit disabled while saving
 - [ ] Data keys documented; one key per record for append-only data
 - [ ] List/detail apps use `hrhub.route` (deep-linkable detail URL, back button works)
 - [ ] Delete UI handles `403` (not creator / not admin); audit info comes from `createdBy`/`updatedBy`, not app JS
-- [ ] Access decided with the user (public vs required roles) and stated in the handover
+- [ ] Access decided with the user (public, required roles or "Chỉ mình tôi") and stated in the handover with name + description
 - [ ] `hrhub.user.get()` used for display only; handles anonymous visitors
 - [ ] `package.py` passes

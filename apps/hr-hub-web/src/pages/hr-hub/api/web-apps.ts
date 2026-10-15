@@ -11,8 +11,12 @@ export type WebApp = {
   description: string | null;
   status: WebAppStatus;
   requiredRoles: string[];
+  /** "Only me": only the creator can see and open the app. */
+  isPrivate: boolean;
   currentVersionId: string | null;
   currentVersion: number | null;
+  /** Favicon file of the published version (favicon.svg/png/ico), null when the package has none. */
+  icon: string | null;
   url: string;
   createdByName: string | null;
   createdAt: string;
@@ -41,6 +45,7 @@ export type CreateWebAppParams = {
   slug: string;
   description?: string;
   requiredRoles: string[];
+  isPrivate?: boolean;
   file?: File | null;
   publish?: boolean;
   onProgress?: (percent: number) => void;
@@ -59,6 +64,7 @@ export type UpdateWebAppParams = {
   name?: string;
   description?: string | null;
   requiredRoles?: string[];
+  isPrivate?: boolean;
 };
 
 /** Upload timeout is longer than the default 30s used for JSON calls. */
@@ -80,6 +86,7 @@ export async function createWebApp(params: CreateWebAppParams): Promise<WebApp> 
   form.append('slug', params.slug);
   if (params.description) form.append('description', params.description);
   form.append('requiredRoles', JSON.stringify(params.requiredRoles));
+  if (params.isPrivate) form.append('isPrivate', 'true');
   if (params.publish) form.append('publish', 'true');
   if (params.file) form.append('file', params.file);
 
@@ -145,7 +152,15 @@ export type WebAppAccess = {
   name: string;
   description: string | null;
   status: string;
+  currentVersion: number | null;
+  icon: string | null;
 };
+
+/** Public URL of a web app's favicon (served with the app's static files); `?v=` busts the cache per version. */
+export function webAppIconUrl(app: { slug: string; icon: string | null; currentVersion: number | null }) {
+  if (!app.icon) return null;
+  return `${apiClient.defaults.baseURL}/apps/${encodeURIComponent(app.slug)}/${app.icon}?v=${app.currentVersion ?? 0}`;
+}
 
 export async function getWebAppAccess(slug: string): Promise<WebAppAccess> {
   const { data } = await apiClient.get<WebAppAccess>(

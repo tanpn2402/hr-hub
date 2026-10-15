@@ -13,6 +13,7 @@ export interface CreateWebAppInput {
   name?: string;
   description?: string;
   requiredRoles?: unknown;
+  isPrivate?: unknown;
   publish?: unknown;
 }
 
@@ -20,6 +21,7 @@ export interface UpdateWebAppInput {
   name?: string;
   description?: string | null;
   requiredRoles?: unknown;
+  isPrivate?: unknown;
 }
 
 export interface UploadVersionInput {

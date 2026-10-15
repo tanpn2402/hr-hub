@@ -7,6 +7,7 @@ import { join, resolve } from 'node:path';
 import { AuthGuard } from '../auth/auth.guard';
 import { AuthenticatedUser } from '../auth/auth.types';
 import { CurrentUser } from '../auth/current-user.decorator';
+import { WebAppOwnerGuard } from './web-app-owner.guard';
 import { WebAppsAdminGuard } from './web-apps-admin.guard';
 import { UPLOAD_HARD_LIMIT_BYTES } from './web-apps.config';
 import { WebAppsService } from './web-apps.service';
@@ -26,7 +27,7 @@ const archiveUpload = FileInterceptor('file', {
 });
 
 @Controller('web-apps')
-@UseGuards(AuthGuard, WebAppsAdminGuard)
+@UseGuards(AuthGuard, WebAppsAdminGuard, WebAppOwnerGuard)
 export class WebAppsAdminController {
   constructor(private readonly webApps: WebAppsService) {}
 
@@ -42,8 +43,8 @@ export class WebAppsAdminController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() body: UpdateWebAppInput) {
-    return this.webApps.update(id, body ?? {});
+  update(@Param('id') id: string, @Body() body: UpdateWebAppInput, @CurrentUser() user: AuthenticatedUser) {
+    return this.webApps.update(id, body ?? {}, user);
   }
 
   @Delete(':id')

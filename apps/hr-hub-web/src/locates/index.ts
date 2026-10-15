@@ -335,6 +335,8 @@ export const resources = {
       web_app_roles_placeholder: 'Nhập vai trò rồi nhấn Enter',
       web_app_roles_public_hint: 'Để trống: mọi người dùng đã đăng nhập đều truy cập được',
       web_app_public: 'Mọi người dùng',
+      web_app_private: 'Chỉ mình tôi',
+      web_app_private_hint: 'Chỉ bạn nhìn thấy và mở được Web App này, kể cả quản trị viên khác cũng không',
       web_app_current_version: 'Phiên bản hiện tại',
       web_app_versions: 'Các phiên bản',
       web_app_published: 'Đang chạy',
