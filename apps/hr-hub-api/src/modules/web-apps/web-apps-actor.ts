@@ -1,3 +1,4 @@
+import type { IncomingHttpHeaders } from 'node:http';
 import type { Request } from 'express';
 import { AuthenticatedUser } from '../auth/auth.types';
 
@@ -17,11 +18,16 @@ export function userLabel(user: Pick<AuthenticatedUser, 'id' | 'username' | 'ema
 
 /** Client IP as seen by the API: nginx's X-Real-IP, else the right-most X-Forwarded-For hop, else the socket. */
 export function requestIp(request: Request): string | null {
-  const realIp = request.headers['x-real-ip'];
-  const forwarded = request.headers['x-forwarded-for'];
+  return clientIp(request.headers, request.socket?.remoteAddress);
+}
+
+/** Same rule for any transport (HTTP requests, socket.io handshakes). */
+export function clientIp(headers: IncomingHttpHeaders, remoteAddress: string | null | undefined): string | null {
+  const realIp = headers['x-real-ip'];
+  const forwarded = headers['x-forwarded-for'];
   const lastForwarded = (Array.isArray(forwarded) ? forwarded.join(',') : forwarded)?.split(',').pop();
 
-  const ip = (Array.isArray(realIp) ? realIp[0] : realIp) || lastForwarded || request.socket?.remoteAddress || null;
+  const ip = (Array.isArray(realIp) ? realIp[0] : realIp) || lastForwarded || remoteAddress || null;
   return ip ? ip.trim().replace(/^::ffff:/, '') : null;
 }
 

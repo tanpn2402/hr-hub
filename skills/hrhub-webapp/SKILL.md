@@ -107,6 +107,19 @@ use `innerHTML`); use `class=` (not className) and `colSpan="2"`; do **not** use
 derive the view from `hrhub.route` in a hook; wrap `hrhub.ui.*` widgets (imperative) in a component with a ref and
 effects. Use `hrhub-theme.css` classes as before. Keep scoring/business rules in pure modules and test them in Node.
 
+## Shared libraries in /hr-hub/vendor/ (no npm, no CDN)
+
+HR Hub serves a few ES modules to apps (CORS enabled for the sandboxed iframe). Import them with absolute URLs from
+`<script type="module">` code, ideally re-exported from one `lib.js`:
+
+| Module | What | Use |
+|---|---|---|
+| `/hr-hub/vendor/hrhub-preact.module.js` | Preact 10 + hooks + `html` (htm) | multi-view apps (see above) |
+| `/hr-hub/vendor/hrhub-motion.module.js` | Motion vanilla API: `animate`, `spring`, `stagger`, `inView`, `scroll`, `delay` | lively UI: `animate(el, { scale: [0.3, 1] }, { type: spring, bounce: 0.5 })`; number count-ups `animate(0, 900, { onUpdate })`. Respect `prefers-reduced-motion`. |
+| `/hr-hub/vendor/hrhub-guard.module.js` | `watchDevtools({ onChange, interval, threshold, blockShortcuts, contextMenu })` → `{ isOpen(), stop() }`; `blockShortcuts({ contextMenu })` → undo | games/quizzes that want to deter the curious: pauses on DevTools, swallows F12 / Ctrl+Shift+I/J/C / Ctrl+U / right click. **A deterrent only**: never rely on it for security; keep secrets and answers off the device. |
+
+Rebuild `hrhub-motion.module.js` after upgrading `motion`: `node scripts/build-vendor-motion.mjs`.
+
 ## Page skeleton (always start from this)
 
 ```html
@@ -273,6 +286,100 @@ sandboxed JS can be tampered with, so anything that must be restricted needs the
 Handle `me.authenticated === false` (public apps), and treat `groups` as optional (usually `[]` today). Store
 `me.username`/`me.id` with a record when you need to know who submitted it.
 
+## Realtime: live apps with channels (quizzes, polls, check-ins)
+
+For anything live (Kahoot-style quiz, live poll, Q&A, lucky draw, planning poker) use **channels**. A channel belongs
+to the app that opens it: that app's user is the **host**. Other apps declared in its `hrhub.json` (or the same app)
+**join** as **participants**. Participants only ever talk to the host; the host decides what everybody sees.
+Working example: `webapps/quizzy-admin/` (host: `host.js`) + `webapps/quizzy/` (players: `main.js`).
+
+### Typical layout: two apps
+
+- **Owner app** (e.g. `quizzy-admin`, restricted roles): authoring, data, hosting. Ships `hrhub.json`.
+- **Participant app** (e.g. `quizzy`, often public): enter a code, join, play. Needs no manifest.
+- One app can also be both (host and participants in the same app) for simple cases.
+
+### hrhub.json (owner app, archive root): declares the channels
+
+```json
+{
+  "realtime": {
+    "channels": [
+      { "prefix": "event:", "participants": ["quizzy"], "hostRoles": [], "maxParticipants": 500,
+        "allowAnonymous": true, "presenceVisible": false, "hostGraceSeconds": 600 }
+    ]
+  }
+}
+```
+
+- `prefix`: channel names starting with it (`event:K7M2QX`); longest matching prefix wins; `""` = any name.
+- `participants`: slugs of other apps allowed to join (the owner app may always join its own channels).
+- `hostRoles`: roles allowed to open (host) these channels; `[]` = anyone who may open the owner app.
+- `maxParticipants` (default 200, max 2000), `allowAnonymous` (visitors of a public participant app, with a
+  nickname), `presenceVisible` (participants see who else is in; the host always does), `hostGraceSeconds` (how long a
+  channel survives its host going offline, default 300).
+- An invalid `hrhub.json` is **rejected on upload**. No manifest = no channels. Only the published version counts.
+
+### SDK (`hrhub.realtime`)
+
+```js
+// host (owner app)
+const ch = await hrhub.realtime.open('event:K7M2QX');           // reopening the same name after a reload re-attaches
+ch.onPresence((p) => ...);       // { hostOnline, count, online, participants: [{ id, name, username, anonymous, app, online, ip }] }
+ch.on('answer', (payload, meta) => ...);   // meta = { from: { id, name, anonymous, app }, at }  (server-stamped, unforgeable)
+ch.on('*', (payload, meta, type) => ...);
+const { at } = await ch.setState({ phase: 'question', idx: 0 });  // retained: late joiners/reconnects get it at once
+await ch.broadcast('reveal', { correct: 2 });                      // everyone, not retained
+await ch.sendTo([memberId], 'note', { ... });                      // same payload to some
+await ch.sendEach('me', { [idA]: { score: 900 }, [idB]: { score: 450 } });   // own payload each, ONE call
+ch.onLatency((pings, hostMs) => ...);      // { memberId: ms } every ~5 s (measured by the server)
+await ch.putAsset('img:q1', dataUrl);      // share something bigger than a message (<= 256 KB, 4 MB / 200 per channel) once
+await ch.kick(memberId);                   // removed and cannot rejoin
+await ch.close();
+
+// participant (another app, or the same one)
+const ch = await hrhub.realtime.join({ app: 'quizzy-admin', channel: 'event:K7M2QX', nickname: 'An' });
+ch.onState((state) => render(state));     // called at once with the current state, then on every change
+ch.on('me', (payload) => ...);            // messages from the host
+const dataUrl = await ch.getAsset('img:q1');   // fetch a host asset when needed (cached per key)
+await ch.send('answer', { idx: 0, choice: 2 }, { persist: 'q0' });   // ONLY to the host; persist = also saved
+ch.onClose((reason) => ...);              // 'closed' | 'host_left' | 'kicked'
+await ch.leave();
+
+hrhub.realtime.now();                     // server clock estimate (ms): count down to server times, not Date.now()
+hrhub.realtime.ping(); hrhub.realtime.onPing((ms) => ...);   // this device's ping
+hrhub.realtime.onStatus(({ connected }) => ...);             // reconnects (and rejoins) are automatic
+```
+
+Errors carry `error.code`: `not_found` (no such open channel / no manifest rule), `forbidden`, `login_required`,
+`full`, `in_use` (another host), `nickname_taken`, `too_large`, `rate_limited`, `bad_request`.
+Names and message types: letters, digits, `. _ : -` (max 64). Limits: message 16 KB, state 64 KB, ~20 events/s per
+device (bursts of 40). Nickname required for anonymous members (max 40), unique per channel.
+
+### Rules that keep it fair (design every live app this way)
+
+- **The host is the referee.** Scoring, timing and "who won" are computed in the host's browser from `meta.at`
+  (server time) and `meta.from` (server identity), never from anything a participant claims. Use the `at` returned
+  by `setState` as the start time of a timed phase.
+- **Never send what players must not see yet.** Correct answers go out at reveal time, not with the question. Keep
+  the answer key in the owner app's data (players' app cannot read another app's data unless they may open it, so the
+  owner app must have restricted roles). Offer a "question only on the main screen" mode (no text sent at all) when
+  bots/AI are a concern.
+- **Persist what matters**: `send(..., { persist: id })` makes the server store it in the OWNER app's data as
+  `rt:<channel name>:<member id>` = `{ channel, participant, items: { <id>: { type, payload, at } } }` (one record per
+  member; resending an id replaces it). The host also checkpoints its own progress with `hrhub.data.set` so a reload
+  can resume (channels survive `hostGraceSeconds` without the host). Mind the 1000-keys-per-app limit.
+- **Batch per-player replies** with `sendEach` (one call), never a `sendTo` loop (rate limit).
+- **Images and other big content**: never put them in state or messages (64 KB / 16 KB). The host `putAsset`s them
+  once (e.g. while players wait in the lobby) and sends only the key in the state; players `getAsset(key)`. Do not
+  share what players must not see (e.g. skip the upload when questions stay on the main screen).
+- **Presence lags a little** (~250 ms, batched): seat a player from `meta.from` on their first message.
+- **Players reconnect transparently** (same identity: user id, or a signed anonymous token for visitors); on join send
+  a `hello` and let the host answer with that player's current situation.
+- Channels live in the API's memory: a server restart closes them (the app should recover from its saved data).
+- For a deterrent against curious players opening DevTools, use `/hr-hub/vendor/hrhub-guard.module.js` (see above);
+  it is not security.
+
 ## Styling: follow HR Hub
 
 Use `hrhub-theme.css` (HR Hub's real design tokens: green primary, neutral surfaces, Inter/system font, pill
@@ -339,4 +446,5 @@ Full snippets: `reference/components.md`. Working examples (copy their structure
 - [ ] Delete UI handles `403` (not creator / not admin); audit info comes from `createdBy`/`updatedBy`, not app JS
 - [ ] Access decided with the user (public, required roles or "Chỉ mình tôi") and stated in the handover with name + description
 - [ ] `hrhub.user.get()` used for display only; handles anonymous visitors
+- [ ] Live apps: `hrhub.json` in the owner app, participants listed, host scores from `meta.at`/`meta.from`, no answers sent before reveal
 - [ ] `package.py` passes

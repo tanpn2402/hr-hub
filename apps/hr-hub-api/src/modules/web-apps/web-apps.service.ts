@@ -8,7 +8,7 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import type { WebApp, WebAppVersion } from '@generated/prisma';
-import { stat } from 'node:fs/promises';
+import { readFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { PrismaService } from '../../prisma/prisma.service';
 import { TraceContextService } from '../app/trace/trace-context.service';
@@ -16,6 +16,7 @@ import { TraceLogger } from '../app/trace/trace-logger.service';
 import { AuthenticatedUser } from '../auth/auth.types';
 import { ArchiveExtractorService, ArchiveValidationError } from './archive-extractor.service';
 import { WebAppDataService } from './web-app-data.service';
+import { MANIFEST_FILE, ManifestError, parseManifest } from './web-app-manifest';
 import { parseRequiredRoles, WebAppAccessService } from './web-app-access.service';
 import { WebAppStorageService } from './web-app-storage.service';
 import { RESERVED_SLUGS, SLUG_PATTERN, WebAppsConfig } from './web-apps.config';
@@ -339,11 +340,15 @@ export class WebAppsService implements OnModuleInit {
       const checksum = await this.extractor.checksum(file.path);
       const result = await this.extractor.extract(file.path, archiveType, tempDir);
       const icon = await this.findIcon(result.baseDir);
+      await this.validateManifest(result.baseDir);
       return { tempDir, baseDir: result.baseDir, fileCount: result.fileCount, totalBytes: result.totalBytes, checksum, archiveType, icon };
     } catch (error) {
       await this.storage.removeDir(tempDir);
       if (error instanceof ArchiveValidationError) {
         throw new UnprocessableEntityException({ message: 'Invalid archive', errors: error.errors });
+      }
+      if (error instanceof ManifestError) {
+        throw new UnprocessableEntityException({ message: `Invalid ${MANIFEST_FILE}`, errors: error.errors });
       }
       throw error;
     }
@@ -394,6 +399,12 @@ export class WebAppsService implements OnModuleInit {
       if (info?.isFile()) return name;
     }
     return null;
+  }
+
+  /** hrhub.json is optional, but a package that ships a broken one is rejected instead of silently ignored. */
+  private async validateManifest(dir: string) {
+    const text = await readFile(join(dir, MANIFEST_FILE), 'utf8').catch(() => null);
+    if (text !== null) parseManifest(text);
   }
 
   private async cleanup(staged: StagedVersion | null, file: UploadedArchive | undefined) {

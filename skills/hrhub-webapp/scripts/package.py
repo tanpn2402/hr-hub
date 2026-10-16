@@ -3,6 +3,7 @@
 
 Usage: python3 package.py <app-folder> [output.zip]
 """
+import json
 import os
 import re
 import sys
@@ -13,6 +14,48 @@ ALLOWED = set(
 )
 ICON_FILES = ("favicon.svg", "favicon.png", "favicon.ico")  # HR Hub picks the first one found at the root
 MAX_FILES, MAX_FILE, MAX_TOTAL, MAX_ARCHIVE = 2000, 20 * 2**20, 200 * 2**20, 50 * 2**20
+SLUG = re.compile(r"^[a-z0-9][a-z0-9-]{1,62}$")
+
+
+def check_manifest(path):
+    """Same rules as the HR Hub upload check (web-app-manifest.ts): a broken hrhub.json rejects the upload."""
+    try:
+        raw = json.load(open(path, encoding="utf-8"))
+    except ValueError as error:
+        return [f"hrhub.json is not valid JSON ({error})"]
+    if not isinstance(raw, dict):
+        return ["hrhub.json must be a JSON object"]
+    realtime = raw.get("realtime")
+    if realtime is None:
+        return []
+    if not isinstance(realtime, dict) or not isinstance(realtime.get("channels"), list):
+        return ['hrhub.json: "realtime" must be { "channels": [...] }']
+    errors, prefixes = [], []
+    for i, rule in enumerate(realtime["channels"]):
+        at = f"hrhub.json realtime.channels[{i}]"
+        if not isinstance(rule, dict):
+            errors.append(f"{at} must be an object")
+            continue
+        prefix = rule.get("prefix", "")
+        if not isinstance(prefix, str) or (prefix and not re.match(r"^[A-Za-z0-9._:-]{1,48}$", prefix)):
+            errors.append(f"{at}.prefix must use letters, digits, . _ : - (max 48)")
+        prefixes.append(prefix)
+        for key in ("participants", "hostRoles"):
+            value = rule.get(key, [])
+            if not isinstance(value, list) or any(not isinstance(v, str) or not v.strip() or len(v) > 100 for v in value):
+                errors.append(f"{at}.{key} must be a list of names")
+            elif key == "participants":
+                errors += [f'{at}.participants: "{v}" is not a valid app slug' for v in value if not SLUG.match(v.strip())]
+        for key, low, high in (("maxParticipants", 1, 2000), ("hostGraceSeconds", 0, 3600)):
+            value = rule.get(key)
+            if value is not None and (not isinstance(value, int) or isinstance(value, bool) or not low <= value <= high):
+                errors.append(f"{at}.{key} must be an integer {low}-{high}")
+        for key in ("allowAnonymous", "presenceVisible"):
+            if key in rule and not isinstance(rule[key], bool):
+                errors.append(f"{at}.{key} must be true or false")
+    if len(set(prefixes)) != len(prefixes):
+        errors.append("hrhub.json realtime.channels: prefixes must be unique")
+    return errors
 
 
 def main() -> int:
@@ -53,6 +96,9 @@ def main() -> int:
             warnings.append("favicon.svg has no viewBox (it will not scale to 16-32 px)")
         if re.search(r"<script|<foreignObject|(href|src)=['\"]https?://", svg, re.I):
             warnings.append("favicon.svg must not contain scripts, foreignObject or external references")
+
+    if any(rel == "hrhub.json" for _, rel in files):
+        errors += check_manifest(os.path.join(src, "hrhub.json"))
 
     if len(files) > MAX_FILES:
         errors.append(f"more than {MAX_FILES} files")

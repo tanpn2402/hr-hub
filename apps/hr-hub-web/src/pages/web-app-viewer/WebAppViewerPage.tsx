@@ -10,6 +10,7 @@ import { useAuth } from '@/auth/useAuth';
 import { Button } from '@/components/ui/button';
 import { HRHubUserMenu } from '@/pages/hr-hub/components/HRHubUserMenu';
 
+import { isRealtimeOp, RealtimeBridge, RealtimeError } from './realtime-bridge';
 import { RequestAccessPanel, type RequestAccessApp } from './RequestAccessPanel';
 import { useDocumentHead } from './useDocumentHead';
 import { WebAppIcon } from '@/pages/hr-hub/components/WebAppIcon';
@@ -81,6 +82,21 @@ export function WebAppViewerPage() {
   const status = (access.error as { response?: { status?: number } } | null)?.response?.status;
   const needsLogin = status === 401;
 
+  // Channels (hrhub.realtime): one socket per open app, created on first use, closed when leaving the app or when
+  // the user signs in/out (the identity changes).
+  const realtimeRef = useRef<RealtimeBridge | null>(null);
+  useEffect(() => {
+    if (!access.data) return;
+    const bridge = new RealtimeBridge(slug, (event, data) =>
+      frameRef.current?.contentWindow?.postMessage({ type: 'hrhub:realtime', event, data }, '*'),
+    );
+    realtimeRef.current = bridge;
+    return () => {
+      bridge.dispose();
+      if (realtimeRef.current === bridge) realtimeRef.current = null;
+    };
+  }, [access.data, slug, isAuthenticated]);
+
   // Restricted app opened anonymously: log in first.
   useEffect(() => {
     if (needsLogin) requireLogin();
@@ -134,6 +150,25 @@ export function WebAppViewerPage() {
         reply({ ok: true, result: null });
         if (message.op === 'user.login') requireLogin();
         else void logout();
+        return;
+      }
+
+      if (isRealtimeOp(message.op)) {
+        const bridge = realtimeRef.current;
+        if (!bridge) {
+          reply({
+            ok: false,
+            error: { message: 'Realtime is not available', status: 503, code: 'unavailable' },
+          });
+          return;
+        }
+        bridge
+          .handle(message.op, message.args ?? {})
+          .then((result) => reply({ ok: true, result }))
+          .catch((error: unknown) => {
+            const code = error instanceof RealtimeError ? error.code : 'unavailable';
+            reply({ ok: false, error: { message: (error as Error).message, status: 0, code } });
+          });
         return;
       }
 
@@ -215,6 +250,8 @@ export function WebAppViewerPage() {
         title={access.data.name}
         src={`${apiClient.defaults.baseURL}/apps/${encodeURIComponent(slug)}/`}
         sandbox="allow-scripts allow-forms allow-modals allow-downloads allow-popups"
+        // Lets apps offer "copy" buttons (navigator.clipboard.writeText); reading the clipboard stays blocked.
+        allow="clipboard-write"
         className="min-h-0 w-full flex-1 border-0"
       />
     </div>

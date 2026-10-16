@@ -34,11 +34,14 @@ export default defineConfig(({ mode }) => {
       port: 5170,
       cors: true,
       strictPort: true,
+      allowedHosts: ['localhost', 'redbird-rapid-safely.ngrok-free.app'],
 
       proxy: {
         '/hr-hub/api': {
           target: 'http://localhost:3003',
           changeOrigin: true,
+          // web app channels (socket.io at /hr-hub/api/realtime)
+          ws: true,
           rewrite: (path) => path.replace(/^\/hr-hub\/api/, ''),
         },
       },
