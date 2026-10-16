@@ -4,8 +4,11 @@
 //   result:<CODE>:<runId>     final ranking and per-question stats of a finished run
 //   rt:event:<CODE>:<member>  every answer of one player, written by HR Hub itself (send(..., { persist }))
 
-/** Slug of the app players use; must match "participants" in hrhub.json. */
-export const PLAYER_APP = 'quizzy';
+/** Slug of the app players use: the "playerApp" setting (hrhub.json), chosen by the administrator. */
+export async function playerApp() {
+  const settings = await window.hrhub.settings.get();
+  return settings.playerApp || null;
+}
 
 export const channelName = (code) => `event:${code}`;
 const eventKey = (code) => `event:${code}`;

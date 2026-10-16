@@ -1,4 +1,13 @@
-import { ArrowLeft, ExternalLink, Loader2, Power, RotateCcw, Save, Upload, UploadCloud } from 'lucide-react';
+import {
+  ArrowLeft,
+  ExternalLink,
+  Loader2,
+  Power,
+  RotateCcw,
+  Save,
+  Upload,
+  UploadCloud,
+} from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams } from 'react-router-dom';
@@ -9,14 +18,26 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 
-import { formatBytes, getErrorMessage } from '../api/web-apps';
+import { formatBytes, getErrorMessage, type SettingValues } from '../api/web-apps';
 import { HRPageHeader } from '../components/HRPageHeader';
 import { PrivateWebAppCheckbox } from '../components/PrivateWebAppCheckbox';
 import { RolesInput } from '../components/RolesInput';
 import { UploadWebAppVersionDialog } from '../components/UploadWebAppVersionDialog';
+import {
+  initialSettings,
+  missingSettings,
+  WebAppSettingsFields,
+} from '../components/WebAppSettingsFields';
 import { WebAppStatusBadge } from '../components/WebAppStatusBadge';
 import {
   usePublishWebAppVersion,
@@ -44,6 +65,7 @@ export function WebAppDetailPage() {
   const [roles, setRoles] = useState<string[]>([]);
   const [isPrivate, setIsPrivate] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [settings, setSettings] = useState<SettingValues>({});
 
   const app = appQuery.data;
 
@@ -53,6 +75,7 @@ export function WebAppDetailPage() {
     setDescription(app.description ?? '');
     setRoles(app.requiredRoles);
     setIsPrivate(app.isPrivate);
+    setSettings(initialSettings(app.settingsSchema, app.settings));
   }, [app]);
 
   if (appQuery.isLoading) {
@@ -60,7 +83,11 @@ export function WebAppDetailPage() {
   }
 
   if (!app) {
-    return <div className="p-6 text-sm text-destructive">{getErrorMessage(appQuery.error, t('web_app_not_found'))}</div>;
+    return (
+      <div className="p-6 text-sm text-destructive">
+        {getErrorMessage(appQuery.error, t('web_app_not_found'))}
+      </div>
+    );
   }
 
   const onError = (error: unknown) => toast.error(getErrorMessage(error));
@@ -70,6 +97,15 @@ export function WebAppDetailPage() {
       { id: app.id, name, description, requiredRoles: roles, isPrivate },
       { onSuccess: () => toast.success(t('saved')), onError },
     );
+
+  const saveSettings = () =>
+    update.mutate(
+      { id: app.id, settings },
+      { onSuccess: () => toast.success(t('saved')), onError },
+    );
+
+  const hasSettings = Object.keys(app.settingsSchema).length > 0;
+  const stillMissing = missingSettings(app.settingsSchema, settings);
 
   const versions = versionsQuery.data ?? [];
   const busy = publish.isPending || rollback.isPending;
@@ -88,12 +124,18 @@ export function WebAppDetailPage() {
             <Button
               variant="outline"
               disabled={toggle.isPending}
-              onClick={() => toggle.mutate({ id: app.id, enabled: app.status === 'disabled' }, { onError })}
+              onClick={() =>
+                toggle.mutate({ id: app.id, enabled: app.status === 'disabled' }, { onError })
+              }
             >
               <Power className="mr-2 size-4" />
               {app.status === 'disabled' ? t('enable') : t('disable')}
             </Button>
-            <Button variant="outline" disabled={app.status !== 'published'} render={<Link to={`/hr-hub/apps/${app.slug}`} />}>
+            <Button
+              variant="outline"
+              disabled={app.status !== 'published'}
+              render={<Link to={`/hr-hub/apps/${app.slug}`} />}
+            >
               <ExternalLink className="mr-2 size-4" />
               {t('open')}
             </Button>
@@ -118,7 +160,11 @@ export function WebAppDetailPage() {
 
           <div className="space-y-1.5">
             <Label>{t('description')}</Label>
-            <Textarea rows={2} value={description} onChange={(event) => setDescription(event.target.value)} />
+            <Textarea
+              rows={2}
+              value={description}
+              onChange={(event) => setDescription(event.target.value)}
+            />
           </div>
 
           <div className="space-y-1.5">
@@ -128,9 +174,55 @@ export function WebAppDetailPage() {
           </div>
 
           <Button onClick={save} disabled={update.isPending || !name.trim()}>
-            {update.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Save className="mr-2 size-4" />}
+            {update.isPending ? (
+              <Loader2 className="mr-2 size-4 animate-spin" />
+            ) : (
+              <Save className="mr-2 size-4" />
+            )}
             {t('save')}
           </Button>
+        </section>
+
+        {/* Settings declared by the published version (hrhub.json "settings"); values are per app. */}
+        <section className="max-w-2xl space-y-3">
+          <div>
+            <h3 className="text-base font-semibold">{t('web_app_settings')}</h3>
+            <p className="text-xs text-muted-foreground">
+              {hasSettings ? t('web_app_settings_hint') : t('web_app_settings_empty')}
+            </p>
+          </div>
+          {app.missingSettings.length > 0 && (
+            <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              {t('web_app_settings_missing', { list: app.missingSettings.join(', ') })}
+              {!app.currentVersion &&
+                versions.length > 0 &&
+                ` ${t('web_app_settings_then_publish')}`}
+            </div>
+          )}
+          {hasSettings && (
+            <>
+              <WebAppSettingsFields
+                schema={app.settingsSchema}
+                values={settings}
+                onChange={setSettings}
+                disabled={update.isPending}
+                selfSlug={app.slug}
+                showErrors
+              />
+              <Button
+                className="min-w-32"
+                onClick={saveSettings}
+                disabled={update.isPending || stillMissing.length > 0}
+              >
+                {update.isPending ? (
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                ) : (
+                  <Save className="mr-2 size-4" />
+                )}
+                {t('save')}
+              </Button>
+            </>
+          )}
         </section>
 
         {/* Versions */}
@@ -198,29 +290,36 @@ export function WebAppDetailPage() {
                                 onClick={() =>
                                   publish.mutate(
                                     { id: app.id, version: version.version },
-                                    { onSuccess: () => toast.success(t('web_app_published_toast')), onError },
+                                    {
+                                      onSuccess: () => toast.success(t('web_app_published_toast')),
+                                      onError,
+                                    },
                                   )
                                 }
                               >
                                 <UploadCloud className="mr-1 size-4" />
                                 {t('publish')}
                               </Button>
-                              {app.currentVersion !== null && version.version < app.currentVersion && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  disabled={busy}
-                                  onClick={() =>
-                                    rollback.mutate(
-                                      { id: app.id, version: version.version },
-                                      { onSuccess: () => toast.success(t('web_app_rolled_back')), onError },
-                                    )
-                                  }
-                                >
-                                  <RotateCcw className="mr-1 size-4" />
-                                  {t('rollback')}
-                                </Button>
-                              )}
+                              {app.currentVersion !== null &&
+                                version.version < app.currentVersion && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    disabled={busy}
+                                    onClick={() =>
+                                      rollback.mutate(
+                                        { id: app.id, version: version.version },
+                                        {
+                                          onSuccess: () => toast.success(t('web_app_rolled_back')),
+                                          onError,
+                                        },
+                                      )
+                                    }
+                                  >
+                                    <RotateCcw className="mr-1 size-4" />
+                                    {t('rollback')}
+                                  </Button>
+                                )}
                             </>
                           )}
                         </div>
@@ -234,7 +333,7 @@ export function WebAppDetailPage() {
         </section>
       </div>
 
-      <UploadWebAppVersionDialog webAppId={app.id} open={uploadOpen} onOpenChange={setUploadOpen} />
+      <UploadWebAppVersionDialog app={app} open={uploadOpen} onOpenChange={setUploadOpen} />
     </div>
   );
 }

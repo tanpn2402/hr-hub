@@ -15,29 +15,42 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
-import { getErrorMessage } from '../api/web-apps';
+import {
+  getErrorMessage,
+  type InspectedPackage,
+  type SettingValues,
+  type WebApp,
+} from '../api/web-apps';
 import { useUploadWebAppVersion } from '../hooks/useWebApps';
-import { isSupportedArchive, WebAppUploadField } from './WebAppUploadField';
+import { WebAppPackageField } from './WebAppPackageField';
+import { initialSettings, missingSettings, WebAppSettingsFields } from './WebAppSettingsFields';
 
 type Props = {
-  webAppId: string;
+  app: WebApp;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 };
 
-export function UploadWebAppVersionDialog({ webAppId, open, onOpenChange }: Props) {
+export function UploadWebAppVersionDialog({ app, open, onOpenChange }: Props) {
   const { t } = useTranslation();
   const upload = useUploadWebAppVersion();
 
-  const [file, setFile] = useState<File | null>(null);
+  // The package is uploaded and validated as soon as it is picked (inspect); the settings shown are the ones the
+  // NEW version declares, pre-filled with what the app already has (only new keys need input).
+  const [pkg, setPkg] = useState<InspectedPackage | null>(null);
+  const [settings, setSettings] = useState<SettingValues>({});
+  const [showSettingErrors, setShowSettingErrors] = useState(false);
   const [note, setNote] = useState('');
-  const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
+  const schema = pkg?.manifest?.settings ?? {};
+  const newKeys = Object.keys(schema).filter((key) => !(key in app.settingsSchema));
+
   const reset = () => {
-    setFile(null);
+    setPkg(null);
+    setSettings({});
+    setShowSettingErrors(false);
     setNote('');
-    setProgress(0);
     setError(null);
   };
 
@@ -47,13 +60,19 @@ export function UploadWebAppVersionDialog({ webAppId, open, onOpenChange }: Prop
     onOpenChange(value);
   };
 
+  const onPackage = (next: InspectedPackage | null) => {
+    setPkg(next);
+    setSettings(initialSettings(next?.manifest?.settings ?? {}, app.settings));
+    setShowSettingErrors(false);
+  };
+
   const submit = (publish: boolean) => {
-    if (!file) return setError(t('web_app_choose_archive'));
-    if (!isSupportedArchive(file)) return setError(t('web_app_archive_unsupported'));
+    if (!pkg) return setError(t('web_app_choose_archive'));
+    if (publish && missingSettings(schema, settings).length) return setShowSettingErrors(true);
     setError(null);
 
     upload.mutate(
-      { id: webAppId, file, note, publish, onProgress: setProgress },
+      { id: app.id, stagingToken: pkg.token, settings, note, publish },
       {
         onSuccess: () => {
           toast.success(t('web_app_version_uploaded'));
@@ -67,39 +86,80 @@ export function UploadWebAppVersionDialog({ webAppId, open, onOpenChange }: Prop
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{t('upload_new_version')}</DialogTitle>
           <DialogDescription>{t('upload_new_version_description')}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
-          <WebAppUploadField file={file} onChange={setFile} disabled={upload.isPending} />
+          <WebAppPackageField value={pkg} onChange={onPackage} disabled={upload.isPending} />
+
+          {Object.keys(schema).length > 0 && (
+            <div className="space-y-2 rounded-lg border p-3">
+              <div>
+                <div className="text-sm font-medium">{t('web_app_settings')}</div>
+                <p className="text-xs text-muted-foreground">
+                  {newKeys.length
+                    ? t('web_app_settings_new', { keys: newKeys.join(', ') })
+                    : t('web_app_settings_hint')}
+                </p>
+              </div>
+              <WebAppSettingsFields
+                schema={schema}
+                values={settings}
+                onChange={setSettings}
+                disabled={upload.isPending}
+                selfSlug={app.slug}
+                showErrors={showSettingErrors}
+              />
+            </div>
+          )}
 
           <div className="space-y-1.5">
             <Label>{t('note')}</Label>
-            <Input value={note} disabled={upload.isPending} onChange={(event) => setNote(event.target.value)} />
+            <Input
+              value={note}
+              disabled={upload.isPending}
+              onChange={(event) => setNote(event.target.value)}
+            />
           </div>
 
           {error && (
-            <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</div>
+            <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              {error}
+            </div>
           )}
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => handleOpenChange(false)} disabled={upload.isPending}>
+          <Button
+            variant="outline"
+            className="min-w-32"
+            onClick={() => handleOpenChange(false)}
+            disabled={upload.isPending}
+          >
             {t('cancel')}
           </Button>
-          <Button variant="outline" onClick={() => submit(false)} disabled={upload.isPending || !file}>
+          <Button
+            variant="outline"
+            className="min-w-32"
+            onClick={() => submit(false)}
+            disabled={upload.isPending || !pkg}
+          >
             {t('upload_only')}
           </Button>
-          <Button onClick={() => submit(true)} disabled={upload.isPending || !file}>
+          <Button
+            className="min-w-32"
+            onClick={() => submit(true)}
+            disabled={upload.isPending || !pkg}
+          >
             {upload.isPending ? (
               <Loader2 className="mr-2 size-4 animate-spin" />
             ) : (
               <Upload className="mr-2 size-4" />
             )}
-            {upload.isPending ? `${progress}%` : t('upload_and_publish')}
+            {t('upload_and_publish')}
           </Button>
         </DialogFooter>
       </DialogContent>

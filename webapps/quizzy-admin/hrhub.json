@@ -1,9 +1,21 @@
 {
+  "name": "Quizzy Admin",
+  "description": "Tạo bộ câu hỏi và tổ chức đố vui trực tiếp cho nhân viên.",
+  "slug": "quizzy-admin",
+  "icon": "favicon.svg",
+  "settings": {
+    "playerApp": {
+      "type": "app",
+      "label": "App người chơi",
+      "description": "Web App mà người chơi mở để nhập mã phòng (gói Quizzy).",
+      "required": true
+    }
+  },
   "realtime": {
     "channels": [
       {
         "prefix": "event:",
-        "participants": ["quizzy"],
+        "participants": [{ "$setting": "playerApp" }],
         "maxParticipants": 500,
         "allowAnonymous": true,
         "presenceVisible": false,

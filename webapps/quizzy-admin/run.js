@@ -2,7 +2,7 @@ import { html, useEffect, useRef, useState } from './lib.js';
 import { useCountdown } from './hooks.js';
 import { QuizHost } from './host.js';
 import { missingImages, settingsOf, validateEvent } from './quiz.js';
-import { clearRun, loadEvent, loadRun, PLAYER_APP } from './store.js';
+import { clearRun, loadEvent, loadRun, playerApp } from './store.js';
 import { confetti, pop } from './fx.js';
 import { Alert, AnswerBars, Avatar, BigCount, Leaderboard, Loading, OptionTile, Podium, QuestionImage, Signal, TimeBar } from './ui.js';
 
@@ -30,9 +30,12 @@ export function RunView({ code }) {
   useEffect(() => {
     let alive = true;
     Promise.all([loadEvent(code), loadRun(code)])
-      .then(([found, run]) => {
+      .then(async ([found, run]) => {
         if (!alive) return;
         if (!found) return setSetup({ status: 'error', message: `Không tìm thấy sự kiện ${code}.` });
+        if (!(await playerApp())) {
+          return setSetup({ status: 'error', message: 'Chưa chọn “App người chơi” trong cài đặt của Web App này (HR Hub → Web Apps).' });
+        }
         const errors = validateEvent(found.event);
         if (errors.length) return setSetup({ status: 'error', message: `Sự kiện chưa hoàn chỉnh: ${errors[0]}` });
         const missing = missingImages(found.event);
@@ -189,9 +192,13 @@ function Stage({ snap, event, busy, act, kick }) {
 }
 
 function Lobby({ snap, event, busy, act, kick }) {
+  const [player, setPlayer] = useState(null);
+  useEffect(() => {
+    playerApp().then(setPlayer, () => {});
+  }, []);
   return html`<div class="kh-body">
     <div class="kh-join">
-      <div>Mở app <strong>${PLAYER_APP}</strong> trên HR Hub và nhập mã phòng</div>
+      <div>Mở <strong>/hr-hub/apps/${player || '…'}</strong> trên HR Hub và nhập mã phòng</div>
       <div class="kh-code" aria-label="Mã phòng">${event.code}</div>
     </div>
     <div class="kh-lobby-bar">

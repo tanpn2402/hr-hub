@@ -37,8 +37,12 @@
  * Employee directory (read-only, no contact details):
  *   const employees = await hrhub.employees.list();   // [{ id, employeeCode, name, department, position }]
  *
+ * Settings (declared in the app's hrhub.json "settings", filled in by the administrator per app; never secrets):
+ *   const settings = await hrhub.settings.get();   // { sourceApp: 'leave-requests', maxPlayers: 500 }
+ *
  * Read ANOTHER app's data (read-only; allowed only if the user may open that app):
- *   const entries = await hrhub.apps.readData('other-app-slug');   // [{ key, value, updatedAt }]
+ *   const entries = await hrhub.apps.readData({ setting: 'sourceApp' });   // the app chosen in an "app" setting
+ *   const entries = await hrhub.apps.readData('other-app-slug');           // or a fixed slug (avoid hard-coding)
  *
  * Values are JSON (max ~1 MB). Keys: letters, digits, . _ : - (max 128 chars).
  * Optimistic concurrency: const e = await hrhub.data.getEntry(key); await hrhub.data.set(key, v, { ifUpdatedAt: e.updatedAt });
@@ -54,7 +58,7 @@
  *   await ch.sendEach('result', { [memberIdA]: { score: 900 }, [memberIdB]: { score: 450 } });   // one call, own payload each
  *   await ch.kick(memberId);   await ch.close();
  *   // participant (another app, or the same one)
- *   const ch = await hrhub.realtime.join({ app: 'owner-slug', channel: 'event:8F3K', nickname: 'An' });
+ *   const ch = await hrhub.realtime.join({ appSetting: 'hostApp', channel: 'event:8F3K', nickname: 'An' });   // or app: '<slug>'
  *   ch.onState(function (state) { ... });           // also called once right away with the current state
  *   await ch.send('answer', { idx: 0, choice: 2 }, { persist: 'q0' });   // persist: also stored in the owner app's data
  *   ch.onClose(function (reason) { ... });          // 'closed' | 'host_left' | 'kicked' | ...
@@ -82,6 +86,7 @@
   var statusListeners = [];
   var pingListeners = [];
   var lastPing = null; // round trip to the server in ms, measured by the server
+  var settingsPromise = null; // hrhub.settings.get(), fetched once
   // Server clock minus local clock. Every server event is stamped (at) before it travels, so the largest sample
   // is the closest to the truth.
   var clockOffset = null;
@@ -343,8 +348,20 @@
       },
     },
     apps: {
-      readData: function (slug) {
-        return call('readApp', { app: slug });
+      /** slug, or { setting: '<"app" setting key>' } to read the app the administrator chose. */
+      readData: function (target) {
+        return call('readApp', typeof target === 'object' && target ? { setting: target.setting } : { app: target });
+      },
+    },
+    settings: {
+      get: function () {
+        if (!settingsPromise) {
+          settingsPromise = call('settings').catch(function (error) {
+            settingsPromise = null;
+            throw error;
+          });
+        }
+        return settingsPromise;
       },
     },
     realtime: {
@@ -354,14 +371,26 @@
           return attach('host', result);
         });
       },
-      /** Join an open channel: { app: owner slug (default: this app), channel, nickname (required when not signed in) }. */
+      /**
+       * Join an open channel: { app: owner slug | appSetting: '<"app" setting key>' (default: this app), channel,
+       * nickname (required when not signed in) }.
+       */
       join: function (options) {
         options = options || {};
-        return call('rt.join', { app: options.app, channel: options.channel, nickname: options.nickname }).then(
-          function (result) {
+        var owner = options.appSetting
+          ? window.hrhub.settings.get().then(function (settings) {
+              var slug = settings[options.appSetting];
+              if (!slug) throw new Error('Setting "' + options.appSetting + '" is not set');
+              return slug;
+            })
+          : Promise.resolve(options.app);
+        return owner
+          .then(function (app) {
+            return call('rt.join', { app: app, channel: options.channel, nickname: options.nickname });
+          })
+          .then(function (result) {
             return attach('participant', result);
-          },
-        );
+          });
       },
       /** Server time in ms (Date.now() until the first server event arrives). */
       now: function () {

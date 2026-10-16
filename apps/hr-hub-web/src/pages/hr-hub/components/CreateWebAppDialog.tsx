@@ -18,11 +18,17 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 
-import { getErrorMessage, type WebApp } from '../api/web-apps';
+import {
+  getErrorMessage,
+  type InspectedPackage,
+  type SettingValues,
+  type WebApp,
+} from '../api/web-apps';
 import { useCreateWebApp } from '../hooks/useWebApps';
 import { PrivateWebAppCheckbox } from './PrivateWebAppCheckbox';
 import { RolesInput } from './RolesInput';
-import { isSupportedArchive, WebAppUploadField } from './WebAppUploadField';
+import { WebAppPackageField } from './WebAppPackageField';
+import { initialSettings, missingSettings, WebAppSettingsFields } from './WebAppSettingsFields';
 
 type Props = {
   open: boolean;
@@ -36,7 +42,6 @@ type FormValues = {
   description: string;
   roles: string[];
   isPrivate: boolean;
-  file: File | null;
 };
 
 const DEFAULT_VALUES: FormValues = {
@@ -45,7 +50,6 @@ const DEFAULT_VALUES: FormValues = {
   description: '',
   roles: [],
   isPrivate: false,
-  file: null,
 };
 
 const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{1,62}$/;
@@ -63,7 +67,10 @@ const slugify = (value: string) =>
 export function CreateWebAppDialog({ open, onOpenChange, onCreated }: Props) {
   const { t } = useTranslation();
   const createMutation = useCreateWebApp();
-  const [progress, setProgress] = useState(0);
+  // The package, already uploaded and validated (inspect), and the values for the settings it declares.
+  const [pkg, setPkg] = useState<InspectedPackage | null>(null);
+  const [settings, setSettings] = useState<SettingValues>({});
+  const [showSettingErrors, setShowSettingErrors] = useState(false);
 
   const {
     register,
@@ -80,11 +87,30 @@ export function CreateWebAppDialog({ open, onOpenChange, onCreated }: Props) {
   const pending = createMutation.isPending;
   const slug = watch('slug');
   const isPrivate = watch('isPrivate');
-  const file = watch('file');
+  const schema = pkg?.manifest?.settings ?? {};
 
   const resetForm = () => {
     reset(DEFAULT_VALUES);
-    setProgress(0);
+    setPkg(null);
+    setSettings({});
+    setShowSettingErrors(false);
+  };
+
+  /** Fills the form from hrhub.json, without overwriting what the admin already typed. */
+  const onPackage = (next: InspectedPackage | null) => {
+    setPkg(next);
+    setSettings(initialSettings(next?.manifest?.settings ?? {}));
+    setShowSettingErrors(false);
+    const manifest = next?.manifest;
+    if (!manifest) return;
+    if (manifest.name && !getFieldState('name').isDirty)
+      setValue('name', manifest.name, { shouldValidate: true });
+    if (manifest.description && !getFieldState('description').isDirty)
+      setValue('description', manifest.description);
+    if (!getFieldState('slug').isDirty) {
+      const suggested = manifest.slug ?? (manifest.name ? slugify(manifest.name) : '');
+      if (suggested) setValue('slug', suggested, { shouldValidate: true });
+    }
   };
 
   const handleOpenChange = (value: boolean) => {
@@ -93,7 +119,12 @@ export function CreateWebAppDialog({ open, onOpenChange, onCreated }: Props) {
     onOpenChange(value);
   };
 
-  const onSubmit = (values: FormValues) =>
+  // Required settings still empty (e.g. two apps that point at each other: the other one does not exist yet): the
+  // app is created as a draft, and published from its page once the settings are filled in.
+  const incomplete = Boolean(pkg) && missingSettings(schema, settings).length > 0;
+
+  const onSubmit = (values: FormValues) => {
+    setShowSettingErrors(incomplete);
     createMutation.mutate(
       {
         name: values.name,
@@ -101,13 +132,14 @@ export function CreateWebAppDialog({ open, onOpenChange, onCreated }: Props) {
         description: values.description,
         requiredRoles: values.isPrivate ? [] : values.roles,
         isPrivate: values.isPrivate,
-        file: values.file,
-        publish: Boolean(values.file),
-        onProgress: setProgress,
+        stagingToken: pkg?.token,
+        settings: pkg ? settings : undefined,
+        publish: Boolean(pkg) && !incomplete,
       },
       {
         onSuccess: (app) => {
-          toast.success(t('web_app_created'));
+          if (incomplete) toast.info(t('web_app_created_draft'));
+          else toast.success(t('web_app_created'));
           resetForm();
           onOpenChange(false);
           onCreated?.(app);
@@ -115,16 +147,27 @@ export function CreateWebAppDialog({ open, onOpenChange, onCreated }: Props) {
         onError: (err) => setError('root.server', { message: getErrorMessage(err) }),
       },
     );
+  };
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{t('create_web_app')}</DialogTitle>
           <DialogDescription>{t('create_web_app_description')}</DialogDescription>
         </DialogHeader>
 
-        <form id="create-web-app" className="space-y-4" onSubmit={handleSubmit(onSubmit)} noValidate>
+        <form
+          id="create-web-app"
+          className="space-y-4"
+          onSubmit={handleSubmit(onSubmit)}
+          noValidate
+        >
+          <div className="space-y-1.5">
+            <Label>{t('web_app_archive_optional')}</Label>
+            <WebAppPackageField value={pkg} onChange={onPackage} disabled={pending} />
+          </div>
+
           <div className="space-y-1.5">
             <Label htmlFor="web-app-name">{t('name')}</Label>
             <Input
@@ -151,7 +194,8 @@ export function CreateWebAppDialog({ open, onOpenChange, onCreated }: Props) {
               {...register('slug', {
                 onChange: (event) => {
                   const value: string = event.target.value;
-                  if (value !== value.toLowerCase()) setValue('slug', value.toLowerCase(), { shouldDirty: true });
+                  if (value !== value.toLowerCase())
+                    setValue('slug', value.toLowerCase(), { shouldDirty: true });
                 },
                 pattern: { value: SLUG_PATTERN, message: t('web_app_slug_invalid') },
                 required: t('web_app_slug_invalid'),
@@ -165,7 +209,12 @@ export function CreateWebAppDialog({ open, onOpenChange, onCreated }: Props) {
 
           <div className="space-y-1.5">
             <Label htmlFor="web-app-description">{t('description')}</Label>
-            <Textarea id="web-app-description" rows={2} disabled={pending} {...register('description')} />
+            <Textarea
+              id="web-app-description"
+              rows={2}
+              disabled={pending}
+              {...register('description')}
+            />
           </div>
 
           <div className="space-y-1.5">
@@ -174,7 +223,11 @@ export function CreateWebAppDialog({ open, onOpenChange, onCreated }: Props) {
               control={control}
               name="isPrivate"
               render={({ field }) => (
-                <PrivateWebAppCheckbox checked={field.value} onChange={field.onChange} disabled={pending} />
+                <PrivateWebAppCheckbox
+                  checked={field.value}
+                  onChange={field.onChange}
+                  disabled={pending}
+                />
               )}
             />
             {!isPrivate && (
@@ -188,20 +241,22 @@ export function CreateWebAppDialog({ open, onOpenChange, onCreated }: Props) {
             )}
           </div>
 
-          <div className="space-y-1.5">
-            <Label>{t('web_app_archive_optional')}</Label>
-            <Controller
-              control={control}
-              name="file"
-              rules={{
-                validate: (value) => !value || isSupportedArchive(value) || t('web_app_archive_unsupported'),
-              }}
-              render={({ field }) => (
-                <WebAppUploadField file={field.value} onChange={field.onChange} disabled={pending} />
-              )}
-            />
-            <FieldError errors={[errors.file]} />
-          </div>
+          {Object.keys(schema).length > 0 && (
+            <div className="space-y-2 rounded-lg border p-3">
+              <div>
+                <div className="text-sm font-medium">{t('web_app_settings')}</div>
+                <p className="text-xs text-muted-foreground">{t('web_app_settings_hint')}</p>
+              </div>
+              <WebAppSettingsFields
+                schema={schema}
+                values={settings}
+                onChange={setSettings}
+                disabled={pending}
+                selfSlug={slug}
+                showErrors={showSettingErrors}
+              />
+            </div>
+          )}
 
           {errors.root?.server && (
             <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -221,8 +276,12 @@ export function CreateWebAppDialog({ open, onOpenChange, onCreated }: Props) {
             {t('cancel')}
           </Button>
           <Button type="submit" form="create-web-app" disabled={pending}>
-            {pending ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Upload className="mr-2 size-4" />}
-            {pending && file ? `${progress}%` : t('upload_and_publish')}
+            {pending ? (
+              <Loader2 className="mr-2 size-4 animate-spin" />
+            ) : (
+              <Upload className="mr-2 size-4" />
+            )}
+            {pkg && !incomplete ? t('upload_and_publish') : t('create_web_app_draft')}
           </Button>
         </DialogFooter>
       </DialogContent>

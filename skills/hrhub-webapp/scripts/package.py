@@ -17,7 +17,11 @@ MAX_FILES, MAX_FILE, MAX_TOTAL, MAX_ARCHIVE = 2000, 20 * 2**20, 200 * 2**20, 50 
 SLUG = re.compile(r"^[a-z0-9][a-z0-9-]{1,62}$")
 
 
-def check_manifest(path):
+SETTING_KEY = re.compile(r"^[A-Za-z][A-Za-z0-9_]{0,39}$")
+SETTING_TYPES = ("app", "string", "text", "number", "boolean", "select")
+
+
+def check_manifest(path, files):
     """Same rules as the HR Hub upload check (web-app-manifest.ts): a broken hrhub.json rejects the upload."""
     try:
         raw = json.load(open(path, encoding="utf-8"))
@@ -25,12 +29,55 @@ def check_manifest(path):
         return [f"hrhub.json is not valid JSON ({error})"]
     if not isinstance(raw, dict):
         return ["hrhub.json must be a JSON object"]
+    errors = []
+
+    for key, limit in (("name", 100), ("description", 500), ("slug", 63), ("icon", 100)):
+        if key in raw and raw[key] is not None and (not isinstance(raw[key], str) or len(raw[key]) > limit):
+            errors.append(f'hrhub.json "{key}" must be text (max {limit})')
+    if isinstance(raw.get("slug"), str) and not SLUG.match(raw["slug"]):
+        errors.append('hrhub.json "slug" must use lowercase letters, digits and hyphens (2-63)')
+    icon = raw.get("icon")
+    if isinstance(icon, str):
+        if not re.match(r"^[A-Za-z0-9._-]+\.(svg|png|ico|webp)$", icon, re.I):
+            errors.append('hrhub.json "icon" must be a file at the root (.svg, .png, .ico, .webp)')
+        elif icon not in files:
+            errors.append(f'hrhub.json "icon": {icon} is not at the root of the folder')
+
+    settings = raw.get("settings", {})
+    app_settings = set()
+    if not isinstance(settings, dict):
+        errors.append('hrhub.json "settings" must be an object { key: { type, label, ... } }')
+        settings = {}
+    for key, definition in list(settings.items())[:30]:
+        at = f"hrhub.json settings.{key}"
+        if not SETTING_KEY.match(key):
+            errors.append(f"{at}: key must start with a letter and use letters, digits, _ (max 40)")
+            continue
+        if not isinstance(definition, dict):
+            errors.append(f"{at} must be an object {{ type, label }}")
+            continue
+        kind = definition.get("type")
+        if kind not in SETTING_TYPES:
+            errors.append(f"{at}.type must be one of {', '.join(SETTING_TYPES)}")
+        if not isinstance(definition.get("label"), str) or not definition["label"].strip():
+            errors.append(f"{at}.label is required")
+        if "required" in definition and not isinstance(definition["required"], bool):
+            errors.append(f"{at}.required must be true or false")
+        if kind == "select":
+            options = definition.get("options")
+            if not isinstance(options, list) or not 1 <= len(options) <= 50:
+                errors.append(f"{at}.options must list 1-50 choices")
+        if kind == "app":
+            app_settings.add(key)
+    if len(settings) > 30:
+        errors.append('hrhub.json "settings": at most 30 keys')
+
     realtime = raw.get("realtime")
     if realtime is None:
-        return []
+        return errors
     if not isinstance(realtime, dict) or not isinstance(realtime.get("channels"), list):
-        return ['hrhub.json: "realtime" must be { "channels": [...] }']
-    errors, prefixes = [], []
+        return errors + ['hrhub.json: "realtime" must be { "channels": [...] }']
+    prefixes = []
     for i, rule in enumerate(realtime["channels"]):
         at = f"hrhub.json realtime.channels[{i}]"
         if not isinstance(rule, dict):
@@ -40,12 +87,21 @@ def check_manifest(path):
         if not isinstance(prefix, str) or (prefix and not re.match(r"^[A-Za-z0-9._:-]{1,48}$", prefix)):
             errors.append(f"{at}.prefix must use letters, digits, . _ : - (max 48)")
         prefixes.append(prefix)
-        for key in ("participants", "hostRoles"):
-            value = rule.get(key, [])
-            if not isinstance(value, list) or any(not isinstance(v, str) or not v.strip() or len(v) > 100 for v in value):
-                errors.append(f"{at}.{key} must be a list of names")
-            elif key == "participants":
-                errors += [f'{at}.participants: "{v}" is not a valid app slug' for v in value if not SLUG.match(v.strip())]
+        participants = rule.get("participants", [])
+        if not isinstance(participants, list):
+            errors.append(f"{at}.participants must be a list")
+            participants = []
+        for entry in participants:
+            if isinstance(entry, str) and SLUG.match(entry.strip()):
+                continue
+            if isinstance(entry, dict) and isinstance(entry.get("$setting"), str):
+                if entry["$setting"] not in app_settings:
+                    errors.append(f'{at}.participants: "$setting": "{entry["$setting"]}" must name an "app" setting')
+                continue
+            errors.append(f'{at}.participants: each entry is an app slug or {{ "$setting": "<app setting>" }}')
+        roles = rule.get("hostRoles", [])
+        if not isinstance(roles, list) or any(not isinstance(v, str) or not v.strip() or len(v) > 100 for v in roles):
+            errors.append(f"{at}.hostRoles must be a list of names")
         for key, low, high in (("maxParticipants", 1, 2000), ("hostGraceSeconds", 0, 3600)):
             value = rule.get(key)
             if value is not None and (not isinstance(value, int) or isinstance(value, bool) or not low <= value <= high):
@@ -98,7 +154,7 @@ def main() -> int:
             warnings.append("favicon.svg must not contain scripts, foreignObject or external references")
 
     if any(rel == "hrhub.json" for _, rel in files):
-        errors += check_manifest(os.path.join(src, "hrhub.json"))
+        errors += check_manifest(os.path.join(src, "hrhub.json"), {rel for _, rel in files})
 
     if len(files) > MAX_FILES:
         errors.append(f"more than {MAX_FILES} files")

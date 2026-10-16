@@ -8,15 +8,17 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import type { WebApp, WebAppVersion } from '@generated/prisma';
+import { randomUUID } from 'node:crypto';
 import { readFile, stat } from 'node:fs/promises';
-import { join } from 'node:path';
+import { extname, join } from 'node:path';
 import { PrismaService } from '../../prisma/prisma.service';
 import { TraceContextService } from '../app/trace/trace-context.service';
 import { TraceLogger } from '../app/trace/trace-logger.service';
 import { AuthenticatedUser } from '../auth/auth.types';
 import { ArchiveExtractorService, ArchiveValidationError } from './archive-extractor.service';
 import { WebAppDataService } from './web-app-data.service';
-import { MANIFEST_FILE, ManifestError, parseManifest } from './web-app-manifest';
+import { MANIFEST_FILE, ManifestError, parseManifest, WebAppManifest } from './web-app-manifest';
+import { WebAppSettingsService } from './web-app-settings.service';
 import { parseRequiredRoles, WebAppAccessService } from './web-app-access.service';
 import { WebAppStorageService } from './web-app-storage.service';
 import { RESERVED_SLUGS, SLUG_PATTERN, WebAppsConfig } from './web-apps.config';
@@ -33,12 +35,28 @@ interface StagedVersion {
   checksum: string;
   archiveType: 'zip' | 'tar.gz';
   icon: string | null;
+  /** Validated hrhub.json: parsed, and its original text (stored with the version). */
+  manifest: WebAppManifest | null;
+  manifestText: string | null;
 }
+
+/** An archive uploaded through "inspect", waiting (extracted) for the create / upload form to be submitted. */
+interface PendingUpload {
+  staged: StagedVersion;
+  archive: Pick<UploadedArchive, 'originalname' | 'size'>;
+  userId: string;
+  timer: NodeJS.Timeout;
+}
+
+const PENDING_TTL_MS = 30 * 60 * 1000;
+const ICON_PREVIEW_MAX_BYTES = 200 * 1024;
+const ICON_TYPES: Record<string, string> = { '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.webp': 'image/webp' };
 
 @Injectable()
 export class WebAppsService implements OnModuleInit {
   private readonly logger: TraceLogger;
   private readonly locks = new Map<string, Promise<void>>();
+  private readonly pending = new Map<string, PendingUpload>();
 
   constructor(
     private readonly prisma: PrismaService,
@@ -47,6 +65,7 @@ export class WebAppsService implements OnModuleInit {
     private readonly data: WebAppDataService,
     private readonly config: WebAppsConfig,
     private readonly access: WebAppAccessService,
+    private readonly settings: WebAppSettingsService,
     traceContext: TraceContextService,
   ) {
     this.logger = new TraceLogger(traceContext, WebAppsService.name);
@@ -94,6 +113,9 @@ export class WebAppsService implements OnModuleInit {
 
     return apps.map((app) => ({
       ...this.toView(app, app.currentVersionId ? byId.get(app.currentVersionId) : undefined),
+      settingsSchema: {},
+      settings: {},
+      missingSettings: [],
       requiredRoles: [],
       createdBy: null,
       createdByName: null,
@@ -103,7 +125,16 @@ export class WebAppsService implements OnModuleInit {
   async get(id: string) {
     const app = await this.findApp(id);
     const current = app.currentVersionId ? await this.prisma.webAppVersion.findUnique({ where: { id: app.currentVersionId } }) : null;
-    return this.toView(app, current ?? undefined);
+    return this.toView(app, current ?? undefined, (await this.settingsVersion(app)) ?? undefined);
+  }
+
+  /**
+   * The version whose hrhub.json defines the app's settings: the published one, else (a draft waiting for its
+   * settings before it can be published) the latest uploaded one.
+   */
+  private async settingsVersion(app: WebApp) {
+    if (app.currentVersionId) return this.prisma.webAppVersion.findUnique({ where: { id: app.currentVersionId } });
+    return this.prisma.webAppVersion.findFirst({ where: { webAppId: app.id, status: 'ready' }, orderBy: { version: 'desc' } });
   }
 
   currentVersion(app: WebApp) {
@@ -125,31 +156,117 @@ export class WebAppsService implements OnModuleInit {
     return this.toVersionView(await this.findVersion(id, version), app.currentVersionId);
   }
 
+  // -------------------------------------------------------------- inspect (upload first, then fill the form)
+
+  /**
+   * Extracts and validates an archive without creating anything, and keeps it for PENDING_TTL_MS: the admin form shows
+   * what the package says about itself (name, description, icon, settings to fill) and submits with the token, so the
+   * file is not uploaded twice.
+   */
+  async inspect(file: UploadedArchive | undefined, user: AuthenticatedUser) {
+    if (!file) throw new BadRequestException('file is required');
+    let staged: StagedVersion;
+    try {
+      staged = await this.stage(file);
+    } finally {
+      await this.discard(file);
+    }
+
+    const token = randomUUID();
+    const timer = setTimeout(() => void this.dropPending(token), PENDING_TTL_MS);
+    timer.unref();
+    this.pending.set(token, { staged, archive: { originalname: file.originalname, size: file.size }, userId: user.id, timer });
+    this.logger.log(`Inspected ${file.originalname} for ${user.id}: token ${token}`);
+
+    return {
+      token,
+      expiresAt: new Date(Date.now() + PENDING_TTL_MS).toISOString(),
+      archive: { name: file.originalname, size: file.size, fileCount: staged.fileCount, totalBytes: staged.totalBytes },
+      manifest: staged.manifest,
+      icon: staged.icon,
+      iconPreview: await this.iconPreview(staged),
+    };
+  }
+
+  /** A pending upload of this user, still waiting; throws when it expired or belongs to someone else. */
+  private pendingFor(token: unknown, user: AuthenticatedUser): PendingUpload {
+    const pending = typeof token === 'string' ? this.pending.get(token) : undefined;
+    if (!pending || pending.userId !== user.id) {
+      throw new BadRequestException('The uploaded package expired or is unknown; choose the file again');
+    }
+    return pending;
+  }
+
+  private async dropPending(token: string) {
+    const pending = this.pending.get(token);
+    if (!pending) return;
+    this.pending.delete(token);
+    clearTimeout(pending.timer);
+    await this.storage.removeDir(pending.staged.tempDir);
+  }
+
+  private async iconPreview(staged: StagedVersion): Promise<string | null> {
+    if (!staged.icon) return null;
+    const path = join(staged.baseDir, staged.icon);
+    const info = await stat(path).catch(() => null);
+    if (!info || info.size > ICON_PREVIEW_MAX_BYTES) return null;
+    const type = ICON_TYPES[extname(staged.icon).toLowerCase()] ?? 'application/octet-stream';
+    return `data:${type};base64,${(await readFile(path)).toString('base64')}`;
+  }
+
+  /** The package of a create / upload: a pending (inspected) one, or the file sent along. */
+  private async resolvePackage(input: { stagingToken?: unknown }, file: UploadedArchive | undefined, user: AuthenticatedUser) {
+    if (input.stagingToken) {
+      await this.discard(file);
+      const pending = this.pendingFor(input.stagingToken, user);
+      return { staged: pending.staged, archive: pending.archive, token: input.stagingToken as string };
+    }
+    if (!file) return null;
+    return { staged: null as StagedVersion | null, archive: file as Pick<UploadedArchive, 'originalname' | 'size'>, token: null, file };
+  }
+
   // -------------------------------------------------------------- mutations
 
   async create(input: CreateWebAppInput, file: UploadedArchive | undefined, user: AuthenticatedUser) {
     const slug = (input.slug ?? '').trim().toLowerCase();
-    const name = (input.name ?? '').trim();
     if (!SLUG_PATTERN.test(slug)) {
+      await this.discard(file);
       throw new BadRequestException('slug must be 2-63 chars: lowercase letters, digits and hyphens');
     }
-    if (RESERVED_SLUGS.has(slug)) throw new BadRequestException(`slug "${slug}" is reserved`);
-    if (!name) throw new BadRequestException('name is required');
+    if (RESERVED_SLUGS.has(slug)) {
+      await this.discard(file);
+      throw new BadRequestException(`slug "${slug}" is reserved`);
+    }
     const requiredRoles = this.parseRoles(input.requiredRoles);
     const isPrivate = this.truthy(input.isPrivate);
+    const publish = this.truthy(input.publish);
+    const pkg = await this.resolvePackage(input, file, user);
 
-    this.logger.log(`Create web app ${slug} by ${user.id} (archive: ${file?.originalname ?? 'none'})`);
+    this.logger.log(`Create web app ${slug} by ${user.id} (archive: ${pkg?.archive.originalname ?? 'none'})`);
     return this.withLock(slug, async () => {
+      // Everything that can be refused is checked before the package is used: a pending one stays available.
       if (await this.prisma.webApp.findUnique({ where: { slug } })) {
         await this.discard(file);
         throw new ConflictException(`slug "${slug}" is already used`);
       }
 
-      // Validate the archive before anything is created.
-      const staged = file ? await this.stage(file) : null;
-
+      let staged = pkg?.staged ?? null;
+      const ownStaging = !pkg?.token;
+      let consumed = false;
       let appId: string | null = null;
       try {
+        if (!staged && pkg?.file) staged = await this.stage(pkg.file);
+
+        const name = (input.name ?? '').trim() || staged?.manifest?.name || '';
+        if (!name) throw new BadRequestException('name is required');
+        const schema = staged?.manifest?.settings ?? {};
+        const values = await this.settings.merge(schema, {}, input.settings);
+        const missing = this.settings.missingRequired(schema, values);
+        if (publish && staged && missing.length) throw new BadRequestException({ message: 'Missing required settings', errors: missing });
+
+        // From here on the package is consumed.
+        if (pkg?.token) this.forgetPending(pkg.token);
+        consumed = true;
         await this.storage.initAppDir(slug);
         this.data.initDatabase(slug);
 
@@ -157,38 +274,47 @@ export class WebAppsService implements OnModuleInit {
           data: {
             slug,
             name,
-            description: input.description?.trim() || null,
+            description: input.description?.trim() || staged?.manifest?.description || null,
             requiredRoles: JSON.stringify(requiredRoles),
             isPrivate,
+            settings: JSON.stringify(values),
             createdBy: user.id,
             createdByName: user.username ?? user.email ?? null,
           },
         });
         appId = app.id;
 
-        if (staged && file) {
-          const version = await this.commit(app, staged, file, undefined, user);
-          if (this.truthy(input.publish)) await this.publishLocked(app.id, version.version);
+        if (staged && pkg) {
+          const version = await this.commit(app, staged, pkg.archive, undefined, user);
+          if (publish) await this.publishLocked(app.id, version.version);
         }
       } catch (error) {
         if (appId) {
           await this.prisma.webAppVersion.deleteMany({ where: { webAppId: appId } }).catch(() => undefined);
           await this.prisma.webApp.delete({ where: { id: appId } }).catch(() => undefined);
+          this.data.close(slug);
+          await this.storage.removeDir(this.storage.appDir(slug));
         }
-        this.data.close(slug);
-        await this.storage.removeDir(this.storage.appDir(slug));
         throw error;
       } finally {
-        await this.cleanup(staged, file);
+        // A pending package survives a refused form (the admin fixes it and submits again), a direct upload does not.
+        if (ownStaging || consumed) await this.cleanup(staged, pkg?.file);
       }
 
       return this.get(appId);
     });
   }
 
+  /** Stops tracking a pending upload whose files are being committed (the caller cleans them up). */
+  private forgetPending(token: string) {
+    const pending = this.pending.get(token);
+    if (pending) clearTimeout(pending.timer);
+    this.pending.delete(token);
+  }
+
   async update(id: string, input: UpdateWebAppInput, user: AuthenticatedUser) {
     const app = await this.findApp(id);
-    const data: { name?: string; description?: string | null; requiredRoles?: string; isPrivate?: boolean } = {};
+    const data: { name?: string; description?: string | null; requiredRoles?: string; isPrivate?: boolean; settings?: string } = {};
 
     if (input.name !== undefined) {
       if (!input.name.trim()) throw new BadRequestException('name cannot be empty');
@@ -196,6 +322,10 @@ export class WebAppsService implements OnModuleInit {
     }
     if (input.description !== undefined) data.description = input.description?.trim() || null;
     if (input.requiredRoles !== undefined) data.requiredRoles = JSON.stringify(this.parseRoles(input.requiredRoles));
+    if (input.settings !== undefined) {
+      const schema = this.settings.manifestOf(await this.settingsVersion(app))?.settings ?? {};
+      data.settings = JSON.stringify(await this.settings.merge(schema, this.settings.storedValues(app), input.settings));
+    }
     if (input.isPrivate !== undefined) {
       data.isPrivate = this.truthy(input.isPrivate);
       // Only the creator can lock an app to themselves (otherwise it would be hidden from the admin who did it).
@@ -209,19 +339,33 @@ export class WebAppsService implements OnModuleInit {
   }
 
   async uploadVersion(id: string, file: UploadedArchive | undefined, input: UploadVersionInput, user: AuthenticatedUser) {
-    if (!file) throw new BadRequestException('file is required');
+    const pkg = await this.resolvePackage(input, file, user);
+    if (!pkg) throw new BadRequestException('file is required');
     const app = await this.findApp(id);
+    const publish = this.truthy(input.publish);
 
-    this.logger.log(`Upload version for ${app.slug} by ${user.id} (${file.originalname}, ${file.size} bytes)`);
+    this.logger.log(`Upload version for ${app.slug} by ${user.id} (${pkg.archive.originalname}, ${pkg.archive.size} bytes)`);
     return this.withLock(app.slug, async () => {
-      let staged: StagedVersion | null = null;
+      let staged = pkg.staged;
+      let committed = false;
       try {
-        staged = await this.stage(file);
-        const version = await this.commit(app, staged, file, input.note, user);
-        if (this.truthy(input.publish)) await this.publishLocked(app.id, version.version);
+        if (!staged && pkg.file) staged = await this.stage(pkg.file);
+        if (!staged) throw new BadRequestException('file is required');
+
+        // Settings of the new version: what is stored, plus what the admin entered for new keys.
+        const schema = staged.manifest?.settings ?? {};
+        const values = await this.settings.merge(schema, this.settings.storedValues(app), input.settings);
+        const missing = this.settings.missingRequired(schema, values);
+        if (publish && missing.length) throw new BadRequestException({ message: 'Missing required settings', errors: missing });
+
+        if (pkg.token) this.forgetPending(pkg.token);
+        committed = true;
+        await this.prisma.webApp.update({ where: { id: app.id }, data: { settings: JSON.stringify(values) } });
+        const version = await this.commit(app, staged, pkg.archive, input.note, user);
+        if (publish) await this.publishLocked(app.id, version.version);
         return this.getVersion(app.id, version.version);
       } finally {
-        await this.cleanup(staged, file);
+        if (!pkg.token || committed) await this.cleanup(staged, pkg.file);
       }
     });
   }
@@ -317,6 +461,8 @@ export class WebAppsService implements OnModuleInit {
     const app = await this.findApp(id);
     const version = await this.findVersion(id, versionNumber);
     if (version.status !== 'ready') throw new BadRequestException('Version is not ready');
+    const missing = this.settings.missingRequired(this.settings.manifestOf(version)?.settings ?? {}, this.settings.storedValues(app));
+    if (missing.length) throw new BadRequestException({ message: 'Missing required settings', errors: missing });
     this.logger.log(`Publish ${app.slug} v${version.version} (was ${app.currentVersionId ?? 'none'})`);
 
     // Disabled apps keep the pointer but are not exposed until re-enabled.
@@ -339,9 +485,21 @@ export class WebAppsService implements OnModuleInit {
       const archiveType = await this.extractor.detectType(file.path);
       const checksum = await this.extractor.checksum(file.path);
       const result = await this.extractor.extract(file.path, archiveType, tempDir);
-      const icon = await this.findIcon(result.baseDir);
-      await this.validateManifest(result.baseDir);
-      return { tempDir, baseDir: result.baseDir, fileCount: result.fileCount, totalBytes: result.totalBytes, checksum, archiveType, icon };
+      const manifestText = await readFile(join(result.baseDir, MANIFEST_FILE), 'utf8').catch(() => null);
+      // A package that ships a broken hrhub.json is rejected instead of silently ignored.
+      const manifest = manifestText === null ? null : parseManifest(manifestText);
+      const icon = await this.findIcon(result.baseDir, manifest);
+      return {
+        tempDir,
+        baseDir: result.baseDir,
+        fileCount: result.fileCount,
+        totalBytes: result.totalBytes,
+        checksum,
+        archiveType,
+        icon,
+        manifest,
+        manifestText,
+      };
     } catch (error) {
       await this.storage.removeDir(tempDir);
       if (error instanceof ArchiveValidationError) {
@@ -357,7 +515,7 @@ export class WebAppsService implements OnModuleInit {
   private async commit(
     app: WebApp,
     staged: StagedVersion,
-    file: UploadedArchive,
+    file: Pick<UploadedArchive, 'originalname' | 'size'>,
     note: string | undefined,
     user: AuthenticatedUser,
   ): Promise<WebAppVersion> {
@@ -382,6 +540,7 @@ export class WebAppsService implements OnModuleInit {
           fileCount: staged.fileCount,
           checksum: staged.checksum,
           icon: staged.icon,
+          manifest: staged.manifestText,
           note: note?.trim() || null,
           createdBy: user.id,
           createdByName: user.username ?? user.email ?? null,
@@ -393,7 +552,13 @@ export class WebAppsService implements OnModuleInit {
     }
   }
 
-  private async findIcon(dir: string): Promise<string | null> {
+  /** The manifest's "icon" (must exist), else the first favicon.* found at the root. */
+  private async findIcon(dir: string, manifest: WebAppManifest | null): Promise<string | null> {
+    if (manifest?.icon) {
+      const info = await stat(join(dir, manifest.icon)).catch(() => null);
+      if (!info?.isFile()) throw new ManifestError([`"icon": ${manifest.icon} was not found at the archive root`]);
+      return manifest.icon;
+    }
     for (const name of ICON_FILES) {
       const info = await stat(join(dir, name)).catch(() => null);
       if (info?.isFile()) return name;
@@ -401,18 +566,12 @@ export class WebAppsService implements OnModuleInit {
     return null;
   }
 
-  /** hrhub.json is optional, but a package that ships a broken one is rejected instead of silently ignored. */
-  private async validateManifest(dir: string) {
-    const text = await readFile(join(dir, MANIFEST_FILE), 'utf8').catch(() => null);
-    if (text !== null) parseManifest(text);
-  }
-
-  private async cleanup(staged: StagedVersion | null, file: UploadedArchive | undefined) {
+  private async cleanup(staged: StagedVersion | null, file: Pick<UploadedArchive, 'path'> | undefined) {
     if (staged) await this.storage.removeDir(staged.tempDir);
     await this.discard(file);
   }
 
-  private async discard(file: UploadedArchive | undefined) {
+  private async discard(file: Pick<UploadedArchive, 'path'> | undefined) {
     if (file) await this.storage.removeFile(file.path);
   }
 
@@ -477,7 +636,9 @@ export class WebAppsService implements OnModuleInit {
     }
   }
 
-  toView(app: WebApp, current?: WebAppVersion) {
+  toView(app: WebApp, current?: WebAppVersion, settingsVersion: WebAppVersion | undefined = current) {
+    const schema = this.settings.manifestOf(settingsVersion)?.settings ?? {};
+    const stored = this.settings.storedValues(app);
     return {
       id: app.id,
       slug: app.slug,
@@ -489,6 +650,10 @@ export class WebAppsService implements OnModuleInit {
       currentVersionId: app.currentVersionId,
       currentVersion: current?.version ?? null,
       icon: current?.icon ?? null,
+      // What the published version declares, the values entered (defaults filled in), and what is still missing.
+      settingsSchema: schema,
+      settings: this.settings.effectiveValues(schema, stored),
+      missingSettings: this.settings.missingRequired(schema, stored),
       url: `/hr-hub/apps/${app.slug}/`,
       createdBy: app.createdBy,
       createdByName: app.createdByName,

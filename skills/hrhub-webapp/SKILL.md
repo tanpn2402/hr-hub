@@ -16,13 +16,15 @@ A folder containing at least `index.html` **at its root**, packaged with `script
 ```
 my-app/
   index.html     (required, at the root)
+  hrhub.json     (always create one: name, description, slug, icon, settings; see "hrhub.json")
   favicon.svg    (always create one, at the root; see "Favicon, title and description")
   app.js         (your logic; classic script, no modules/bundler needed)
   style.css      (only app-specific tweaks; the theme comes from hrhub-theme.css)
 ```
 
 Run `python3 .claude/skills/hrhub-webapp/scripts/package.py my-app` → creates and validates `my-app.zip`.
-Tell the user the slug to use (lowercase letters, digits, hyphens; 2-63 chars; not `api`, `assets`, `admin`,
+When the admin picks the zip in HR Hub, the form fills itself in from `hrhub.json` (name, description, slug, icon)
+and shows the settings to enter. Still tell the user the slug to use (lowercase letters, digits, hyphens; 2-63 chars; not `api`, `assets`, `admin`,
 `console`, `launch`, `web-apps`, `late-attendance`; `manage-app-accesses` is reserved for the access-request app), the **name** and one-line **description** to type in
 HR Hub (they become the browser tab title and the app switcher text), and which **required roles** to set.
 
@@ -49,16 +51,47 @@ HR Hub (they become the browser tab title and the app switcher text), and which 
 - A reporting app that reads a form app's data should get **restricted roles**, but the form app's data is still
   readable by anyone allowed to open the form app. For sensitive results ask the admin to restrict the form app too.
 
+## hrhub.json: the app describes itself (always ship one)
+
+```json
+{
+  "name": "Leave Report",
+  "description": "Báo cáo đơn nghỉ phép theo phòng ban.",
+  "slug": "leave-report",
+  "icon": "favicon.svg",
+  "settings": {
+    "sourceApp": { "type": "app", "label": "App đơn nghỉ phép", "description": "App chứa các đơn cần báo cáo.", "required": true },
+    "pageSize": { "type": "number", "label": "Số dòng mỗi trang", "default": 50, "min": 10, "max": 500 }
+  }
+}
+```
+
+- `name`, `description`, `slug` (suggested), `icon` (file at the root) **pre-fill the HR Hub form** on upload; the
+  admin can still change name/description in HR Hub (those win; keep `<title>` in sync with them).
+- `settings`: values the **administrator enters per app** (stored by HR Hub, kept across versions), shown as a form
+  when the package is uploaded and on the app's page. Types: `app` (pick another web app → its slug), `string`,
+  `text`, `number` (`min`/`max`), `boolean`, `select` (`options`: strings or `{ value, label }`). Each: `label`
+  (required), `description`, `required`, `default`. Keys: letters/digits/_ starting with a letter.
+- A `required` setting without a value blocks **publishing** (the app can be created as a draft first; this is how two
+  apps that point at each other are installed: create A as a draft, create B pointing at A, fill A, publish A).
+- **Never hard-code another app's slug.** Declare an `app` setting and use it:
+  `hrhub.apps.readData({ setting: 'sourceApp' })`, `hrhub.realtime.join({ appSetting: 'hostApp', ... })`,
+  `"participants": [{ "$setting": "playerApp" }]` in realtime channels, or read the slug from `hrhub.settings.get()`
+  (e.g. to show "open /hr-hub/apps/<slug>").
+- Settings are readable by the app's JS: **never put secrets** in them.
+- A broken `hrhub.json` (bad JSON, unknown type, icon file missing...) is rejected on upload; `package.py` checks the
+  same rules.
+
 ## Favicon, title and description
 
 HR Hub shows each web app with **its own icon** in the app switcher, the admin list and the viewer's top bar, and,
 while the app is open, the **browser tab** uses that icon, the app **name** as title and the **description** as
 `<meta name="description">` (the HR Hub ones come back when the user leaves the app).
 
-- **Icon**: HR Hub takes the first of `favicon.svg`, `favicon.png`, `favicon.ico` found **at the archive root** when a
-  version is uploaded (no setting to change; uploading a version with a new file changes the icon). Always ship
+- **Icon**: HR Hub uses `hrhub.json` `"icon"`, else the first of `favicon.svg`, `favicon.png`, `favicon.ico` found **at
+  the archive root** when a version is uploaded (uploading a version with a new file changes the icon). Always ship
   **`favicon.svg`**; add a PNG only when the user provides a raster logo.
-- **Title / description** come from the **name** and **description** typed in HR Hub (not from the package), so put
+- **Title / description** come from the **name** and **description** in HR Hub (pre-filled from `hrhub.json`), so put
   the same text in `<title>` and the page header and hand both to the user. Name: short (2-4 words, it is the tab
   title). Description: one sentence, under ~120 characters.
 
@@ -205,7 +238,11 @@ const employees = await hrhub.employees.list();  // [{ id, employeeCode, name, e
 // teams). Never compare the whole string: split on ',' and trim. position is free text (member, leader, manager, ...).
 
 // --- read ANOTHER app's data (read-only; user must be allowed to open that app) ---
-const entries = await hrhub.apps.readData('other-app-slug');  // [{ key, value, updatedAt }]
+const entries = await hrhub.apps.readData({ setting: 'sourceApp' });  // [{ key, value, updatedAt }] of the app chosen in an "app" setting
+// (hrhub.apps.readData('slug') also works, but do not hard-code other apps' slugs: declare a setting)
+
+// --- settings (hrhub.json "settings", filled in by the administrator per app; cached) ---
+const settings = await hrhub.settings.get();     // { sourceApp: 'leave-requests', pageSize: 50 }  (defaults included)
 ```
 
 Key rules: `^[A-Za-z0-9._:-]{1,128}$`, max 1000 active keys per app, ~1 MB per value.
@@ -232,7 +269,8 @@ Key rules: `^[A-Za-z0-9._:-]{1,128}$`, max 1000 active keys per app, ~1 MB per v
   (or by a `reviewer.id` you stored). This is a UX filter only: the data API returns every record to anyone who can
   open the app. Delete with `hrhub.data.remove(entry.key)` (soft delete, creator or admin) and keep the entry `key`
   from `all()` for it.
-- **Reporting app**: a separate app that reads the form app via `hrhub.apps.readData(slug)`; sort/filter in JS.
+- **Reporting app**: a separate app that reads the form app via an `app` setting (`hrhub.apps.readData({ setting })`);
+  sort/filter in JS.
 - Store ISO timestamps (`new Date().toISOString()`), employee codes (not only names), and a `schemaVersion` if
   the shape may change.
 - Anyone who can open the app can read its data through the API (anonymous visitors too when it is public): don't
@@ -305,7 +343,7 @@ Working example: `webapps/quizzy-admin/` (host: `host.js`) + `webapps/quizzy/` (
 {
   "realtime": {
     "channels": [
-      { "prefix": "event:", "participants": ["quizzy"], "hostRoles": [], "maxParticipants": 500,
+      { "prefix": "event:", "participants": [{ "$setting": "playerApp" }], "hostRoles": [], "maxParticipants": 500,
         "allowAnonymous": true, "presenceVisible": false, "hostGraceSeconds": 600 }
     ]
   }
@@ -313,7 +351,8 @@ Working example: `webapps/quizzy-admin/` (host: `host.js`) + `webapps/quizzy/` (
 ```
 
 - `prefix`: channel names starting with it (`event:K7M2QX`); longest matching prefix wins; `""` = any name.
-- `participants`: slugs of other apps allowed to join (the owner app may always join its own channels).
+- `participants`: other apps allowed to join (the owner app may always join its own channels): preferably
+  `{ "$setting": "<app setting>" }` (the app the admin chose), or a fixed slug.
 - `hostRoles`: roles allowed to open (host) these channels; `[]` = anyone who may open the owner app.
 - `maxParticipants` (default 200, max 2000), `allowAnonymous` (visitors of a public participant app, with a
   nickname), `presenceVisible` (participants see who else is in; the host always does), `hostGraceSeconds` (how long a
@@ -338,7 +377,7 @@ await ch.kick(memberId);                   // removed and cannot rejoin
 await ch.close();
 
 // participant (another app, or the same one)
-const ch = await hrhub.realtime.join({ app: 'quizzy-admin', channel: 'event:K7M2QX', nickname: 'An' });
+const ch = await hrhub.realtime.join({ appSetting: 'hostApp', channel: 'event:K7M2QX', nickname: 'An' });   // or app: '<slug>'
 ch.onState((state) => render(state));     // called at once with the current state, then on every change
 ch.on('me', (payload) => ...);            // messages from the host
 const dataUrl = await ch.getAsset('img:q1');   // fetch a host asset when needed (cached per key)
@@ -446,5 +485,6 @@ Full snippets: `reference/components.md`. Working examples (copy their structure
 - [ ] Delete UI handles `403` (not creator / not admin); audit info comes from `createdBy`/`updatedBy`, not app JS
 - [ ] Access decided with the user (public, required roles or "Chỉ mình tôi") and stated in the handover with name + description
 - [ ] `hrhub.user.get()` used for display only; handles anonymous visitors
+- [ ] `hrhub.json` with name, description, slug, icon; no other app's slug hard-coded (use `app` settings)
 - [ ] Live apps: `hrhub.json` in the owner app, participants listed, host scores from `meta.at`/`meta.from`, no answers sent before reveal
 - [ ] `package.py` passes

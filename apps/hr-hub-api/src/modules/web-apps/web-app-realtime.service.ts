@@ -7,6 +7,7 @@ import { WebAppAccessService } from './web-app-access.service';
 import { DATA_KEY_PATTERN, WebAppDataService } from './web-app-data.service';
 import { CHANNEL_NAME_PATTERN, findChannelRule, RealtimeChannelRule } from './web-app-manifest';
 import { WebAppManifestService } from './web-app-manifest.service';
+import { WebAppSettingsService } from './web-app-settings.service';
 import { userLabel } from './web-apps-actor';
 import { Member, Participant, RealtimeError, RtSocket } from './web-app-realtime.types';
 
@@ -61,6 +62,7 @@ export class WebAppRealtimeService implements OnModuleDestroy {
     private readonly manifests: WebAppManifestService,
     private readonly access: WebAppAccessService,
     private readonly data: WebAppDataService,
+    private readonly settings: WebAppSettingsService,
     traceContext: TraceContextService,
   ) {
     this.logger = new TraceLogger(traceContext, WebAppRealtimeService.name);
@@ -268,7 +270,8 @@ export class WebAppRealtimeService implements OnModuleDestroy {
     const name = this.channelName(args.channel);
     const rule = await this.ruleFor(owner, name);
 
-    if (from !== owner && !rule.participants.includes(from)) {
+    // Participant apps: fixed slugs, or "$setting" references resolved with the owner app's settings.
+    if (from !== owner && !(await this.settings.participantSlugs(owner, rule.participants)).includes(from)) {
       throw new RealtimeError('forbidden', `App ${from} may not join channels of ${owner}`);
     }
     if (identity.anonymous && !rule.allowAnonymous) throw new RealtimeError('login_required', 'Sign in to join this channel');

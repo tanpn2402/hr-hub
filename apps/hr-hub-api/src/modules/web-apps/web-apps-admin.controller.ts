@@ -31,6 +31,13 @@ const archiveUpload = FileInterceptor('file', {
 export class WebAppsAdminController {
   constructor(private readonly webApps: WebAppsService) {}
 
+  /** Upload + validate a package without creating anything: what it declares, and a token to submit the form with. */
+  @Post('inspect')
+  @UseInterceptors(archiveUpload)
+  inspect(@UploadedFile() file: UploadedArchive | undefined, @CurrentUser() user: AuthenticatedUser) {
+    return this.webApps.inspect(file, user);
+  }
+
   @Post()
   @UseInterceptors(archiveUpload)
   create(@Body() body: CreateWebAppInput, @UploadedFile() file: UploadedArchive | undefined, @CurrentUser() user: AuthenticatedUser) {

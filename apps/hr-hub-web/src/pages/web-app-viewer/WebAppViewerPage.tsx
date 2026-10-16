@@ -22,7 +22,17 @@ import {
   type WebAppDataOp,
 } from '@/pages/hr-hub/api/web-apps';
 
-const OPS: WebAppDataOp[] = ['list', 'get', 'set', 'remove', 'employees', 'readApp', 'me', 'all'];
+const OPS: WebAppDataOp[] = [
+  'list',
+  'get',
+  'set',
+  'remove',
+  'employees',
+  'readApp',
+  'me',
+  'all',
+  'settings',
+];
 
 /** URL of a sub-route of a web app: /hr-hub/apps/:slug/<path>. Segments are encoded but ':' stays readable. */
 function appUrl(slug: string, path: string) {

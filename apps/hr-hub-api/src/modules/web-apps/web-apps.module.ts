@@ -9,6 +9,7 @@ import { WebAppDataService } from './web-app-data.service';
 import { WebAppManifestService } from './web-app-manifest.service';
 import { WebAppRealtimeGateway } from './web-app-realtime.gateway';
 import { WebAppRealtimeService } from './web-app-realtime.service';
+import { WebAppSettingsService } from './web-app-settings.service';
 import { WebAppRuntimeController } from './web-app-runtime.controller';
 import { WebAppStorageService } from './web-app-storage.service';
 import { WebAppStaticController } from './web-app-static.controller';
@@ -34,6 +35,7 @@ import { WebAppsService } from './web-apps.service';
     OptionalAuthGuard,
     WebAppsService,
     WebAppManifestService,
+    WebAppSettingsService,
     WebAppRealtimeService,
     WebAppRealtimeGateway,
   ],

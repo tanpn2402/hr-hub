@@ -4,6 +4,40 @@ import { idenplane } from '@/lib/idenplane';
 
 export type WebAppStatus = 'draft' | 'published' | 'disabled' | 'deleted';
 
+/** A setting an app declares in its hrhub.json; the administrator enters the value per app. */
+export type SettingType = 'app' | 'string' | 'text' | 'number' | 'boolean' | 'select';
+export type SettingDefinition = {
+  type: SettingType;
+  label: string;
+  description: string | null;
+  required: boolean;
+  default: string | number | boolean | null;
+  options: Array<{ value: string; label: string }>;
+  min: number | null;
+  max: number | null;
+};
+export type SettingsSchema = Record<string, SettingDefinition>;
+export type SettingValues = Record<string, string | number | boolean | null>;
+
+/** What hrhub.json says about a package (validated by the API). */
+export type WebAppManifest = {
+  name: string | null;
+  description: string | null;
+  slug: string | null;
+  icon: string | null;
+  settings: SettingsSchema;
+};
+
+/** POST /web-apps/inspect: the archive is uploaded and extracted; submit the form with `token`. */
+export type InspectedPackage = {
+  token: string;
+  expiresAt: string;
+  archive: { name: string; size: number; fileCount: number; totalBytes: number };
+  manifest: WebAppManifest | null;
+  icon: string | null;
+  iconPreview: string | null;
+};
+
 export type WebApp = {
   id: string;
   slug: string;
@@ -17,6 +51,10 @@ export type WebApp = {
   currentVersion: number | null;
   /** Favicon file of the published version (favicon.svg/png/ico), null when the package has none. */
   icon: string | null;
+  /** Settings the published version declares, their values (defaults filled in) and the required ones still empty. */
+  settingsSchema: SettingsSchema;
+  settings: SettingValues;
+  missingSettings: string[];
   url: string;
   createdByName: string | null;
   createdAt: string;
@@ -47,13 +85,18 @@ export type CreateWebAppParams = {
   requiredRoles: string[];
   isPrivate?: boolean;
   file?: File | null;
+  /** Instead of `file`: a package already uploaded through inspectWebAppPackage. */
+  stagingToken?: string;
+  settings?: SettingValues;
   publish?: boolean;
   onProgress?: (percent: number) => void;
 };
 
 export type UploadVersionParams = {
   id: string;
-  file: File;
+  file?: File | null;
+  stagingToken?: string;
+  settings?: SettingValues;
   note?: string;
   publish?: boolean;
   onProgress?: (percent: number) => void;
@@ -65,6 +108,7 @@ export type UpdateWebAppParams = {
   description?: string | null;
   requiredRoles?: string[];
   isPrivate?: boolean;
+  settings?: SettingValues;
 };
 
 /** Upload timeout is longer than the default 30s used for JSON calls. */
@@ -88,12 +132,30 @@ export async function createWebApp(params: CreateWebAppParams): Promise<WebApp> 
   form.append('requiredRoles', JSON.stringify(params.requiredRoles));
   if (params.isPrivate) form.append('isPrivate', 'true');
   if (params.publish) form.append('publish', 'true');
-  if (params.file) form.append('file', params.file);
+  if (params.settings) form.append('settings', JSON.stringify(params.settings));
+  if (params.stagingToken) form.append('stagingToken', params.stagingToken);
+  else if (params.file) form.append('file', params.file);
 
   const { data } = await apiClient.post<WebApp>('/web-apps', form, {
     timeout: UPLOAD_TIMEOUT,
     onUploadProgress: (event) => {
       if (event.total) params.onProgress?.(Math.round((event.loaded / event.total) * 100));
+    },
+  });
+  return data;
+}
+
+/** Uploads and validates a package without creating anything; returns what it declares and a token. */
+export async function inspectWebAppPackage(
+  file: File,
+  onProgress?: (percent: number) => void,
+): Promise<InspectedPackage> {
+  const form = new FormData();
+  form.append('file', file);
+  const { data } = await apiClient.post<InspectedPackage>('/web-apps/inspect', form, {
+    timeout: UPLOAD_TIMEOUT,
+    onUploadProgress: (event) => {
+      if (event.total) onProgress?.(Math.round((event.loaded / event.total) * 100));
     },
   });
   return data;
@@ -117,7 +179,9 @@ export async function uploadWebAppVersion(params: UploadVersionParams): Promise<
   const form = new FormData();
   if (params.note) form.append('note', params.note);
   if (params.publish) form.append('publish', 'true');
-  form.append('file', params.file);
+  if (params.settings) form.append('settings', JSON.stringify(params.settings));
+  if (params.stagingToken) form.append('stagingToken', params.stagingToken);
+  else if (params.file) form.append('file', params.file);
 
   const { data } = await apiClient.post<WebAppVersion>(`/web-apps/${params.id}/versions`, form, {
     timeout: UPLOAD_TIMEOUT,
@@ -157,7 +221,11 @@ export type WebAppAccess = {
 };
 
 /** Public URL of a web app's favicon (served with the app's static files); `?v=` busts the cache per version. */
-export function webAppIconUrl(app: { slug: string; icon: string | null; currentVersion: number | null }) {
+export function webAppIconUrl(app: {
+  slug: string;
+  icon: string | null;
+  currentVersion: number | null;
+}) {
   if (!app.icon) return null;
   return `${apiClient.defaults.baseURL}/apps/${encodeURIComponent(app.slug)}/${app.icon}?v=${app.currentVersion ?? 0}`;
 }
@@ -199,7 +267,15 @@ export async function requestWebAppAccess(
 }
 
 export type WebAppDataOp =
-  'list' | 'get' | 'set' | 'remove' | 'employees' | 'readApp' | 'me' | 'all';
+  'list' | 'get' | 'set' | 'remove' | 'employees' | 'readApp' | 'me' | 'all' | 'settings';
+
+/** Settings of an app (hrhub.json "settings", as the administrator filled them in). */
+async function readSettings(slug: string): Promise<SettingValues> {
+  const { data } = await apiClient.get<SettingValues>(
+    `/web-apps/${encodeURIComponent(slug)}/settings`,
+  );
+  return data;
+}
 
 /** Executes a data operation for the app identified by the route slug (never by the app itself). */
 export async function runWebAppDataOp(
@@ -207,7 +283,17 @@ export async function runWebAppDataOp(
   op: WebAppDataOp,
   args: Record<string, unknown>,
 ) {
-  if (op === 'readApp') return readOtherAppData(String(args.app ?? ''));
+  if (op === 'settings') return readSettings(slug);
+  if (op === 'readApp') {
+    // { setting: 'sourceApp' }: the target is whatever app the administrator chose in that "app" setting.
+    if (typeof args.setting === 'string') {
+      const target = (await readSettings(slug))[args.setting];
+      if (typeof target !== 'string' || !target)
+        throw new Error(`Setting "${args.setting}" is not set`);
+      return readOtherAppData(target);
+    }
+    return readOtherAppData(String(args.app ?? ''));
+  }
   if (op === 'me') return readCurrentUser();
   // Every record of THIS app (slug comes from the route, never from the app).
   if (op === 'all') return readOtherAppData(slug);

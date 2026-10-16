@@ -15,6 +15,10 @@ export interface CreateWebAppInput {
   requiredRoles?: unknown;
   isPrivate?: unknown;
   publish?: unknown;
+  /** Token returned by POST /web-apps/inspect (the archive is already uploaded and extracted). */
+  stagingToken?: unknown;
+  /** JSON object (or its text in a multipart form): values for the settings the package declares. */
+  settings?: unknown;
 }
 
 export interface UpdateWebAppInput {
@@ -22,9 +26,12 @@ export interface UpdateWebAppInput {
   description?: string | null;
   requiredRoles?: unknown;
   isPrivate?: unknown;
+  settings?: unknown;
 }
 
 export interface UploadVersionInput {
   note?: string;
   publish?: unknown;
+  stagingToken?: unknown;
+  settings?: unknown;
 }

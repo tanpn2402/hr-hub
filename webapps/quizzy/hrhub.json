@@ -1,0 +1,14 @@
+{
+  "name": "Quizzy",
+  "description": "Nhập mã phòng để chơi đố vui trực tiếp cùng đồng nghiệp.",
+  "slug": "quizzy",
+  "icon": "favicon.svg",
+  "settings": {
+    "hostApp": {
+      "type": "app",
+      "label": "App tổ chức (host)",
+      "description": "Web App mà người tổ chức dùng để mở phòng (gói Quizzy Admin).",
+      "required": true
+    }
+  }
+}

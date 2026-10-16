@@ -359,6 +359,9 @@ model WebApp {
   /// true = "only me": only the creator (createdBy) can see and use the app; requiredRoles is ignored.
   isPrivate Boolean @default(false)
 
+  /// JSON object: values an administrator entered for the settings the app's hrhub.json declares (kept across versions).
+  settings String @default("{}")
+
   /// Published version. null = nothing published yet.
   currentVersionId String? @unique
 
@@ -398,6 +401,9 @@ model WebAppVersion {
 
   /// Favicon file at the version root (favicon.svg / favicon.png / favicon.ico), null when the package has none.
   icon String?
+
+  /// The version's validated hrhub.json (JSON), null when the package has none.
+  manifest String?
 
   /// ready / failed / deleted
   status String @default("ready")

@@ -7,6 +7,7 @@ import { WebAppAccessRequestService } from './web-app-access-request.service';
 import { WebAppAccessService } from './web-app-access.service';
 import { OptionalAuthGuard } from './web-apps-optional-auth.guard';
 import { WebAppDataService } from './web-app-data.service';
+import { WebAppSettingsService } from './web-app-settings.service';
 import { WebAppsService } from './web-apps.service';
 import { DataActor, deviceId, userLabel } from './web-apps-actor';
 
@@ -21,6 +22,7 @@ export class WebAppRuntimeController {
     private readonly data: WebAppDataService,
     private readonly webApps: WebAppsService,
     private readonly requests: WebAppAccessRequestService,
+    private readonly settings: WebAppSettingsService,
   ) {}
 
   /** Who is writing and from which device (the client IP the API sees, forwarded by nginx). */
@@ -56,6 +58,14 @@ export class WebAppRuntimeController {
       currentVersion: current?.version ?? null,
       icon: current?.icon ?? null,
     };
+  }
+
+  /** The app's settings (what its hrhub.json declares, as the administrator filled them in; defaults included). */
+  @Get(':slug/settings')
+  @UseGuards(OptionalAuthGuard)
+  async getSettings(@Param('slug') slug: string, @CurrentUser() user: AuthenticatedUser | undefined) {
+    await this.access.assertAccess(slug, user ?? null);
+    return this.settings.valuesOf(slug);
   }
 
   @Get(':slug/data')

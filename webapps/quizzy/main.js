@@ -3,8 +3,8 @@ import { confetti, countUp, emojiRain, pop, shake } from './fx.js';
 import { watchDevtools } from '/hr-hub/vendor/hrhub-guard.module.js';
 import { Avatar, BigCount, Leaderboard, Podium, QuestionImage, Signal, Suit, SUIT_NAMES, TimeBar } from './ui.js';
 
-/** The app that hosts the rooms (its hrhub.json lists this app as a participant). */
-const HOST_APP = 'quizzy-admin';
+// The app that hosts the rooms is not hard-coded: the administrator picks it in this app's "hostApp" setting
+// (hrhub.json), and the host app lists this app in its own "playerApp" setting.
 const RETRY_MS = 5000;
 
 const JOIN_ERRORS = {
@@ -135,7 +135,7 @@ function Play({ code, me }) {
   const join = async () => {
     clearTimeout(retry.current);
     try {
-      const ch = await window.hrhub.realtime.join({ app: HOST_APP, channel: `event:${code}`, nickname: pendingNickname || undefined });
+      const ch = await window.hrhub.realtime.join({ appSetting: 'hostApp', channel: `event:${code}`, nickname: pendingNickname || undefined });
       channel.current = ch;
       waiting.current = false;
       setYou(ch.me);
