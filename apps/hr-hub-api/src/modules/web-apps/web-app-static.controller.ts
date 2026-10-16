@@ -5,6 +5,9 @@ import { TraceContextService } from '../app/trace/trace-context.service';
 import { TraceLogger } from '../app/trace/trace-logger.service';
 import { SLUG_PATTERN, WebAppsConfig } from './web-apps.config';
 
+/** Names package.py gives to merged files: app.<8 hex>.js / .css / .js.map, scripts.<8 hex>.js (at the app root). */
+const HASHED_BUNDLE = /^(app\.[0-9a-f]{8}\.(js|css|js\.map)|scripts\.[0-9a-f]{8}\.js)$/;
+
 /**
  * Serves the published version of a web app (WEBAPPS_ROOT/:slug/current) at /apps/:slug/*, which nginx exposes
  * as /hr-hub/api/apps/:slug/*. The iframe in the SPA viewer (/hr-hub/apps/:slug) loads from here; iframes can't
@@ -36,15 +39,17 @@ export class WebAppStaticController {
   serve(@Param('slug') slug: string, @Param('0') rest: string, @Res() response: Response) {
     this.assertValid(slug);
 
+    const root = join(this.config.root, slug, 'current');
+    const target = rest && !rest.endsWith('/') ? rest : `${rest}index.html`;
+
     response.set({
       'Content-Security-Policy': "sandbox allow-scripts allow-forms allow-modals allow-downloads allow-popups; frame-ancestors 'self'",
       'X-Content-Type-Options': 'nosniff',
       'Access-Control-Allow-Origin': '*',
-      'Cache-Control': 'no-cache',
+      // Files named by their content hash (package.py's bundle) never change under the same name: a new version
+      // references new names from index.html, which itself is revalidated on every load.
+      'Cache-Control': HASHED_BUNDLE.test(target) ? 'public, max-age=31536000, immutable' : 'no-cache',
     });
-
-    const root = join(this.config.root, slug, 'current');
-    const target = rest && !rest.endsWith('/') ? rest : `${rest}index.html`;
 
     this.logger.log(`Serving web app "${slug}" file "${target}" from dir ${root}`);
 

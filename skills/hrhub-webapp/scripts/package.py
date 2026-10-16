@@ -1,11 +1,17 @@
 #!/usr/bin/env python3
 """Validate an HR Hub web app folder and package it as <folder>.zip (same rules as the HR Hub upload check).
 
-Usage: python3 package.py <app-folder> [output.zip]
+Usage: python3 package.py <app-folder> [output.zip] [--no-bundle] [--sourcemap]
+
+By default the JS and CSS are merged and minified first (bundle.mjs, needs Node + esbuild): HTTP/1.1 browsers open
+only 6 connections per host, so an app with many module files loads slowly. The source folder is never modified.
 """
 import json
 import os
 import re
+import shutil
+import subprocess
+import tempfile
 import sys
 import zipfile
 
@@ -114,13 +120,37 @@ def check_manifest(path, files):
     return errors
 
 
+def bundle(src, sourcemap):
+    """Runs bundle.mjs into a temporary folder. Returns (folder or None, message); None = package the sources as is."""
+    node = shutil.which("node")
+    if not node:
+        return None, "WARN  Node.js not found: packaging the files as they are (not merged/minified)"
+    build = tempfile.mkdtemp(prefix="hrhub-bundle-")
+    command = [node, os.path.join(os.path.dirname(os.path.abspath(__file__)), "bundle.mjs"), src, build]
+    if sourcemap:
+        command.append("--sourcemap")
+    result = subprocess.run(command, capture_output=True, text=True)
+    if result.returncode != 0:
+        shutil.rmtree(build, ignore_errors=True)
+        lines = result.stderr.strip().splitlines()
+        reason = next((line.strip() for line in lines if "Error" in line or "error" in line), lines[0] if lines else "bundling failed")
+        return None, f"WARN  not bundled ({reason}): packaging the files as they are"
+    report = json.loads(result.stdout.strip().splitlines()[-1])
+    for warning in report["warnings"]:
+        print("WARN ", warning)
+    merged = len(report["removed"])
+    return build, f"BUNDLE {merged} source files -> {', '.join(report['outputs']) or 'nothing to merge'}"
+
+
 def main() -> int:
-    if len(sys.argv) < 2 or not os.path.isdir(sys.argv[1]):
-        print("usage: package.py <app-folder> [output.zip]")
+    flags = {arg for arg in sys.argv[1:] if arg.startswith("--")}
+    args = [arg for arg in sys.argv[1:] if not arg.startswith("--")]
+    if not args or not os.path.isdir(args[0]):
+        print("usage: package.py <app-folder> [output.zip] [--no-bundle] [--sourcemap]")
         return 2
 
-    src = os.path.abspath(sys.argv[1])
-    out = os.path.abspath(sys.argv[2]) if len(sys.argv) > 2 else src.rstrip("/") + ".zip"
+    src = os.path.abspath(args[0])
+    out = os.path.abspath(args[1]) if len(args) > 1 else src.rstrip("/") + ".zip"
     errors, warnings, files = [], [], []
 
     for root, dirs, names in os.walk(src):
@@ -193,9 +223,21 @@ def main() -> int:
             print("ERROR", message)
         return 1
 
-    with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as archive:
-        for path, rel in sorted(files, key=lambda item: item[1]):
-            archive.write(path, rel)
+    build = None
+    if "--no-bundle" not in flags:
+        build, note = bundle(src, "--sourcemap" in flags)
+        print(note)
+    if build:
+        files = [(os.path.join(root, name), os.path.relpath(os.path.join(root, name), build).replace(os.sep, "/"))
+                 for root, _, names in os.walk(build) for name in names]
+
+    try:
+        with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as archive:
+            for path, rel in sorted(files, key=lambda item: item[1]):
+                archive.write(path, rel)
+    finally:
+        if build:
+            shutil.rmtree(build, ignore_errors=True)
 
     size = os.path.getsize(out)
     if size > MAX_ARCHIVE:

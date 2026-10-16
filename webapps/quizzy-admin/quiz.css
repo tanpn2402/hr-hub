@@ -162,3 +162,5 @@
 @media (prefers-reduced-motion: reduce) {
   .qz-option.qz-correct, .kh-splash-label { animation: none; }
 }
+
+.qz-icon { flex: none; }

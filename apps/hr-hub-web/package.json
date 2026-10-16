@@ -48,6 +48,7 @@
     "@repo/typescript-config": "*",
     "@types/node": "^26.6.2",
     "eslint": "10.9.1",
+    "qrcode": "^1.5.4",
     "typescript": "7.0.2",
     "vite": "8.2.2"
   }

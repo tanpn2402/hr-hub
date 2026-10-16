@@ -33,11 +33,7 @@ import { HRPageHeader } from '../components/HRPageHeader';
 import { PrivateWebAppCheckbox } from '../components/PrivateWebAppCheckbox';
 import { RolesInput } from '../components/RolesInput';
 import { UploadWebAppVersionDialog } from '../components/UploadWebAppVersionDialog';
-import {
-  initialSettings,
-  missingSettings,
-  WebAppSettingsFields,
-} from '../components/WebAppSettingsFields';
+import { initialSettings, WebAppSettingsFields } from '../components/WebAppSettingsFields';
 import { WebAppStatusBadge } from '../components/WebAppStatusBadge';
 import {
   usePublishWebAppVersion,
@@ -92,20 +88,21 @@ export function WebAppDetailPage() {
 
   const onError = (error: unknown) => toast.error(getErrorMessage(error));
 
+  const hasSettings = Object.keys(app.settingsSchema).length > 0;
+
+  /** One save for everything on the page: details, access and the app's settings. */
   const save = () =>
     update.mutate(
-      { id: app.id, name, description, requiredRoles: roles, isPrivate },
+      {
+        id: app.id,
+        name,
+        description,
+        requiredRoles: roles,
+        isPrivate,
+        ...(hasSettings ? { settings } : {}),
+      },
       { onSuccess: () => toast.success(t('saved')), onError },
     );
-
-  const saveSettings = () =>
-    update.mutate(
-      { id: app.id, settings },
-      { onSuccess: () => toast.success(t('saved')), onError },
-    );
-
-  const hasSettings = Object.keys(app.settingsSchema).length > 0;
-  const stillMissing = missingSettings(app.settingsSchema, settings);
 
   const versions = versionsQuery.data ?? [];
   const busy = publish.isPending || rollback.isPending;
@@ -173,34 +170,23 @@ export function WebAppDetailPage() {
             {!isPrivate && <RolesInput value={roles} onChange={setRoles} />}
           </div>
 
-          <Button onClick={save} disabled={update.isPending || !name.trim()}>
-            {update.isPending ? (
-              <Loader2 className="mr-2 size-4 animate-spin" />
-            ) : (
-              <Save className="mr-2 size-4" />
-            )}
-            {t('save')}
-          </Button>
-        </section>
-
-        {/* Settings declared by the published version (hrhub.json "settings"); values are per app. */}
-        <section className="max-w-2xl space-y-3">
-          <div>
-            <h3 className="text-base font-semibold">{t('web_app_settings')}</h3>
-            <p className="text-xs text-muted-foreground">
-              {hasSettings ? t('web_app_settings_hint') : t('web_app_settings_empty')}
-            </p>
-          </div>
-          {app.missingSettings.length > 0 && (
-            <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-              {t('web_app_settings_missing', { list: app.missingSettings.join(', ') })}
-              {!app.currentVersion &&
-                versions.length > 0 &&
-                ` ${t('web_app_settings_then_publish')}`}
+          {/* Settings declared by the app's hrhub.json; values are per app (kept across versions). */}
+          <div className="space-y-3 pt-2">
+            <div>
+              <h3 className="text-base font-semibold">{t('web_app_settings')}</h3>
+              <p className="text-xs text-muted-foreground">
+                {hasSettings ? t('web_app_settings_hint') : t('web_app_settings_empty')}
+              </p>
             </div>
-          )}
-          {hasSettings && (
-            <>
+            {app.missingSettings.length > 0 && (
+              <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {t('web_app_settings_missing', { list: app.missingSettings.join(', ') })}
+                {!app.currentVersion &&
+                  versions.length > 0 &&
+                  ` ${t('web_app_settings_then_publish')}`}
+              </div>
+            )}
+            {hasSettings && (
               <WebAppSettingsFields
                 schema={app.settingsSchema}
                 values={settings}
@@ -209,20 +195,17 @@ export function WebAppDetailPage() {
                 selfSlug={app.slug}
                 showErrors
               />
-              <Button
-                className="min-w-32"
-                onClick={saveSettings}
-                disabled={update.isPending || stillMissing.length > 0}
-              >
-                {update.isPending ? (
-                  <Loader2 className="mr-2 size-4 animate-spin" />
-                ) : (
-                  <Save className="mr-2 size-4" />
-                )}
-                {t('save')}
-              </Button>
-            </>
-          )}
+            )}
+          </div>
+
+          <Button className="min-w-32" onClick={save} disabled={update.isPending || !name.trim()}>
+            {update.isPending ? (
+              <Loader2 className="mr-2 size-4 animate-spin" />
+            ) : (
+              <Save className="mr-2 size-4" />
+            )}
+            {t('save')}
+          </Button>
         </section>
 
         {/* Versions */}

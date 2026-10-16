@@ -4,7 +4,9 @@ import { QuizHost } from './host.js';
 import { missingImages, settingsOf, validateEvent } from './quiz.js';
 import { clearRun, loadEvent, loadRun, playerApp } from './store.js';
 import { confetti, pop } from './fx.js';
-import { Alert, AnswerBars, Avatar, BigCount, Leaderboard, Loading, OptionTile, Podium, QuestionImage, Signal, TimeBar } from './ui.js';
+import { Alert, AnswerBars, Avatar, BigCount, Icon, Leaderboard, Loading, OptionTile, Podium, QuestionImage, Signal, TimeBar } from './ui.js';
+import { copyText } from './transfer.js';
+import { qrDataUrl } from '/hr-hub/vendor/hrhub-qr.module.js';
 
 const OPEN_ERRORS = {
   in_use: 'Phòng này đang được người khác điều khiển.',
@@ -144,7 +146,9 @@ export function RunView({ code }) {
         ${snap.phase !== 'lobby' && snap.phase !== 'finished'
           ? html`<button class="kh-btn kh-btn-light kh-btn-sm min-w-32" type="button" disabled=${busy} onClick=${act((q) => q.next())}>Tiếp ⏭</button>`
           : null}
-        <button class="kh-btn kh-btn-ghost kh-btn-sm min-w-32" type="button" onClick=${leave}>${snap.phase === 'finished' ? 'Đóng phòng' : 'Thoát'}</button>
+        <button class="kh-btn kh-btn-ghost kh-btn-sm min-w-32" type="button" onClick=${leave}>
+          <${Icon} name="logout" size=${16} />${snap.phase === 'finished' ? 'Đóng phòng' : 'Thoát'}
+        </button>
       </div>
     </div>
     ${snap.error ? html`<div class="kh-banner">${snap.error}</div>` : null}
@@ -196,16 +200,38 @@ function Lobby({ snap, event, busy, act, kick }) {
   useEffect(() => {
     playerApp().then(setPlayer, () => {});
   }, []);
+  // Full link to the players' app with the code filled in (/join:<CODE>), as players will type it: same host and
+  // port as this page (the app is served from the HR Hub origin).
+  const joinUrl = player ? `${window.location.protocol}//${window.location.host}/hr-hub/apps/${player}/join:${event.code}` : '';
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    if (!(await copyText(joinUrl))) return;
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   return html`<div class="kh-body">
     <div class="kh-join">
-      <div>Mở <strong>/hr-hub/apps/${player || '…'}</strong> trên HR Hub và nhập mã phòng</div>
-      <div class="kh-code" aria-label="Mã phòng">${event.code}</div>
+      <div class="kh-join-main">
+        <div>Mở đường dẫn dưới đây (hoặc quét mã QR) rồi nhập mã phòng</div>
+        <div class="kh-join-url">
+          <span class="kh-join-link hh-mono">${joinUrl || 'Đang tải…'}</span>
+          <button type="button" class="kh-btn kh-btn-primary kh-btn-sm" disabled=${!joinUrl} onClick=${copy}
+            title="Sao chép đường dẫn">
+            <${Icon} name=${copied ? 'check' : 'copy'} size=${16} />${copied ? 'Đã sao chép' : 'Sao chép'}
+          </button>
+        </div>
+        <div class="kh-code" aria-label="Mã phòng">${event.code}</div>
+      </div>
+      ${joinUrl
+        ? html`<img class="kh-qr" src=${qrDataUrl(joinUrl, { margin: 2, dark: '#25076b' })} alt=${`Mã QR: ${joinUrl}`} />`
+        : null}
     </div>
     <div class="kh-lobby-bar">
       <span class="kh-count">👥 <strong>${snap.players.length}</strong> người chơi</span>
       <h2 class="kh-title">${event.title}</h2>
       <button class="kh-btn kh-btn-lg min-w-32" type="button" disabled=${busy || snap.players.length === 0} onClick=${act((q) => q.start())}>
-        Bắt đầu
+        <${Icon} name="play" size=${20} />Bắt đầu
       </button>
     </div>
     ${snap.players.length === 0 ? html`<div class="kh-waiting">Đang chờ người chơi tham gia…</div>` : null}

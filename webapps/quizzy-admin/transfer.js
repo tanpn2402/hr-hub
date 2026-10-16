@@ -12,13 +12,20 @@ export async function copyText(text, textarea) {
     await navigator.clipboard.writeText(text);
     return true;
   } catch {
-    if (!textarea) return false;
-    textarea.focus();
-    textarea.select();
+    // No textarea given: a temporary off-screen one.
+    const area = textarea || Object.assign(document.createElement('textarea'), { value: text, readOnly: true });
+    if (!textarea) {
+      area.style.cssText = 'position:fixed;left:-9999px;top:0';
+      document.body.appendChild(area);
+    }
+    area.focus();
+    area.select();
     try {
       return document.execCommand('copy');
     } catch {
       return false;
+    } finally {
+      if (!textarea) area.remove();
     }
   }
 }

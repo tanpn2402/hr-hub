@@ -23,6 +23,13 @@ my-app/
 ```
 
 Run `python3 .claude/skills/hrhub-webapp/scripts/package.py my-app` → creates and validates `my-app.zip`.
+It also **merges and minifies the JS and CSS** (bundle.mjs, Node + esbuild from the HR Hub repo): the whole module
+graph of `<script type="module">` becomes one file, consecutive local classic scripts and root stylesheets are
+concatenated in order, `index.html` is rewritten, `*.test.*` files are left out, `/hr-hub/*` imports stay external.
+Browsers on HTTP/1.1 open only 6 connections per host, so many small files load slowly. Write the app as small files
+anyway (readable sources); the zip is built output. Flags: `--no-bundle` (ship sources as they are), `--sourcemap`
+(add a .map for debugging). Avoid computed `import()` paths, `new URL(..., import.meta.url)` and workers in bundled
+code (package.py warns). Without Node the files are packaged unbundled, with a warning.
 When the admin picks the zip in HR Hub, the form fills itself in from `hrhub.json` (name, description, slug, icon)
 and shows the settings to enter. Still tell the user the slug to use (lowercase letters, digits, hyphens; 2-63 chars; not `api`, `assets`, `admin`,
 `console`, `launch`, `web-apps`, `late-attendance`; `manage-app-accesses` is reserved for the access-request app), the **name** and one-line **description** to type in
@@ -149,9 +156,10 @@ HR Hub serves a few ES modules to apps (CORS enabled for the sandboxed iframe). 
 |---|---|---|
 | `/hr-hub/vendor/hrhub-preact.module.js` | Preact 10 + hooks + `html` (htm) | multi-view apps (see above) |
 | `/hr-hub/vendor/hrhub-motion.module.js` | Motion vanilla API: `animate`, `spring`, `stagger`, `inView`, `scroll`, `delay` | lively UI: `animate(el, { scale: [0.3, 1] }, { type: spring, bounce: 0.5 })`; number count-ups `animate(0, 900, { onUpdate })`. Respect `prefers-reduced-motion`. |
+| `/hr-hub/vendor/hrhub-qr.module.js` | `qrDataUrl(text, { ecl, margin, dark, light })` → SVG data URL; `qrSvg(...)`; `qrMatrix(text)` → `{ size, dark(x, y) }` | QR codes (join links, check-in): `<img src=${qrDataUrl(url)}>` (no innerHTML, no canvas) |
 | `/hr-hub/vendor/hrhub-guard.module.js` | `watchDevtools({ onChange, interval, threshold, blockShortcuts, contextMenu })` → `{ isOpen(), stop() }`; `blockShortcuts({ contextMenu })` → undo | games/quizzes that want to deter the curious: pauses on DevTools, swallows F12 / Ctrl+Shift+I/J/C / Ctrl+U / right click. **A deterrent only**: never rely on it for security; keep secrets and answers off the device. |
 
-Rebuild `hrhub-motion.module.js` after upgrading `motion`: `node scripts/build-vendor-motion.mjs`.
+Rebuild `hrhub-motion.module.js` / `hrhub-qr.module.js` after upgrading `motion` / `qrcode`: `node scripts/build-vendor-motion.mjs`, `node scripts/build-vendor-qr.mjs`.
 
 ## Page skeleton (always start from this)
 

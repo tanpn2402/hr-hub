@@ -280,3 +280,17 @@ export function QuestionImage({ question, endsAt, total, revealed }) {
       : html`<img ref=${imgRef} src=${image} alt="Hình ảnh câu hỏi" />`}
   </div>`;
 }
+
+/** Small stroke icons (Lucide shapes): play, logout, copy, check. */
+const ICONS = {
+  play: ['M6 4l14 8-14 8z'],
+  logout: ['M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4', 'M16 17l5-5-5-5', 'M21 12H9'],
+  copy: ['M8 8h12v12H8z', 'M4 16V4h12'],
+  check: ['M20 6L9 17l-5-5'],
+};
+export function Icon({ name, size = 18 }) {
+  return html`<svg class="qz-icon" width=${size} height=${size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    ${ICONS[name].map((d) => html`<path d=${d} fill=${name === 'play' ? 'currentColor' : 'none'} />`)}
+  </svg>`;
+}

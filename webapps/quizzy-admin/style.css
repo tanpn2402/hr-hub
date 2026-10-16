@@ -121,9 +121,17 @@
 .kh-pill { padding: 0.35rem 0.85rem; border-radius: 999px; background: rgb(0 0 0 / 0.25); font-weight: 800; }
 
 .kh-join {
-  display: grid; justify-items: center; gap: 0.25rem; padding: 1.25rem; border-radius: 0.75rem; background: #fff;
-  color: #222; text-align: center; box-shadow: 0 8px 0 rgb(0 0 0 / 0.2);
+  display: flex; align-items: center; justify-content: center; gap: clamp(1rem, 4vw, 3rem); padding: 1.25rem;
+  border-radius: 0.75rem; background: #fff; color: #222; text-align: center; box-shadow: 0 8px 0 rgb(0 0 0 / 0.2);
+  flex-wrap: wrap;
 }
+.kh-join-main { display: grid; justify-items: center; gap: 0.5rem; min-width: 0; }
+.kh-join-url {
+  display: flex; align-items: center; gap: 0.5rem; max-width: 100%; padding: 0.3rem 0.3rem 0.3rem 0.9rem;
+  border-radius: 999px; background: #f3f0fb; border: 1px solid #e4dcf5;
+}
+.kh-join-link { font-size: clamp(0.85rem, 1.6vw, 1.05rem); font-weight: 700; color: var(--kh-purple); overflow-wrap: anywhere; text-align: left; user-select: all; }
+.kh-qr { width: clamp(9rem, 16vw, 12rem); height: auto; border-radius: 0.5rem; image-rendering: pixelated; }
 .kh-code { font-family: var(--font-mono); font-size: clamp(3rem, 11vw, 6rem); font-weight: 900; letter-spacing: 0.12em; color: var(--kh-purple); line-height: 1.05; }
 .kh-lobby-bar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
 .kh-count { padding: 0.5rem 1rem; border-radius: 0.5rem; background: rgb(0 0 0 / 0.3); font-size: 1.15rem; }
