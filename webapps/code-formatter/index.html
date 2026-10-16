@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Code Formatter</title>
+    <meta name="description" content="Format XML, JSON, SQL and Java code, with a history of every format." />
+    <link rel="icon" href="favicon.svg" />
+    <link rel="stylesheet" href="/hr-hub/hrhub-theme.css" />
+    <link rel="stylesheet" href="vendor/codemirror/codemirror.css" />
+    <link rel="stylesheet" href="vendor/codemirror/foldgutter.css" />
+    <link rel="stylesheet" href="style.css" />
+    <script src="/hr-hub/hrhub-sdk.js"></script>
+    <script src="/hr-hub/hrhub-ui.js"></script>
+    <!-- CodeMirror 5 + modes and sql-formatter are vendored (no CDN in the sandbox) -->
+    <script src="vendor/codemirror/codemirror.js"></script>
+    <script src="vendor/codemirror/xml.js"></script>
+    <script src="vendor/codemirror/javascript.js"></script>
+    <script src="vendor/codemirror/sql.js"></script>
+    <script src="vendor/codemirror/clike.js"></script>
+    <script src="vendor/codemirror/matchbrackets.js"></script>
+    <script src="vendor/codemirror/active-line.js"></script>
+    <script src="vendor/codemirror/placeholder.js"></script>
+    <script src="vendor/codemirror/foldcode.js"></script>
+    <script src="vendor/codemirror/foldgutter.js"></script>
+    <script src="vendor/codemirror/brace-fold.js"></script>
+    <script src="vendor/codemirror/xml-fold.js"></script>
+    <script src="vendor/codemirror/comment-fold.js"></script>
+    <script src="vendor/codemirror/indent-fold.js"></script>
+    <script src="vendor/sql-formatter.min.js"></script>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="main.js"></script>
+  </body>
+</html>

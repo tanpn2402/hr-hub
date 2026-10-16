@@ -1,0 +1,14 @@
+{
+  "realtime": {
+    "channels": [
+      {
+        "prefix": "event:",
+        "participants": ["quizzy"],
+        "maxParticipants": 500,
+        "allowAnonymous": true,
+        "presenceVisible": false,
+        "hostGraceSeconds": 600
+      }
+    ]
+  }
+}

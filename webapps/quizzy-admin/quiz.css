@@ -1,0 +1,164 @@
+/* Quiz look shared by quizzy and quizzy-admin (same file in both apps). Kahoot-like: a purple stage,
+   chunky buttons, bold type, and four answer colours with card-suit symbols (cơ, rô, chuồn, bích). */
+:root {
+  --qz-0: #e21b3c; /* hearts */
+  --qz-1: #1368ce; /* diamonds */
+  --qz-2: #d89e00; /* clubs */
+  --qz-3: #26890c; /* spades */
+  --kh-purple: #46178f;
+  --kh-purple-dark: #25076b;
+  --kh-gold: #ffc00a;
+}
+
+.min-w-32 { min-width: 8rem; }
+.hh-btn { font-weight: 700; box-shadow: inset 0 -3px 0 rgb(0 0 0 / 0.18); }
+.hh-btn-ghost { box-shadow: none; }
+
+/* ------------------------------------------------------------ answers */
+.qz-suit { width: 1.6rem; height: 1.6rem; flex: none; fill: currentColor; filter: drop-shadow(0 2px 0 rgb(0 0 0 / 0.2)); }
+.qz-option-0 { --tone: var(--qz-0); }
+.qz-option-1 { --tone: var(--qz-1); }
+.qz-option-2 { --tone: var(--qz-2); }
+.qz-option-3 { --tone: var(--qz-3); }
+
+.qz-option-grid { display: grid; gap: 0.75rem; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.qz-option {
+  display: flex; align-items: center; gap: 0.85rem; min-height: 4.5rem; width: 100%; padding: 0.85rem 1.1rem;
+  border: 0; border-radius: 0.5rem; background: var(--tone); color: #fff; font: inherit; font-size: 1.1rem;
+  font-weight: 800; text-align: left; box-shadow: inset 0 -6px 0 rgb(0 0 0 / 0.22); transition: opacity 0.25s, transform 0.12s, filter 0.2s;
+  overflow-wrap: anywhere;
+}
+.qz-option-text { flex: 1; line-height: 1.35; text-shadow: 0 1px 1px rgb(0 0 0 / 0.25); }
+.qz-option.qz-dim { opacity: 0.3; filter: saturate(0.6); }
+.qz-option.qz-correct { animation: qz-glow 1.2s ease-in-out infinite alternate; }
+.qz-check { font-size: 1.6rem; }
+.qz-count { font-variant-numeric: tabular-nums; }
+@keyframes qz-glow { from { box-shadow: inset 0 -6px 0 rgb(0 0 0 / 0.22), 0 0 0 0 rgb(255 255 255 / 0.6); } to { box-shadow: inset 0 -6px 0 rgb(0 0 0 / 0.22), 0 0 0 6px rgb(255 255 255 / 0.55); } }
+
+/* reveal: one bar per option */
+.qz-bars { display: flex; justify-content: center; align-items: flex-end; gap: 1rem; height: 11rem; }
+.qz-bar { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; width: min(7rem, 20%); color: #fff; font-weight: 800; }
+.qz-bar.qz-dim { opacity: 0.4; }
+.qz-bar-fill { width: 100%; background: var(--tone); border-radius: 0.35rem 0.35rem 0 0; box-shadow: inset 0 -6px 0 rgb(0 0 0 / 0.2); }
+.qz-bar-label { display: flex; align-items: center; justify-content: center; gap: 0.25rem; width: 100%; padding: 0.35rem 0; background: var(--tone); border-radius: 0 0 0.35rem 0.35rem; }
+.qz-bar-count { font-size: 1.4rem; margin-bottom: 0.25rem; }
+
+/* ------------------------------------------------------------ people */
+.qz-avatar {
+  display: inline-grid; place-items: center; flex: none; border-radius: 999px; color: #fff; font-weight: 800;
+  box-shadow: inset 0 -3px 0 rgb(0 0 0 / 0.2), 0 0 0 3px rgb(255 255 255 / 0.9);
+}
+.qz-avatar-sm { width: 2rem; height: 2rem; font-size: 0.75rem; }
+.qz-avatar-md { width: 2.75rem; height: 2.75rem; font-size: 0.95rem; }
+.qz-avatar-lg { width: 4rem; height: 4rem; font-size: 1.3rem; }
+
+.qz-ranking { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
+.qz-ranking li {
+  display: flex; align-items: center; gap: 0.75rem; padding: 0.7rem 1rem; border-radius: 0.5rem;
+  background: #fff; color: #222; font-weight: 700; box-shadow: inset 0 -4px 0 rgb(0 0 0 / 0.12);
+}
+.qz-ranking li.is-me { background: var(--kh-gold); }
+.qz-rank { width: 1.75rem; text-align: center; font-size: 1.15rem; font-weight: 900; }
+.qz-name { flex: 1; overflow-wrap: anywhere; }
+.qz-score { font-variant-numeric: tabular-nums; font-weight: 900; }
+.qz-move { color: #26890c; font-size: 0.85rem; }
+.qz-streak { font-size: 0.85rem; }
+
+.qz-podium { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: end; gap: 0.75rem; min-height: 20rem; }
+.qz-podium-place { display: flex; flex-direction: column; align-items: center; gap: 0.4rem; color: #fff; text-align: center; }
+.qz-medal { font-size: 2.6rem; line-height: 1; filter: drop-shadow(0 3px 0 rgb(0 0 0 / 0.25)); }
+.qz-podium-name { font-weight: 900; font-size: 1.1rem; text-shadow: 0 2px 0 rgb(0 0 0 / 0.3); overflow-wrap: anywhere; }
+.qz-podium-block {
+  display: flex; flex-direction: column; align-items: center; justify-content: space-between; width: 100%;
+  padding: 0.75rem 0.25rem; border-radius: 0.5rem 0.5rem 0 0; background: rgb(255 255 255 / 0.95); color: var(--kh-purple);
+  box-shadow: inset 0 -6px 0 rgb(0 0 0 / 0.12);
+}
+.qz-place-1 .qz-podium-block { height: 12rem; background: var(--kh-gold); color: #3b2500; }
+.qz-place-2 .qz-podium-block { height: 9rem; }
+.qz-place-3 .qz-podium-block { height: 6.5rem; }
+.qz-podium-score { font-size: 1.2rem; font-weight: 900; font-variant-numeric: tabular-nums; }
+.qz-podium-rank { font-size: 2.2rem; font-weight: 900; opacity: 0.35; }
+
+/* ------------------------------------------------------------ ping */
+.qz-signal { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.75rem; font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.qz-signal svg { width: 1rem; height: 0.75rem; }
+.qz-signal rect { fill: currentColor; opacity: 0.25; }
+.qz-signal rect.on { opacity: 1; }
+.qz-signal.is-good { color: #22c55e; }
+.qz-signal.is-ok { color: #f59e0b; }
+.qz-signal.is-bad { color: #ef4444; }
+.qz-signal.is-unknown { color: #9ca3af; }
+
+/* ------------------------------------------------------------ timing */
+.qz-bigcount {
+  display: grid; place-items: center; width: 9rem; height: 9rem; margin: 0 auto; border-radius: 999px;
+  background: #fff; color: var(--kh-purple); font-size: 4.5rem; font-weight: 900; box-shadow: 0 10px 0 rgb(0 0 0 / 0.2);
+}
+.qz-timebar { height: 0.6rem; border-radius: 999px; background: rgb(255 255 255 / 0.25); overflow: hidden; }
+.qz-timebar > div { height: 100%; width: 100%; background: #fff; border-radius: inherit; }
+
+/* ------------------------------------------------------------ Kahoot stage */
+.kh-stage {
+  min-height: 100vh; padding: 1rem clamp(0.75rem, 3vw, 2rem) 2rem; color: #fff;
+  background: radial-gradient(circle at 15% 10%, rgb(255 255 255 / 0.12) 0 6rem, transparent 6.1rem),
+    radial-gradient(circle at 90% 85%, rgb(255 255 255 / 0.08) 0 10rem, transparent 10.1rem),
+    linear-gradient(160deg, var(--kh-purple), var(--kh-purple-dark));
+  font-weight: 600;
+}
+.kh-center { display: grid; place-items: center; text-align: center; }
+.kh-center-row { justify-content: center; flex-wrap: wrap; }
+.kh-stack { display: grid; gap: 1rem; }
+.kh-body { display: grid; gap: 1.25rem; max-width: 1200px; margin: 0 auto; width: 100%; }
+.kh-narrow { max-width: 760px; }
+.kh-card { background: #fff; color: #222; border-radius: 0.75rem; padding: 2rem; max-width: 36rem; box-shadow: 0 10px 0 rgb(0 0 0 / 0.2); }
+.kh-card p { margin: 0; }
+.kh-title { margin: 0; font-size: clamp(1.3rem, 3vw, 2rem); font-weight: 900; }
+.kh-heading { margin: 0; text-align: center; font-size: clamp(1.6rem, 4vw, 2.4rem); font-weight: 900; text-shadow: 0 3px 0 rgb(0 0 0 / 0.25); }
+.kh-question {
+  margin: 0; padding: 1rem 1.25rem; line-height: 1.4; border-radius: 0.5rem; background: #fff; color: #222; text-align: center;
+  font-size: clamp(1.2rem, 3vw, 2rem); font-weight: 900; box-shadow: 0 6px 0 rgb(0 0 0 / 0.18); overflow-wrap: anywhere;
+}
+.kh-question-xl { font-size: clamp(1.4rem, 4vw, 2.6rem); max-width: 60rem; }
+
+.kh-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem; padding: 0.6rem 1.25rem;
+  border: 0; border-radius: 0.4rem; background: #fff; color: var(--kh-purple); font: inherit; font-weight: 900;
+  box-shadow: inset 0 -4px 0 rgb(0 0 0 / 0.2); cursor: pointer; transition: transform 0.1s, filter 0.15s;
+}
+.kh-btn:hover:not(:disabled) { filter: brightness(1.06); }
+.kh-btn:active:not(:disabled) { transform: translateY(2px); box-shadow: inset 0 -2px 0 rgb(0 0 0 / 0.2); }
+.kh-btn:disabled { opacity: 0.5; cursor: default; }
+.kh-btn-lg { padding: 0.85rem 2rem; font-size: 1.25rem; }
+.kh-btn-sm { padding: 0.4rem 0.9rem; font-size: 0.875rem; }
+.kh-btn-light { background: rgb(255 255 255 / 0.2); color: #fff; }
+/* On white cards */
+.kh-btn-primary { background: var(--kh-purple); color: #fff; }
+.kh-btn-outline { background: #fff; color: var(--kh-purple); box-shadow: inset 0 0 0 2px var(--kh-purple), inset 0 -4px 0 rgb(0 0 0 / 0.12); }
+.kh-btn-ghost { background: transparent; color: #fff; box-shadow: none; }
+.kh-link { border: 0; background: none; color: var(--kh-purple); font: inherit; cursor: pointer; text-decoration: underline; }
+
+.kh-banner { max-width: 1200px; margin: 0 auto 1rem; padding: 0.6rem 1rem; border-radius: 0.5rem; background: var(--qz-0); font-weight: 700; }
+.kh-banner-info { background: rgb(0 0 0 / 0.25); }
+
+/* splash between questions */
+.kh-splash { min-height: 70vh; align-content: center; gap: 1.5rem; }
+.kh-splash-label {
+  display: inline-block; justify-self: center; padding: 0.4rem 1.2rem; border-radius: 999px; background: #fff;
+  color: var(--kh-purple); font-size: 1.3rem; font-weight: 900; animation: kh-swing 0.6s ease-out;
+}
+@keyframes kh-swing { from { transform: translateY(-40px) rotate(-8deg); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* effects layer (confetti, emoji rain) */
+.fx-layer { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 1000; }
+.fx-rain span { position: absolute; top: 0; }
+
+@media (max-width: 520px) {
+  .qz-option { min-height: 3.75rem; font-size: 1rem; padding: 0.7rem; }
+  .qz-podium { min-height: 16rem; }
+  .qz-place-1 .qz-podium-block { height: 9rem; }
+  .qz-place-2 .qz-podium-block { height: 7rem; }
+  .qz-place-3 .qz-podium-block { height: 5rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .qz-option.qz-correct, .kh-splash-label { animation: none; }
+}
