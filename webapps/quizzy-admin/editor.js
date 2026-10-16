@@ -352,6 +352,7 @@ function SettingsDialog({ event, patch, patchSettings, onClose }) {
       <${Checkbox} label="Hiện câu hỏi trong lúc đếm ngược (cho người chơi đọc trước)" checked=${s.showQuestionOnCountdown}
         onChange=${(v) => patchSettings({ showQuestionOnCountdown: v })} />
       <${Checkbox} label="Bắt buộc đăng nhập (không nhận người chơi ẩn danh)" checked=${s.requireLogin} onChange=${(v) => patchSettings({ requireLogin: v })} />
+      <${Checkbox} label="Cho phép người chơi chat (phòng chờ và trong lúc chơi)" checked=${s.chat} onChange=${(v) => patchSettings({ chat: v })} />
       <${Checkbox} label="Chặn mở DevTools trên máy người chơi (răn đe người tò mò, host thấy ai đã mở)" checked=${s.blockDevtools}
         onChange=${(v) => patchSettings({ blockDevtools: v })} />
     </div>

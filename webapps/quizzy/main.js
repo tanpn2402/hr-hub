@@ -1,11 +1,12 @@
 import { html, render, useEffect, useRef, useState } from './lib.js';
 import { confetti, countUp, emojiRain, pop, shake } from './fx.js';
 import { watchDevtools } from '/hr-hub/vendor/hrhub-guard.module.js';
-import { Avatar, BigCount, Leaderboard, Podium, QuestionImage, Signal, Suit, SUIT_NAMES, TimeBar } from './ui.js';
+import { Avatar, BigCount, Bubble, ChatPanel, Leaderboard, Podium, QuestionImage, RankingPanel, Signal, Suit, SUIT_NAMES, TimeBar, useBubbles } from './ui.js';
 
 // The app that hosts the rooms is not hard-coded: the administrator picks it in this app's "hostApp" setting
 // (hrhub.json), and the host app lists this app in its own "playerApp" setting.
 const RETRY_MS = 5000;
+
 
 const JOIN_ERRORS = {
   not_found: 'Không tìm thấy phòng, hoặc phòng chưa mở. Kiểm tra lại mã.',
@@ -127,6 +128,8 @@ function Play({ code, me }) {
   const [online, setOnline] = useState(true);
   const ping = usePing();
   const [peeking, setPeeking] = useState(false);
+  // Lobby chat (relayed by the host).
+  const [chat, setChat] = useState([]);
   const channel = useRef(null);
   const retry = useRef(null);
   // Set while the room is closed and we wait for the host to open it again (join answers not_found meanwhile).
@@ -143,6 +146,8 @@ function Play({ code, me }) {
         ch.onState(setState),
         ch.onPresence(setPresence),
         ch.on('me', setMine),
+        ch.on('chat', addChat),
+        ch.on('chatHistory', (payload) => mergeChat((payload && payload.messages) || [])),
         ch.on('rejected', (payload) => setPhase({ kind: 'closed', reason: payload.reason })),
         ch.onClose((reason) => {
           offs.forEach((off) => off());
@@ -197,6 +202,19 @@ function Play({ code, me }) {
     };
   }, [guarded]);
 
+  function mergeChat(messages) {
+    setChat((list) => {
+      const known = new Set(list.map((m) => m.id));
+      return [...list, ...messages.filter((m) => !known.has(m.id))].sort((a, b) => a.at - b.at).slice(-100);
+    });
+  }
+
+  function addChat(message) {
+    mergeChat([message]);
+  }
+
+  const sendChat = (text) => (channel.current ? channel.current.send('chat', { text }) : Promise.reject(new Error('offline')));
+
   const getAsset = (key) => (channel.current ? channel.current.getAsset(key) : Promise.reject(new Error('offline')));
 
   const choose = async (idx, choice) => {
@@ -248,7 +266,7 @@ function Play({ code, me }) {
     </div>`;
   } else {
     body = html`<${Stage} state=${state} mine=${mine} result=${result} myAnswer=${myAnswer} choose=${choose} you=${you} presence=${presence}
-      getAsset=${getAsset} />`;
+      getAsset=${getAsset} chat=${chat} sendChat=${sendChat} />`;
   }
 
   return html`<main class=${`kh-stage kh-player-stage${verdict ? ` is-${verdict}` : ''}`}>
@@ -265,6 +283,13 @@ function Play({ code, me }) {
       ? html`<div class="kh-banner kh-banner-info">Người tổ chức đang mất kết nối, vui lòng chờ…</div>`
       : null}
     ${body}
+    ${phase.kind === 'playing' && state && state.phase !== 'lobby'
+      ? html`<${RankingPanel} key="ranking" you=${you} version=${state.rankingKey || ''}
+          load=${state.rankingKey ? () => getAsset(state.rankingKey).then((text) => JSON.parse(text)) : null} />`
+      : null}
+    ${phase.kind === 'playing' && state && state.phase !== 'lobby' && state.chat
+      ? html`<${ChatPanel} key="game-chat" you=${you} chat=${chat} sendChat=${sendChat} defaultOpen=${false} />`
+      : null}
     ${peeking
       ? html`<div class="kh-peek" role="alertdialog" aria-label="Đang mở DevTools">
           <div class="kh-card kh-stack kh-center-card">
@@ -277,8 +302,10 @@ function Play({ code, me }) {
   </main>`;
 }
 
-function Stage({ state, mine, result, myAnswer, choose, you, presence, getAsset }) {
-  if (!state || state.phase === 'lobby') return html`<${Lobby} you=${you} presence=${presence} />`;
+function Stage({ state, mine, result, myAnswer, choose, you, presence, getAsset, chat, sendChat }) {
+  if (!state || state.phase === 'lobby') {
+    return html`<${Lobby} you=${you} presence=${presence} chatEnabled=${!!(state && state.chat)} chat=${chat} sendChat=${sendChat} />`;
+  }
   if (state.phase === 'countdown') return html`<${Countdown} key=${`c${state.idx}`} state=${state} getAsset=${getAsset} />`;
   if (state.phase === 'question') {
     return html`<${Question} key=${`q${state.idx}`} state=${state} myAnswer=${myAnswer} choose=${choose} getAsset=${getAsset} />`;
@@ -288,17 +315,37 @@ function Stage({ state, mine, result, myAnswer, choose, you, presence, getAsset 
   return html`<${Final} state=${state} mine=${mine} you=${you} />`;
 }
 
-function Lobby({ you, presence }) {
+/** Waiting room: everyone who joined (avatar + name), their chat messages as bubbles, and the chat panel. */
+function Lobby({ you, presence, chatEnabled, chat, sendChat }) {
   const ref = useRef(null);
-  useEffect(() => pop(ref.current, { from: 0.2 }), []);
-  return html`<div class="kh-center kh-fill">
-    <div class="kh-stack kh-lobby" ref=${ref}>
-      ${you ? html`<div class="kh-bounce"><${Avatar} id=${you.id} name=${you.name} size="lg" /></div>` : null}
-      <h2 class="kh-heading">Bạn đã vào phòng!</h2>
-      <p class="kh-sub">Thấy tên mình trên màn hình chưa? 👀</p>
-      ${presence ? html`<p class="kh-sub">👥 ${presence.count} người chơi · chờ người tổ chức bắt đầu…</p>` : null}
-      <div class="kh-dots"><i></i><i></i><i></i></div>
-    </div>
+  const bubbles = useBubbles(chat);
+  useEffect(() => pop(ref.current, { from: 0.6 }), []);
+  // Players only get the list when the host app shares it (hrhub.json presenceVisible); otherwise just the count.
+  const members = presence && presence.participants
+    ? [...presence.participants].sort((a, b) => (b.online - a.online) || a.joinedAt - b.joinedAt)
+    : null;
+
+  return html`<div class="kh-lobby-wrap">
+    <section class="kh-lobby-main" ref=${ref}>
+      <div class="kh-lobby-head">
+        ${you ? html`<div class="kh-bounce"><${Avatar} id=${you.id} name=${you.name} size="lg" /></div>` : null}
+        <h2 class="kh-heading">Bạn đã vào phòng!</h2>
+        <p class="kh-sub">Chờ người tổ chức bắt đầu…${presence ? html` · 👥 <strong>${presence.count}</strong> người chơi` : null}</p>
+        <div class="kh-dots"><i></i><i></i><i></i></div>
+      </div>
+      ${members
+        ? html`<ul class="kh-roster">
+            ${members.map(
+              (member) => html`<li key=${member.id} class=${`kh-roster-item${member.online ? '' : ' is-offline'}${you && member.id === you.id ? ' is-me' : ''}`}>
+                ${bubbles[member.id] ? html`<${Bubble} key=${bubbles[member.id].id} text=${bubbles[member.id].text} />` : null}
+                <${Avatar} id=${member.id} name=${member.name} />
+                <span class="kh-roster-name">${member.name}${you && member.id === you.id ? ' (bạn)' : ''}</span>
+              </li>`,
+            )}
+          </ul>`
+        : html`<p class="kh-sub">Thấy tên mình trên màn hình chưa? 👀</p>`}
+    </section>
+    ${chatEnabled ? html`<${ChatPanel} you=${you} chat=${chat} sendChat=${sendChat} />` : null}
   </div>`;
 }
 

@@ -120,6 +120,8 @@ export class WebAppRealtimeService implements OnModuleDestroy {
       this.channels.set(id, channel);
       this.logger.log(`Channel ${id} opened by ${identity.id}`);
     } else {
+      // The app may have been updated meanwhile: the channel follows the published version's rule.
+      channel.rule = rule;
       this.logger.log(`Channel ${id}: host ${identity.id} reconnected`);
     }
 

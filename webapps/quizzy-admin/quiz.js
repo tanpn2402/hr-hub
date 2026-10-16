@@ -29,6 +29,8 @@ export const DEFAULT_SETTINGS = {
   showQuestionToPlayers: true,
   /** Players' app pauses on DevTools and covers the game while it is open (and the host is told). */
   blockDevtools: true,
+  /** Players can chat while they wait in the lobby (relayed by the host, who can see and moderate it). */
+  chat: true,
   countdownSeconds: 3,
   revealSeconds: 5,
   leaderboardSeconds: 10,

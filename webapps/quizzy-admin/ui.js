@@ -1,4 +1,4 @@
-import { html, useEffect, useRef } from './lib.js';
+import { html, useEffect, useRef, useState } from './lib.js';
 import { countUp, pop, riseIn } from './fx.js';
 
 /** Answer symbols: hearts, diamonds, clubs, spades ("cơ, rô, chuồn, bích"), one per answer colour. */
@@ -281,16 +281,231 @@ export function QuestionImage({ question, endsAt, total, revealed }) {
   </div>`;
 }
 
-/** Small stroke icons (Lucide shapes): play, logout, copy, check. */
+/** Small stroke icons (Lucide shapes): play, logout, copy, check, chat, x. */
 const ICONS = {
   play: ['M6 4l14 8-14 8z'],
   logout: ['M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4', 'M16 17l5-5-5-5', 'M21 12H9'],
   copy: ['M8 8h12v12H8z', 'M4 16V4h12'],
   check: ['M20 6L9 17l-5-5'],
+  chat: ['M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z'],
+  x: ['M18 6L6 18', 'M6 6l12 12'],
+  trophy: ['M6 9H4.5a2.5 2.5 0 0 1 0-5H6', 'M18 9h1.5a2.5 2.5 0 0 0 0-5H18', 'M4 22h16',
+    'M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22', 'M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22',
+    'M18 2H6v7a6 6 0 0 0 12 0V2Z'],
 };
 export function Icon({ name, size = 18 }) {
   return html`<svg class="qz-icon" width=${size} height=${size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
     stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
     ${ICONS[name].map((d) => html`<path d=${d} fill=${name === 'play' ? 'currentColor' : 'none'} />`)}
   </svg>`;
+}
+
+// ------------------------------------------------------------------ lobby chat (shared by players and the host)
+
+/** How long a chat message stays as a bubble over its sender. */
+export const BUBBLE_MS = 20000;
+export const CHAT_MAX_CHARS = 200;
+
+/** The latest message of each sender, for BUBBLE_MS after it was received: { senderId: message }. */
+export function useBubbles(chat) {
+  const [bubbles, setBubbles] = useState({});
+  const seen = useRef(chat.length);
+  const timers = useRef([]);
+  useEffect(() => () => timers.current.forEach(clearTimeout), []);
+  useEffect(() => {
+    const fresh = chat.slice(seen.current);
+    seen.current = chat.length;
+    if (!fresh.length) return;
+    setBubbles((current) => {
+      const next = { ...current };
+      for (const message of fresh) next[message.from.id] = message;
+      return next;
+    });
+    // Each bubble expires on its own (a newer message must not cancel older timers).
+    const added = fresh.map((message) =>
+      setTimeout(() => {
+        setBubbles((current) => {
+          if (!current[message.from.id] || current[message.from.id].id !== message.id) return current;
+          const { [message.from.id]: gone, ...rest } = current;
+          return rest;
+        });
+      }, BUBBLE_MS),
+    );
+    timers.current = [...timers.current.slice(-200), ...added];
+  }, [chat.length]);
+  return bubbles;
+}
+
+/** A chat message popping over its sender (fades out before BUBBLE_MS). */
+export function Bubble({ text }) {
+  const ref = useRef(null);
+  useEffect(() => pop(ref.current, { from: 0.4 }), []);
+  return html`<div class="kh-bubble" ref=${ref} style=${{ animationDuration: `${BUBBLE_MS}ms` }}>${text}</div>`;
+}
+
+/** Chat anchored bottom-right: a round button (chat icon + unread count; ✕ while open) and the panel above it. */
+export function ChatPanel({ you, chat, sendChat, defaultOpen }) {
+  // defaultOpen: true/false; unset = open on wide screens (lobby), closed on phones.
+  const [open, setOpen] = useState(() => (defaultOpen === undefined ? window.innerWidth >= 760 : defaultOpen));
+  const [seen, setSeen] = useState(chat.length);
+  const [text, setText] = useState('');
+  const [error, setError] = useState('');
+  const list = useRef(null);
+  // Follow new messages only while the reader is at the bottom; reading history is never interrupted.
+  const atBottom = useRef(true);
+  const [below, setBelow] = useState(0); // new messages under the visible part
+  const shown = useRef(chat.length);
+
+  const toBottom = () => {
+    if (list.current) list.current.scrollTop = list.current.scrollHeight;
+    atBottom.current = true;
+    setBelow(0);
+  };
+  const onScroll = () => {
+    const el = list.current;
+    atBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+    if (atBottom.current) setBelow(0);
+  };
+
+  // Opening the panel shows the latest messages.
+  useEffect(() => {
+    if (!open) return;
+    toBottom();
+    shown.current = chat.length;
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    setSeen(chat.length);
+    const added = chat.length - shown.current;
+    shown.current = chat.length;
+    if (added <= 0) return;
+    const last = chat[chat.length - 1];
+    const mine = you && last && last.from.id === you.id;
+    if (atBottom.current || mine) toBottom();
+    else setBelow((n) => n + added);
+  }, [chat.length]);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    const value = text.trim();
+    if (!value) return;
+    setText('');
+    setError('');
+    try {
+      await sendChat(value);
+    } catch (err) {
+      setText(value);
+      setError(err.code === 'rate_limited' ? 'Gửi chậm lại một chút nhé.' : `Chưa gửi được: ${err.message}`);
+    }
+  };
+
+  const unread = Math.max(0, chat.length - seen);
+  const fab = html`<button type="button" class=${`kh-chat-fab${open ? ' is-open' : ''}`} onClick=${() => setOpen(!open)}
+    aria-label=${open ? 'Đóng chat' : 'Mở chat'} aria-expanded=${open}>
+    <${Icon} name=${open ? 'x' : 'chat'} size=${26} />
+    ${!open && unread ? html`<span class="kh-chat-badge">${unread > 99 ? '99+' : unread}</span>` : null}
+  </button>`;
+  if (!open) return fab;
+
+  return html`${fab}<aside class="kh-chat" aria-label="Chat phòng chờ">
+    <header class="kh-chat-head">
+      <strong>Chat phòng chờ</strong>
+      <span class="hh-muted">${chat.length} tin</span>
+    </header>
+    <ol class="kh-chat-list" ref=${list} onScroll=${onScroll}>
+      ${chat.length === 0 ? html`<li class="kh-chat-empty">Chưa có tin nhắn. Chào mọi người một câu đi! 👋</li>` : null}
+      ${chat.map((message) => {
+        const mine = you && message.from.id === you.id;
+        return html`<li key=${message.id} class=${`kh-chat-msg${mine ? ' is-mine' : ''}${message.from.host ? ' is-host' : ''}`}>
+          ${mine ? null : html`<${Avatar} id=${message.from.id} name=${message.from.name} size="sm" />`}
+          <div class="kh-chat-body">
+            ${mine ? null : html`<div class="kh-chat-name">${message.from.name}${message.from.host ? html` <span class="kh-chat-tag">Tổ chức</span>` : null}</div>`}
+            <div class="kh-chat-text">${message.text}</div>
+            <time class="kh-chat-time">${new Date(message.at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</time>
+          </div>
+        </li>`;
+      })}
+    </ol>
+    ${below
+      ? html`<button type="button" class="kh-chat-jump" onClick=${toBottom}>↓ ${below} tin mới</button>`
+      : null}
+    <form class="kh-chat-form" onSubmit=${submit}>
+      <input class="kh-input kh-chat-input" maxlength=${CHAT_MAX_CHARS} placeholder="Nhắn gì đó…" value=${text}
+        aria-label="Tin nhắn" onInput=${(e) => setText(e.target.value)} />
+      <button class="kh-btn kh-btn-dark kh-btn-sm" type="submit" disabled=${!text.trim()}>Gửi</button>
+    </form>
+    ${error ? html`<div class="kh-chat-error">${error}</div>` : null}
+  </aside>`;
+}
+
+
+/**
+ * Whole ranking, anchored bottom-left (mirror of the chat): a round trophy button (✕ while open) and the panel above.
+ * Either `players` (the host has them) or `load()` (players fetch the host's ranking asset, again when `version`
+ * changes while open).
+ */
+export function RankingPanel({ you, players, load, version, defaultOpen = false }) {
+  const [open, setOpen] = useState(defaultOpen);
+  const [list, setList] = useState(players || null);
+  const [status, setStatus] = useState('idle'); // idle | loading | ready | error
+  const box = useRef(null);
+
+  useEffect(() => {
+    if (players) setList(players);
+  }, [players]);
+
+  useEffect(() => {
+    if (!open || !load) return;
+    let alive = true;
+    setStatus('loading');
+    load().then(
+      (value) => {
+        if (!alive) return;
+        setList(value);
+        setStatus('ready');
+      },
+      () => alive && setStatus('error'),
+    );
+    return () => {
+      alive = false;
+    };
+  }, [open, version]);
+
+  // Opening shows where I am.
+  useEffect(() => {
+    if (!open || !box.current) return;
+    const me = box.current.querySelector('.is-me');
+    if (me && me.scrollIntoView) me.scrollIntoView({ block: 'center' });
+  }, [open, list]);
+
+  const fab = html`<button type="button" class=${`kh-rank-fab${open ? ' is-open' : ''}`} onClick=${() => setOpen(!open)}
+    aria-label=${open ? 'Đóng bảng xếp hạng' : 'Xem bảng xếp hạng'} aria-expanded=${open}>
+    <${Icon} name=${open ? 'x' : 'trophy'} size=${26} />
+  </button>`;
+  if (!open) return fab;
+
+  const rows = list || [];
+  return html`${fab}<aside class="kh-rank-panel" aria-label="Bảng xếp hạng">
+    <header class="kh-chat-head">
+      <strong>Bảng xếp hạng</strong>
+      <span class="hh-muted">${rows.length} người chơi</span>
+    </header>
+    <ol class="kh-rank-list" ref=${box}>
+      ${status === 'loading' && !list ? html`<li class="kh-chat-empty">Đang tải…</li>` : null}
+      ${status === 'error' ? html`<li class="kh-chat-empty">Chưa tải được bảng xếp hạng.</li>` : null}
+      ${rows.length === 0 && status !== 'loading' && status !== 'error'
+        ? html`<li class="kh-chat-empty">Chưa có điểm: bảng xếp hạng có sau câu đầu tiên.</li>`
+        : null}
+      ${rows.map(
+        (player) => html`<li key=${player.id} class=${`kh-rank-row${you && player.id === you.id ? ' is-me' : ''}`}>
+          <span class=${`kh-rank-no${player.rank <= 3 ? ` is-top is-top-${player.rank}` : ''}`}>${player.rank}</span>
+          <${Avatar} id=${player.id} name=${player.name} size="sm" />
+          <span class="kh-rank-name">${player.name}${you && player.id === you.id ? ' (bạn)' : ''}</span>
+          ${player.correct !== undefined ? html`<span class="kh-rank-correct" title="Số câu đúng">✓${player.correct}</span>` : null}
+          <span class="kh-rank-score">${player.score.toLocaleString('vi-VN')}</span>
+        </li>`,
+      )}
+    </ol>
+  </aside>`;
 }

@@ -131,6 +131,12 @@
 .kh-btn-lg { padding: 0.85rem 2rem; font-size: 1.25rem; }
 .kh-btn-sm { padding: 0.4rem 0.9rem; font-size: 0.875rem; }
 .kh-btn-light { background: rgb(255 255 255 / 0.2); color: #fff; }
+.kh-btn-dark { background: #333; color: #fff; }
+.kh-input {
+  width: 100%; padding: 0.8rem 1rem; border: 2px solid #ddd; border-radius: 0.4rem; font: inherit; font-size: 1.1rem;
+  font-weight: 800; text-align: center; color: #222; background: #fff;
+}
+.kh-input:focus { outline: none; border-color: var(--kh-purple); }
 /* On white cards */
 .kh-btn-primary { background: var(--kh-purple); color: #fff; }
 .kh-btn-outline { background: #fff; color: var(--kh-purple); box-shadow: inset 0 0 0 2px var(--kh-purple), inset 0 -4px 0 rgb(0 0 0 / 0.12); }
@@ -164,3 +170,95 @@
 }
 
 .qz-icon { flex: none; }
+
+/* ------------------------------------------------------------ lobby chat (players and host) */
+/* the bubble sits above the avatar, fades out at the end of its life (BUBBLE_MS) */
+.kh-bubble {
+  position: absolute; bottom: calc(100% - 0.25rem); left: 50%; z-index: 5; width: max-content; max-width: 13rem;
+  translate: -50% 0; padding: 0.45rem 0.7rem; border-radius: 0.8rem; background: #fff; color: #222; font-size: 0.82rem;
+  font-weight: 700; line-height: 1.35; text-align: left; overflow-wrap: anywhere; box-shadow: 0 6px 18px rgb(0 0 0 / 0.25);
+  animation-name: kh-bubble-life; animation-timing-function: linear; animation-fill-mode: forwards;
+}
+.kh-bubble::after {
+  content: ''; position: absolute; top: 100%; left: 50%; translate: -50% 0; border: 7px solid transparent; border-top-color: #fff;
+}
+@keyframes kh-bubble-life { 0%, 92% { opacity: 1; } 100% { opacity: 0; } }
+
+/* chat: anchored bottom-right, the panel floats above its round button */
+.kh-chat-fab {
+  position: fixed; right: 1.25rem; bottom: 1.25rem; z-index: 61; display: grid; place-items: center; width: 3.5rem; height: 3.5rem;
+  border: 0; border-radius: 999px; background: #fff; color: var(--kh-purple); cursor: pointer; box-shadow: 0 6px 0 rgb(0 0 0 / 0.2);
+  transition: transform 0.15s, background 0.15s;
+}
+.kh-chat-fab:hover { transform: translateY(-2px); }
+.kh-chat-fab.is-open { background: var(--kh-gold); color: #3b2500; }
+.kh-chat-badge {
+  position: absolute; top: -0.3rem; right: -0.3rem; min-width: 1.4rem; height: 1.4rem; padding: 0 0.35rem; border-radius: 999px;
+  background: var(--qz-0); color: #fff; font-size: 0.75rem; font-weight: 900; line-height: 1.4rem;
+}
+.kh-chat {
+  position: fixed; right: 1.25rem; bottom: 5.75rem; z-index: 60; display: flex; flex-direction: column;
+  width: min(360px, calc(100vw - 2.5rem)); height: min(60vh, 32rem); border-radius: 0.9rem; background: #fff; color: #222;
+  box-shadow: 0 12px 40px rgb(0 0 0 / 0.35); overflow: hidden; transform-origin: bottom right; animation: kh-chat-in 0.2s ease-out;
+}
+@keyframes kh-chat-in { from { transform: scale(0.85); opacity: 0; } }
+.kh-chat-head { display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 0.9rem; border-bottom: 1px solid #eee; }
+.kh-chat-head .hh-muted { font-size: 0.75rem; }
+.kh-chat-list { flex: 1; list-style: none; margin: 0; padding: 0.75rem; display: flex; flex-direction: column; gap: 0.6rem; overflow-y: auto; }
+.kh-chat-empty { margin: auto; color: #888; font-size: 0.85rem; text-align: center; }
+.kh-chat-msg { display: flex; gap: 0.5rem; align-items: flex-end; max-width: 90%; }
+.kh-chat-msg.is-mine { align-self: flex-end; flex-direction: row-reverse; }
+.kh-chat-body { padding: 0.45rem 0.7rem; border-radius: 0.8rem 0.8rem 0.8rem 0.2rem; background: #f3f0fb; min-width: 0; }
+.kh-chat-msg.is-mine .kh-chat-body { border-radius: 0.8rem 0.8rem 0.2rem 0.8rem; background: var(--kh-purple); color: #fff; }
+.kh-chat-name { font-size: 0.72rem; font-weight: 800; color: var(--kh-purple); }
+.kh-chat-text { font-size: 0.88rem; font-weight: 600; line-height: 1.4; overflow-wrap: anywhere; }
+.kh-chat-time { display: block; margin-top: 0.15rem; font-size: 0.65rem; opacity: 0.6; text-align: right; }
+.kh-chat-form { display: flex; gap: 0.4rem; padding: 0.6rem; border-top: 1px solid #eee; }
+.kh-chat-input { min-width: 0; padding: 0.55rem 0.8rem; font-size: 0.9rem; font-weight: 600; text-align: left; }
+.kh-chat-form .kh-btn { flex: none; }
+.kh-chat-error { padding: 0 0.75rem 0.6rem; color: var(--qz-0); font-size: 0.8rem; font-weight: 700; }
+
+/* new messages while reading history: a pill to jump down (the list keeps its position) */
+.kh-chat-jump {
+  position: absolute; left: 50%; bottom: 4.25rem; translate: -50% 0; z-index: 2; padding: 0.35rem 0.9rem; border: 0;
+  border-radius: 999px; background: var(--kh-purple); color: #fff; font: inherit; font-size: 0.8rem; font-weight: 800;
+  box-shadow: 0 4px 12px rgb(0 0 0 / 0.25); cursor: pointer; animation: kh-chat-in 0.15s ease-out;
+}
+
+.kh-chat-msg.is-host .kh-chat-body { background: #fff4cc; }
+.kh-chat-tag { margin-left: 0.25rem; padding: 0 0.35rem; border-radius: 999px; background: var(--kh-gold); color: #3b2500; font-size: 0.62rem; }
+@media (max-width: 520px) {
+  .kh-chat { right: 0.75rem; left: 0.75rem; width: auto; bottom: 5.25rem; height: 62vh; }
+  .kh-chat-fab { right: 0.75rem; bottom: 0.75rem; }
+}
+
+/* ------------------------------------------------------------ whole ranking (bottom-left, mirror of the chat) */
+.kh-rank-fab {
+  position: fixed; left: 1.25rem; bottom: 1.25rem; z-index: 61; display: grid; place-items: center; width: 3.5rem; height: 3.5rem;
+  border: 0; border-radius: 999px; background: #fff; color: var(--kh-purple); cursor: pointer; box-shadow: 0 6px 0 rgb(0 0 0 / 0.2);
+  transition: transform 0.15s, background 0.15s;
+}
+.kh-rank-fab:hover { transform: translateY(-2px); }
+.kh-rank-fab.is-open { background: var(--kh-gold); color: #3b2500; }
+.kh-rank-panel {
+  position: fixed; left: 1.25rem; bottom: 5.75rem; z-index: 60; display: flex; flex-direction: column;
+  width: min(360px, calc(100vw - 2.5rem)); height: min(60vh, 32rem); border-radius: 0.9rem; background: #fff; color: #222;
+  box-shadow: 0 12px 40px rgb(0 0 0 / 0.35); overflow: hidden; transform-origin: bottom left; animation: kh-chat-in 0.2s ease-out;
+}
+.kh-rank-list { flex: 1; list-style: none; margin: 0; padding: 0.5rem; display: flex; flex-direction: column; gap: 0.25rem; overflow-y: auto; }
+.kh-rank-row { display: flex; align-items: center; gap: 0.6rem; padding: 0.45rem 0.6rem; border-radius: 0.6rem; font-weight: 700; }
+.kh-rank-row:nth-child(odd) { background: #faf8fe; }
+.kh-rank-row.is-me { background: var(--kh-gold); color: #3b2500; }
+.kh-rank-no { width: 1.8rem; text-align: center; font-weight: 900; }
+.kh-rank-no.is-top { display: grid; place-items: center; height: 1.8rem; border-radius: 999px; color: #fff; }
+.kh-rank-no.is-top-1 { background: #e0a800; }
+.kh-rank-no.is-top-2 { background: #94a3b8; }
+.kh-rank-no.is-top-3 { background: #b45309; }
+.kh-rank-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kh-rank-correct { font-size: 0.75rem; color: #26890c; }
+.kh-rank-row.is-me .kh-rank-correct { color: inherit; }
+.kh-rank-score { font-weight: 900; font-variant-numeric: tabular-nums; }
+@media (max-width: 520px) {
+  .kh-rank-panel { left: 0.75rem; right: 0.75rem; width: auto; bottom: 5.25rem; height: 62vh; }
+  .kh-rank-fab { left: 0.75rem; bottom: 0.75rem; }
+}

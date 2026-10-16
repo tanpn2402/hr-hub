@@ -17,6 +17,11 @@ import {
 import { channelName, clearRun, saveResult, saveRun } from './store.js';
 
 const TOP = 10;
+/** Lobby chat: what the host keeps and relays (players never talk to each other directly). */
+const CHAT_KEEP = 50;
+const CHAT_MAX_CHARS = 200;
+const CHAT_MIN_INTERVAL_MS = 800;
+const CHAT_HISTORY_BYTES = 14000; // under the 16 KB message limit
 const imageKey = (question) => `img:${question.id}`;
 /** Requests from players (hello on join/reconnect) are answered in one sendEach every so often. */
 const HELLO_FLUSH_MS = 300;
@@ -52,8 +57,12 @@ export class QuizHost {
     this.pending = null; // the step an auto timer will run (kept while paused)
     this.helloQueue = new Set();
     this.helloTimer = null;
+    this.chat = [];
+    this.lastChatAt = {};
     this.offs = [];
     this.assetsReady = Promise.resolve();
+    /** Asset key of the latest full ranking (players fetch it only when they open the ranking panel). */
+    this.rankingKey = null;
   }
 
   // ------------------------------------------------------------ lifecycle
@@ -73,6 +82,7 @@ export class QuizHost {
         this.changed();
       }),
       this.channel.on('answer', (payload, meta) => this.onAnswer(payload, meta)),
+      this.channel.on('chat', (payload, meta) => this.onChat(payload, meta)),
       // The players' app reports DevTools opening/closing (only a hint: it runs on their device).
       this.channel.on('devtools', (payload, meta) => {
         if (!this.ensurePlayer(meta.from)) return;
@@ -226,6 +236,7 @@ export class QuizHost {
     }
 
     this.phase = 'reveal';
+    await this.shareRanking();
     await this.autoStep(this.settings.revealSeconds, () => this.afterReveal());
     await this.sendPersonal();
     await this.checkpoint();
@@ -247,6 +258,7 @@ export class QuizHost {
     this.clearTimer();
     this.phase = 'finished';
     this.phaseEndsAt = 0;
+    await this.shareRanking();
     await this.publish();
     await this.sendPersonal();
     await saveResult(this.event.code, this.result());
@@ -359,6 +371,50 @@ export class QuizHost {
     return online.length > 0 && online.every(([id]) => this.answers[id]);
   }
 
+  /**
+   * Lobby chat. The sender comes from the server (meta.from), so nobody can speak for someone else; the host trims,
+   * rate-limits and relays to everyone.
+   */
+  onChat(payload, meta) {
+    // The host's own relays come back to it too (a broadcast reaches the whole channel): never relay them again.
+    if (meta.host) return;
+    if (!this.settings.chat || !this.channel) return;
+    if (!this.ensurePlayer(meta.from)) return;
+    const id = meta.from.id;
+    if (meta.at - (this.lastChatAt[id] || 0) < CHAT_MIN_INTERVAL_MS) return;
+    const text = String((payload && payload.text) || '').replace(/\s+/g, ' ').trim().slice(0, CHAT_MAX_CHARS);
+    if (!text) return;
+    this.lastChatAt[id] = meta.at;
+    const message = { id: newId('m'), from: { id, name: this.players[id].name }, text, at: meta.at };
+    this.chat = [...this.chat, message].slice(-CHAT_KEEP);
+    void this.channel.broadcast('chat', message).catch((error) => this.fail(error));
+    this.changed();
+  }
+
+  /** The host's own message: tagged as the organizer, broadcast to everyone (it is not relayed back). */
+  async sendChat(text) {
+    if (!this.channel || !this.settings.chat) throw new Error('Chat đang tắt');
+    const clean = String(text || '').replace(/\s+/g, ' ').trim().slice(0, CHAT_MAX_CHARS);
+    if (!clean) return;
+    const me = this.channel.me || { id: 'host', name: 'Người tổ chức' };
+    const message = { id: newId('m'), from: { id: me.id, name: me.name, host: true }, text: clean, at: window.hrhub.realtime.now() };
+    this.chat = [...this.chat, message].slice(-CHAT_KEEP);
+    this.changed();
+    await this.channel.broadcast('chat', message);
+  }
+
+  /** The latest messages that fit in one message. */
+  chatHistory() {
+    const messages = [];
+    let bytes = 0;
+    for (let i = this.chat.length - 1; i >= 0; i--) {
+      bytes += JSON.stringify(this.chat[i]).length + 1;
+      if (bytes > CHAT_HISTORY_BYTES) break;
+      messages.unshift(this.chat[i]);
+    }
+    return messages;
+  }
+
   /** A player (re)joined: tell them their score and whether they already answered the current question. */
   queueHello(id) {
     this.helloQueue.add(id);
@@ -368,6 +424,10 @@ export class QuizHost {
       const ids = [...this.helloQueue];
       this.helloQueue.clear();
       void this.sendPersonal(ids);
+      // Newcomers (and players back after a reload) get the chat so far.
+      if (this.settings.chat && this.chat.length) {
+        void this.channel.sendTo(ids, 'chatHistory', { messages: this.chatHistory() }).catch(() => {});
+      }
     }, HELLO_FLUSH_MS);
   }
 
@@ -422,7 +482,32 @@ export class QuizHost {
       idx: this.idx,
       auto: this.settings.auto,
       guard: this.settings.blockDevtools,
+      chat: this.settings.chat,
+      rankingKey: this.rankingKey,
     };
+  }
+
+  /**
+   * The whole ranking as a channel asset (one per question: assets are cached by key), so the state stays small and
+   * only players who open the ranking panel download it.
+   */
+  async shareRanking() {
+    if (!this.channel) return;
+    const list = ranking(this.players).map((player) => ({
+      id: player.id,
+      name: player.name,
+      score: player.score,
+      rank: player.rank,
+      correct: Object.values(this.players[player.id].answers).filter((answer) => answer.correct).length,
+    }));
+    const key = `ranking:${this.phase === 'finished' ? 'final' : this.idx}`;
+    try {
+      await this.channel.putAsset(key, JSON.stringify(list));
+      this.rankingKey = key;
+    } catch (error) {
+      // Not worth stopping the game (e.g. the channel's asset budget is used up): players keep the previous one.
+      console.warn('Could not share the ranking', error);
+    }
   }
 
   top() {
@@ -534,6 +619,9 @@ export class QuizHost {
         move: this.previousRanks[player.id] ? this.previousRanks[player.id] - player.rank : 0,
       })),
       hostPing: this.hostPing,
+      chat: this.chat,
+      chatOn: this.settings.chat,
+      me: this.channel ? this.channel.me : null,
       players: Object.entries(this.players)
         .map(([id, player]) => ({ id, ...player, ping: player.online ? (this.pings[id] ?? null) : null }))
         .sort((a, b) => a.joinedAt - b.joinedAt),

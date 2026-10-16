@@ -256,3 +256,7 @@
   padding: 0.35rem 0.75rem; border-radius: 0.5rem; background: rgb(255 192 10 / 0.18); border: 1px dashed var(--kh-gold, #ffc00a);
   color: #fff; font-size: 0.85rem; font-weight: 600; max-width: 32rem;
 }
+
+/* chat bubbles over the host's player cards */
+.kh-player { position: relative; }
+.kh-players { padding-top: 2.5rem; row-gap: 2.75rem; }

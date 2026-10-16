@@ -18,7 +18,7 @@
         "participants": [{ "$setting": "playerApp" }],
         "maxParticipants": 500,
         "allowAnonymous": true,
-        "presenceVisible": false,
+        "presenceVisible": true,
         "hostGraceSeconds": 600
       }
     ]

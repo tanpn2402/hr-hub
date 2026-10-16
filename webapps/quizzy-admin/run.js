@@ -4,7 +4,7 @@ import { QuizHost } from './host.js';
 import { missingImages, settingsOf, validateEvent } from './quiz.js';
 import { clearRun, loadEvent, loadRun, playerApp } from './store.js';
 import { confetti, pop } from './fx.js';
-import { Alert, AnswerBars, Avatar, BigCount, Icon, Leaderboard, Loading, OptionTile, Podium, QuestionImage, Signal, TimeBar } from './ui.js';
+import { Alert, AnswerBars, Avatar, BigCount, Bubble, ChatPanel, Icon, Leaderboard, Loading, OptionTile, Podium, QuestionImage, RankingPanel, Signal, TimeBar, useBubbles } from './ui.js';
 import { copyText } from './transfer.js';
 import { qrDataUrl } from '/hr-hub/vendor/hrhub-qr.module.js';
 
@@ -154,15 +154,27 @@ export function RunView({ code }) {
     ${snap.error ? html`<div class="kh-banner">${snap.error}</div>` : null}
     ${!snap.connected ? html`<div class="kh-banner">Phòng đã đóng. Người chơi không còn kết nối.</div>` : null}
     ${snap.paused && snap.phase !== 'lobby' ? html`<div class="kh-banner kh-banner-info">Đã tạm dừng: bấm “Tiếp tục” hoặc “Tiếp” để đi tiếp.</div>` : null}
-    <${Stage} snap=${snap} event=${event} busy=${busy} act=${act} kick=${kick} />
+    <${Stage} snap=${snap} event=${event} busy=${busy} act=${act} kick=${kick} send=${(text) => host.current.sendChat(text)} />
+    ${snap.phase !== 'lobby'
+      ? html`<${RankingPanel} key="ranking" you=${snap.me} players=${snap.ranking.map((player) => ({
+          id: player.id,
+          name: player.name,
+          score: player.score,
+          rank: player.rank,
+          correct: Object.values(player.answers || {}).filter((answer) => answer.correct).length,
+        }))} />`
+      : null}
+    ${snap.chatOn && snap.phase !== 'lobby'
+      ? html`<${ChatPanel} key="game-chat" you=${snap.me} chat=${snap.chat} sendChat=${(text) => host.current.sendChat(text)} defaultOpen=${false} />`
+      : null}
   </main>`;
 }
 
-function Stage({ snap, event, busy, act, kick }) {
+function Stage({ snap, event, busy, act, kick, send }) {
   const settings = settingsOf(event);
   switch (snap.phase) {
     case 'lobby':
-      return html`<${Lobby} snap=${snap} event=${event} busy=${busy} act=${act} kick=${kick} />`;
+      return html`<${Lobby} snap=${snap} event=${event} busy=${busy} act=${act} kick=${kick} send=${send} />`;
     case 'countdown':
       return html`<${CountdownStage} snap=${snap} key=${snap.idx} showQuestion=${settings.showQuestionOnCountdown} />`;
     case 'question':
@@ -195,8 +207,9 @@ function Stage({ snap, event, busy, act, kick }) {
   }
 }
 
-function Lobby({ snap, event, busy, act, kick }) {
+function Lobby({ snap, event, busy, act, kick, send }) {
   const [player, setPlayer] = useState(null);
+  const bubbles = useBubbles(snap.chat);
   useEffect(() => {
     playerApp().then(setPlayer, () => {});
   }, []);
@@ -236,15 +249,17 @@ function Lobby({ snap, event, busy, act, kick }) {
     </div>
     ${snap.players.length === 0 ? html`<div class="kh-waiting">Đang chờ người chơi tham gia…</div>` : null}
     <div class="kh-players">
-      ${snap.players.map((player) => html`<${PlayerCard} key=${player.id} player=${player} kick=${kick} />`)}
+      ${snap.players.map((player) => html`<${PlayerCard} key=${player.id} player=${player} kick=${kick} bubble=${bubbles[player.id]} />`)}
     </div>
+    ${snap.chatOn ? html`<${ChatPanel} you=${snap.me} chat=${snap.chat} sendChat=${send} />` : null}
   </div>`;
 }
 
-function PlayerCard({ player, kick }) {
+function PlayerCard({ player, kick, bubble }) {
   const ref = useRef(null);
   useEffect(() => pop(ref.current), []);
   return html`<div class=${`kh-player${player.online ? '' : ' is-offline'}`} ref=${ref}>
+    ${bubble ? html`<${Bubble} key=${bubble.id} text=${bubble.text} />` : null}
     <${Avatar} id=${player.id} name=${player.name} />
     <div class="kh-player-info">
       <div class="kh-player-name">
