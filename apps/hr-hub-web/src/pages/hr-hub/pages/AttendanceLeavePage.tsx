@@ -197,7 +197,7 @@ export function AttendanceLeavePage() {
 
           <HRMetricCard
             title={t('total_fines')}
-            value={`${formatMoney(stats.fines)} ₫`}
+            value={`${formatMoney(stats.fines)}`}
             description={t('total_attendance_fines')}
             icon={Banknote}
           />

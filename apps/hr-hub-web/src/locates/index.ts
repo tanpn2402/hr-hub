@@ -371,7 +371,7 @@ export const resources = {
       failed_to_load_payment_history: 'Không thể tải lịch sử thanh toán.',
       no_payment_history_yet: 'Chưa có lịch sử thanh toán.',
       fine_payment_history: 'Lịch sử nộp phạt',
-      attendance_and_leave_fine_payment_history: 'Chấm công và nghỉ phép > Lịch sử nôp phạt',
+      attendance_and_leave_fine_payment_history: 'Chấm công và nghỉ phép > Lịch sử nộp phạt',
       reject_this_payment: 'Từ chối giao dịch này',
       payment_will_be_rejected: 'Giao dịch thanh toán này sẽ bị từ chối.',
       confirm: 'Xác nhận',
