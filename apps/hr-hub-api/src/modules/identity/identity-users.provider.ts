@@ -9,6 +9,7 @@ import {
 export interface IdentityUsersProvider {
   createUser(input: CreateIdentityUserInput): Promise<IdentityUser>;
   listUsers(query?: IdentityUserQuery): Promise<IdentityUsersPage>;
+  getUserById(userId: string): Promise<IdentityUser>;
   getRealmRoles(userId: string): Promise<string[]>;
   replaceRealmRoles(userId: string, roleNames: string[]): Promise<void>;
   findUserByUsername(username: string): Promise<IdentityUser | null>;

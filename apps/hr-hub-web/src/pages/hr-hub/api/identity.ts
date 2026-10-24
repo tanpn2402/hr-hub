@@ -29,6 +29,11 @@ export async function getIdentityUsers(params: Record<string, string | number | 
   return data;
 }
 
+export async function getIdentityUser(id: string) {
+  const { data } = await apiClient.get<IdentityUser>(`/identity/users/${encodeURIComponent(id)}`);
+  return data;
+}
+
 export async function createIdentityUser(input: Partial<IdentityUserInput>) {
   const { data } = await apiClient.post<IdentityUser>('/identity/users', input);
   return data;

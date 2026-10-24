@@ -43,11 +43,16 @@ export class IdenplaneUsersProvider implements IdentityUsersProvider {
     return { users, total: page.total };
   }
 
+  async getUserById(userId: string): Promise<IdentityUser> {
+    const user = await this.idenplane.adminRequest<IdenplaneUser>('GET', this.userPath(userId));
+    return {
+      ...this.toIdentityUser(user),
+      roles: await this.getRealmRoles(userId),
+    };
+  }
+
   async getRealmRoles(userId: string): Promise<string[]> {
-    const roles = await this.idenplane.adminRequest<Array<{ name: string }>>(
-      'GET',
-      `${this.userPath(userId)}/role-mappings/realm`,
-    );
+    const roles = await this.idenplane.adminRequest<Array<{ name: string }>>('GET', `${this.userPath(userId)}/role-mappings/realm`);
     return roles.map((role) => role.name);
   }
 
@@ -79,11 +84,7 @@ export class IdenplaneUsersProvider implements IdentityUsersProvider {
 
     const rolesToRemove = currentRoles.filter((roleName) => !requestedRoles.includes(roleName));
     if (rolesToRemove.length > 0) {
-      await this.idenplane.adminRequest<void>(
-        'DELETE',
-        `${this.userPath(userId)}/role-mappings/realm`,
-        { roleNames: rolesToRemove },
-      );
+      await this.idenplane.adminRequest<void>('DELETE', `${this.userPath(userId)}/role-mappings/realm`, { roleNames: rolesToRemove });
     }
   }
 

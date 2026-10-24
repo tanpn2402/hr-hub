@@ -2,12 +2,7 @@ import { Body, Controller, Delete, Get, Inject, Param, Patch, Post, Query, UseGu
 import { AuthGuard } from '../auth/auth.guard';
 import { HrRolesGuard } from '../auth/hr-roles.guard';
 import { IDENTITY_USERS_PROVIDER, IdentityUsersProvider } from './identity-users.provider';
-import {
-  AssignIdentityUserRolesInput,
-  CreateIdentityUserInput,
-  IdentityUserQuery,
-  UpdateIdentityUserInput,
-} from './identity-users.types';
+import { AssignIdentityUserRolesInput, CreateIdentityUserInput, IdentityUserQuery, UpdateIdentityUserInput } from './identity-users.types';
 
 @Controller('identity/users')
 @UseGuards(AuthGuard, HrRolesGuard)
@@ -35,6 +30,11 @@ export class IdentityUsersController {
   @Patch(':userId')
   update(@Param('userId') userId: string, @Body() input: UpdateIdentityUserInput) {
     return this.users.updateUser(userId, input);
+  }
+
+  @Get(':userId')
+  getUser(@Param('userId') userId: string) {
+    return this.users.getUserById(userId);
   }
 
   @Post(':userId/roles')

@@ -156,6 +156,7 @@ export function RoleAssignmentDialog({
     mutationFn: (roleNames: string[]) => assignIdentityUserRoles(user.id, roleNames),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['identity-users'] });
+      void queryClient.invalidateQueries({ queryKey: ['identity-user', user.id] });
       toast.success(t('identity_roles_assigned'));
       onClose();
     },
@@ -189,7 +190,7 @@ export function RoleAssignmentDialog({
               render={({ field }) => (
                 <div className="max-h-72 space-y-2 overflow-auto rounded-md border p-3">
                   {roles.data.map((role) => (
-                    <label key={role.id} className="flex items-start gap-3 text-sm">
+                    <label key={role.id} className="flex items-center gap-3 text-sm">
                       <Checkbox
                         checked={field.value.includes(role.name)}
                         onCheckedChange={(checked) => {

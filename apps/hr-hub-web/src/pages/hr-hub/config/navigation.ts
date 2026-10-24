@@ -7,6 +7,7 @@ import {
   CreditCard,
   AppWindow,
   Globe,
+  ShieldCheck,
 } from 'lucide-react';
 
 import { OverviewPage } from '../pages/OverviewPage';
@@ -16,9 +17,9 @@ import { AttendanceLeavePage } from '../pages/AttendanceLeavePage';
 import { AttendanceImportHistoryPage } from '../pages/AttendanceImportHistoryPage';
 import { AttendanceSettingsPage } from '../pages/AttendanceSettingsPage';
 import { FinePaymentHistoryPage } from '../pages/FinePaymentHistoryPage';
-import { AppsIndexPage } from '../pages/AppsIndexPage';
 import { WebAppsPage } from '../pages/WebAppsPage';
 import { WebAppDetailPage } from '../pages/WebAppDetailPage';
+import { WebAppAccessRequestsPage } from '../pages/WebAppAccessRequestsPage';
 
 export type HRHubNavItem = {
   id: string;
@@ -104,14 +105,21 @@ export const hrHubNavigation: HRHubNavItem[] = [
     label: 'apps',
     icon: AppWindow,
     path: 'apps-admin',
-    component: AppsIndexPage,
+    component: WebAppsPage,
     children: [
       {
         id: 'web-apps',
         label: 'web_apps',
         icon: Globe,
-        path: 'apps-admin/web-apps',
+        path: 'apps-admin',
         component: WebAppsPage,
+      },
+      {
+        id: 'manage-access',
+        label: 'manage_access',
+        icon: ShieldCheck,
+        path: 'apps-admin/manage-access',
+        component: WebAppAccessRequestsPage,
       },
       {
         id: 'web-app-detail',

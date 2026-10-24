@@ -120,15 +120,10 @@ export class WebAppRuntimeController {
     return this.requests.status(slug, user);
   }
 
-  /** Ask administrators for access (written into the manage-app-accesses app). */
+  /** Ask administrators for access to this web app. */
   @Post(':slug/access-request')
   @UseGuards(AuthGuard)
-  requestAccess(
-    @Param('slug') slug: string,
-    @Body() body: { message?: string } | undefined,
-    @CurrentUser() user: AuthenticatedUser,
-    @Req() request: Request,
-  ) {
-    return this.requests.create(slug, user, body?.message, deviceId(request));
+  requestAccess(@Param('slug') slug: string, @Body() body: { message?: string } | undefined, @CurrentUser() user: AuthenticatedUser) {
+    return this.requests.create(slug, user, body?.message);
   }
 }

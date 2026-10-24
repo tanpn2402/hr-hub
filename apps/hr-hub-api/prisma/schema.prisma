@@ -376,6 +376,30 @@ model WebApp {
   @@index([status])
 }
 
+model WebAppAccessRequest {
+  id                String   @id @default(cuid())
+  webAppId          String
+  appSlug           String
+  appName           String
+  requesterId       String
+  requesterUsername String?
+  requesterEmail    String?
+  message           String   @default("")
+  requiredRoles     String   @default("[]")
+  status            String   @default("pending")
+  requestedAt       DateTime @default(now())
+  decidedAt         DateTime?
+  decidedBy         String?
+  decidedByName     String?
+  note              String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([appSlug, requesterId])
+  @@index([status, requestedAt])
+  @@index([requesterId, status])
+}
+
 model WebAppVersion {
   id String @id @default(cuid())
 

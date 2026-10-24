@@ -21,7 +21,7 @@ export type RequestAccessApp = {
 
 /**
  * Shown to a signed-in user who lacks the roles of a web app: app info, a "request access" button (the request
- * lands in the manage-app-accesses app so administrators know who asks; roles themselves are granted in Idenplane),
+ * is stored in HR Hub for administrators to review; roles themselves are granted in Idenplane),
  * the request status, and a sign-out button.
  */
 export function RequestAccessPanel({ app }: { app: RequestAccessApp }) {
