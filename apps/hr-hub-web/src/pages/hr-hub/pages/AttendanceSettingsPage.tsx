@@ -3,6 +3,7 @@ import { ArrowDown, ArrowUp, ArrowUpDown, Copy, Pencil, Plus, Trash2 } from 'luc
 import { useForm } from 'react-hook-form';
 
 import {
+  createSortedRowModel,
   metaHelper,
   stockFeatures,
   tableFeatures,
@@ -214,6 +215,7 @@ export function AttendanceSettingsPage() {
 
   const features = tableFeatures({
     ...stockFeatures,
+    sortedRowModel: createSortedRowModel(),
     columnMeta: metaHelper<{ textRight?: boolean }>(),
   });
 

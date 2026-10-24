@@ -3,6 +3,7 @@ import { AlertCircle, ArrowDown, ArrowUp, ArrowUpDown, Check, X } from 'lucide-r
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
+  createSortedRowModel,
   metaHelper,
   stockFeatures,
   tableFeatures,
@@ -82,6 +83,7 @@ export function useFinePaymentHistory(params: FinePaymentHistoryParams = {}) {
 
 const features = tableFeatures({
   ...stockFeatures,
+  sortedRowModel: createSortedRowModel(),
   columnMeta: metaHelper<{ textRight?: boolean }>(),
 });
 

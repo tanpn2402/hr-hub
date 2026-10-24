@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import {
+  createSortedRowModel,
   metaHelper,
   stockFeatures,
   tableFeatures,
@@ -35,6 +36,7 @@ function formatMoney(value: number) {
 
 const features = tableFeatures({
   ...stockFeatures,
+  sortedRowModel: createSortedRowModel(),
   columnMeta: metaHelper<{ textRight?: boolean }>(),
 });
 

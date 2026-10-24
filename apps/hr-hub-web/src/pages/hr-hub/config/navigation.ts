@@ -11,6 +11,7 @@ import {
 
 import { OverviewPage } from '../pages/OverviewPage';
 import { EmployeesPage } from '../pages/EmployeesPage';
+import { IdentityPage } from '../pages/IdentityPage';
 import { AttendanceLeavePage } from '../pages/AttendanceLeavePage';
 import { AttendanceImportHistoryPage } from '../pages/AttendanceImportHistoryPage';
 import { AttendanceSettingsPage } from '../pages/AttendanceSettingsPage';
@@ -44,6 +45,22 @@ export const hrHubNavigation: HRHubNavItem[] = [
     icon: Users,
     path: 'employees',
     component: EmployeesPage,
+    children: [
+      {
+        id: 'employees-master-data',
+        label: 'master_data',
+        icon: Users,
+        path: 'employees',
+        component: EmployeesPage,
+      },
+      {
+        id: 'integrated-identity',
+        label: 'integrated_identity',
+        icon: Users,
+        path: 'employees/identity',
+        component: IdentityPage,
+      },
+    ],
   },
   {
     id: 'attendance-leave',

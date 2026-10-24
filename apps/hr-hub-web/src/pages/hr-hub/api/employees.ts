@@ -20,3 +20,8 @@ export async function getEmployees(): Promise<Employee[]> {
 
   return data;
 }
+
+export async function updateEmployee(id: string, input: Partial<Employee>): Promise<Employee> {
+  const { data } = await apiClient.patch<Employee>(`/employees/${id}`, input);
+  return data;
+}
