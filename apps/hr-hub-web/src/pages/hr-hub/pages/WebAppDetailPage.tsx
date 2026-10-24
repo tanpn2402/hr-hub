@@ -114,7 +114,7 @@ export function WebAppDetailPage() {
         description={`/hr-hub/apps/${app.slug}/`}
         actions={
           <>
-            <Button variant="outline" onClick={() => navigate('/hr-hub/apps-admin/web-apps')}>
+            <Button variant="outline" onClick={() => navigate('/hr-hub/apps-admin')}>
               <ArrowLeft className="mr-2 size-4" />
               {t('back')}
             </Button>
