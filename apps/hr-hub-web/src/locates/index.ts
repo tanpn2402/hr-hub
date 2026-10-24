@@ -234,6 +234,7 @@ export const resources = {
       employees_with_late_records: 'Nhân viên có ghi nhận đi trễ',
       total_fines: 'Tổng tiền phạt',
       total_attendance_fines: 'Tổng tiền phạt chấm công',
+      submitted_fines: 'Tổng tiền phạt đã nộp',
       approved_feedback: 'Phản hồi đã duyệt',
       attendance_report: 'Báo cáo chấm công',
       no_attendance_data: 'Không có dữ liệu chấm công',

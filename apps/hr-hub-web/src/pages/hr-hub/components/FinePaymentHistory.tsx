@@ -68,10 +68,14 @@ export async function getFinePaymentHistory(
 /* Hook                                                                       */
 /* -------------------------------------------------------------------------- */
 
-export function useFinePaymentHistory(params: FinePaymentHistoryParams = {}) {
+export function useFinePaymentHistory(
+  params: FinePaymentHistoryParams = {},
+  enabled = true,
+) {
   return useQuery({
     queryKey: ['fine-payment', 'history', params],
     queryFn: () => getFinePaymentHistory(params),
+    enabled,
     refetchInterval: 15_000,
     refetchOnWindowFocus: true,
   });
