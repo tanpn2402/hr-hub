@@ -12,6 +12,7 @@ import {
   type SortingState,
 } from '@tanstack/react-table';
 
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -58,14 +59,27 @@ export function EmployeesPage() {
       {
         accessorKey: 'department',
         header: t('department'),
-        cell: ({ row }) => row.original.department || '—',
+        cell: ({ row }) => {
+          const department = row.original.department;
+          return department ? (
+            <div className="flex flex-wrap gap-1">
+              {department.split(',').map((dep) => (
+                <Badge key={dep} variant="secondary">
+                  {dep.toLocaleUpperCase()}
+                </Badge>
+              ))}
+            </div>
+          ) : (
+            <span className="text-muted-foreground">—</span>
+          );
+        },
       },
       {
         accessorKey: 'referenceId',
         header: t('identity_account'),
         cell: ({ row }) => (
           <span className="font-mono text-xs">
-            {row.original.referenceId || t('not_linked')}
+            {row.original.referenceId ? t('view') : t('not_linked')}
           </span>
         ),
       },

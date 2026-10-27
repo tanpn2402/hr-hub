@@ -137,7 +137,7 @@ function AccountsTab() {
             <div className="flex flex-wrap gap-1">
               {row.original.roles.map((role) => (
                 <Badge key={role} variant="secondary">
-                  {role}
+                  {role.toLocaleUpperCase()}
                 </Badge>
               ))}
             </div>
