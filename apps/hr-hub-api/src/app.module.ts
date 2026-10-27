@@ -10,6 +10,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { FinesModule } from './modules/fines/fines.module';
 import { EmployeesModule } from './modules/employee/employees.module';
 import { WebAppsModule } from './modules/web-apps/web-apps.module';
+import { IdentityModule } from './modules/identity/identity.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { WebAppsModule } from './modules/web-apps/web-apps.module';
     PrismaModule,
     TraceModule,
     AuthModule,
+    IdentityModule,
     PaymentModule,
     WorkforceModule,
     FinesModule,

@@ -248,6 +248,26 @@ export type AccessRequestState = {
   note: string | null;
 };
 
+export type WebAppAccessRequest = {
+  id: string;
+  webAppId: string;
+  appSlug: string;
+  appName: string;
+  requesterId: string;
+  requesterUsername: string | null;
+  requesterEmail: string | null;
+  message: string;
+  requiredRoles: string[];
+  status: Exclude<AccessRequestStatus, 'none'>;
+  requestedAt: string;
+  decidedAt: string | null;
+  decidedBy: string | null;
+  decidedByName: string | null;
+  note: string | null;
+};
+
+export type AccessRequestDecision = 'approved' | 'rejected';
+
 export async function getMyAccessRequest(slug: string): Promise<AccessRequestState> {
   const { data } = await apiClient.get<AccessRequestState>(
     `/web-apps/${encodeURIComponent(slug)}/access-request`,
@@ -262,6 +282,23 @@ export async function requestWebAppAccess(
   const { data } = await apiClient.post<AccessRequestState>(
     `/web-apps/${encodeURIComponent(slug)}/access-request`,
     { message },
+  );
+  return data;
+}
+
+export async function getWebAppAccessRequests(): Promise<WebAppAccessRequest[]> {
+  const { data } = await apiClient.get<WebAppAccessRequest[]>('/web-apps/access-requests');
+  return data;
+}
+
+export async function decideWebAppAccessRequest(
+  id: string,
+  decision: AccessRequestDecision,
+  note: string,
+): Promise<WebAppAccessRequest> {
+  const { data } = await apiClient.patch<WebAppAccessRequest>(
+    `/web-apps/access-requests/${encodeURIComponent(id)}`,
+    { decision, note },
   );
   return data;
 }

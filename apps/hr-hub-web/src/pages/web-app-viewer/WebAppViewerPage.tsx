@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft } from 'lucide-react';
+import { AlertCircle, ArrowLeft } from 'lucide-react';
 import { useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
@@ -7,7 +7,7 @@ import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { apiClient } from '@/api/client';
 import { AppSwitcher } from '@/apps/AppSwitcher';
 import { useAuth } from '@/auth/useAuth';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { HRHubUserMenu } from '@/pages/hr-hub/components/HRHubUserMenu';
 
 import { isRealtimeOp, RealtimeBridge, RealtimeError } from './realtime-bridge';
@@ -216,13 +216,17 @@ export function WebAppViewerPage() {
 
   if (access.isError || !access.data) {
     return (
-      <div className="flex h-screen flex-col items-center justify-center gap-3 text-sm">
-        <div className="text-destructive">
-          {getErrorMessage(access.error, t('web_app_not_found'))}
+      <div className="flex h-screen items-center justify-center bg-background px-4">
+        <div className="w-full max-w-md space-y-4 rounded-xl border bg-card p-6 text-center shadow-sm">
+          <AlertCircle className="mx-auto size-10 text-destructive" aria-hidden="true" />
+          <div className="text-sm text-destructive">
+            {getErrorMessage(access.error, t('web_app_not_found'))}
+          </div>
+          <Link to="/hr-hub/" className={buttonVariants({ variant: 'outline' })}>
+            <ArrowLeft className="mr-2 size-4" />
+            {t('back')}
+          </Link>
         </div>
-        <Link to="/hr-hub/" className="text-muted-foreground underline">
-          {t('back')}
-        </Link>
       </div>
     );
   }

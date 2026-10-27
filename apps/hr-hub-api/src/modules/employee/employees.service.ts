@@ -11,6 +11,7 @@ export interface CreateEmployeeDto {
   position?: string;
   joinedAt?: string;
   active?: boolean;
+  referenceId?: string | null;
 }
 
 export interface UpdateEmployeeDto {
@@ -22,6 +23,7 @@ export interface UpdateEmployeeDto {
   position?: string;
   joinedAt?: string;
   active?: boolean;
+  referenceId?: string | null;
 }
 
 @Injectable()
@@ -71,6 +73,7 @@ export class EmployeesService {
         position: dto.position,
         joinedAt: dto.joinedAt ? new Date(dto.joinedAt) : undefined,
         active: dto.active ?? true,
+        referenceId: dto.referenceId,
       },
     });
   }
@@ -97,6 +100,7 @@ export class EmployeesService {
         position: dto.position,
         joinedAt: dto.joinedAt ? new Date(dto.joinedAt) : undefined,
         active: dto.active,
+        referenceId: dto.referenceId,
       },
     });
   }

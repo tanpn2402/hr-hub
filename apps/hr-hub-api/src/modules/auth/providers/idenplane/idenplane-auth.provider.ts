@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { AuthProvider } from '../../auth-provider';
 import { AuthCredentials, AuthenticatedUser } from '../../auth.types';
-import { IdenplaneClient } from './idenplane.client';
-import { IdenplaneTokenIntrospection } from './idenplane.types';
+import { IdenplaneClient } from '../../../integrations/idenplane/idenplane.client';
+import { IdenplaneTokenIntrospection } from '../../../integrations/idenplane/idenplane.types';
 
 @Injectable()
 export class IdenplaneAuthProvider implements AuthProvider {

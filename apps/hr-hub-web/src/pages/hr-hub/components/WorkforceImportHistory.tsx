@@ -3,6 +3,7 @@ import { ArrowDown, ArrowUp, ArrowUpDown, AlertCircle, Eye } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query';
 
 import {
+  createSortedRowModel,
   metaHelper,
   stockFeatures,
   tableFeatures,
@@ -88,6 +89,7 @@ function useImportBatchData(batchId: string | null) {
 
 const features = tableFeatures({
   ...stockFeatures,
+  sortedRowModel: createSortedRowModel(),
   columnMeta: metaHelper<{ textRight?: boolean }>(),
 });
 

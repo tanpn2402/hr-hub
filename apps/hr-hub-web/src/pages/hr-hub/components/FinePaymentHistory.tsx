@@ -3,6 +3,7 @@ import { AlertCircle, ArrowDown, ArrowUp, ArrowUpDown, Check, X } from 'lucide-r
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
+  createSortedRowModel,
   metaHelper,
   stockFeatures,
   tableFeatures,
@@ -67,10 +68,14 @@ export async function getFinePaymentHistory(
 /* Hook                                                                       */
 /* -------------------------------------------------------------------------- */
 
-export function useFinePaymentHistory(params: FinePaymentHistoryParams = {}) {
+export function useFinePaymentHistory(
+  params: FinePaymentHistoryParams = {},
+  enabled = true,
+) {
   return useQuery({
     queryKey: ['fine-payment', 'history', params],
     queryFn: () => getFinePaymentHistory(params),
+    enabled,
     refetchInterval: 15_000,
     refetchOnWindowFocus: true,
   });
@@ -82,6 +87,7 @@ export function useFinePaymentHistory(params: FinePaymentHistoryParams = {}) {
 
 const features = tableFeatures({
   ...stockFeatures,
+  sortedRowModel: createSortedRowModel(),
   columnMeta: metaHelper<{ textRight?: boolean }>(),
 });
 

@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 import {
   Banknote,
-  CalendarCheck,
   CheckCircle2,
   Clock3,
   Eye,
@@ -9,7 +8,6 @@ import {
   MessageSquareText,
   BadgeCheck,
   Upload,
-  Users,
   DatabaseX,
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
@@ -35,6 +33,7 @@ import { useTranslation } from 'react-i18next';
 import { formatMonth } from '@/lib/time-utils';
 import { useAvailableMonths, useMonthlyReport } from '../hooks/useWorkforce';
 import { formatMoney } from '@/lib/format-utils';
+import { useFinePaymentHistory } from '../components/FinePaymentHistory';
 
 export function AttendanceLeavePage() {
   const { t } = useTranslation();
@@ -59,6 +58,10 @@ export function AttendanceLeavePage() {
   const reportQuery = useMonthlyReport(currentMonth);
 
   const report = reportQuery.data;
+  const finePaymentsQuery = useFinePaymentHistory(
+    { month: currentMonth, status: 'settled' },
+    Boolean(currentMonth),
+  );
   const feedbackQuery = useQuery({
     queryKey: ['workforce', 'feedback', currentMonth],
     queryFn: () => getWorkforceFeedback(currentMonth),
@@ -72,8 +75,6 @@ export function AttendanceLeavePage() {
   const stats = useMemo(() => {
     if (!report) {
       return {
-        employees: 0,
-        attendance: 0,
         late: 0,
         fines: 0,
       };
@@ -84,18 +85,15 @@ export function AttendanceLeavePage() {
       0,
     );
 
-    const attendance = report.employeeSummaries.reduce(
-      (count, employee) => count + (employee.attendanceCount ?? 0),
-      0,
-    );
-
     return {
-      employees: report.employeeSummaries.length,
-      attendance,
       late,
       fines: report.grandTotal,
     };
   }, [report]);
+  const submittedFines = (finePaymentsQuery.data ?? []).reduce(
+    (total, payment) => total + payment.amount,
+    0,
+  );
 
   /* ---------------------------------------------------------------------- */
   /* Actions                                                                */
@@ -173,21 +171,7 @@ export function AttendanceLeavePage() {
         {/* Metrics                                                          */}
         {/* -------------------------------------------------------------- */}
 
-        <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-          <HRMetricCard
-            title={t('employees')}
-            value={stats.employees.toLocaleString()}
-            description={t('employees_in_this_report')}
-            icon={Users}
-          />
-
-          <HRMetricCard
-            title={t('attendance_records')}
-            value={stats.attendance.toLocaleString()}
-            description={t('imported_attendance_records')}
-            icon={CalendarCheck}
-          />
-
+        <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           <HRMetricCard
             title={t('late_employees')}
             value={stats.late.toLocaleString()}
@@ -197,8 +181,14 @@ export function AttendanceLeavePage() {
 
           <HRMetricCard
             title={t('total_fines')}
-            value={`${formatMoney(stats.fines)} ₫`}
+            value={`${formatMoney(stats.fines)}`}
             description={t('total_attendance_fines')}
+            icon={Banknote}
+          />
+
+          <HRMetricCard
+            title={t('submitted_fines')}
+            value={formatMoney(submittedFines)}
             icon={Banknote}
           />
 

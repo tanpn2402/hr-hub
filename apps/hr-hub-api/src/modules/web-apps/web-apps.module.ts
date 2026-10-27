@@ -3,6 +3,7 @@ import { TraceModule } from '../app/trace/trace.module';
 import { AuthModule } from '../auth/auth.module';
 import { ArchiveExtractorService } from './archive-extractor.service';
 import { WebAppAccessRequestService } from './web-app-access-request.service';
+import { WebAppAccessRequestsAdminController } from './web-app-access-requests-admin.controller';
 import { WebAppAccessService } from './web-app-access.service';
 import { WebAppOwnerGuard } from './web-app-owner.guard';
 import { WebAppDataService } from './web-app-data.service';
@@ -22,7 +23,7 @@ import { WebAppsService } from './web-apps.service';
 @Module({
   imports: [AuthModule, TraceModule],
   // Runtime controller first so its routes are matched before the admin ":id" routes.
-  controllers: [WebAppRuntimeController, WebAppsAdminController, WebAppStaticController],
+  controllers: [WebAppRuntimeController, WebAppAccessRequestsAdminController, WebAppsAdminController, WebAppStaticController],
   providers: [
     WebAppsConfig,
     WebAppStorageService,
