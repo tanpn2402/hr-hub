@@ -1,6 +1,7 @@
 export interface GenerateQrRequest {
   content: string;
   amount: number;
+  additionalInfo?: Record<string, any>;
 }
 
 export interface GenerateQrResult {

@@ -149,6 +149,8 @@ export class FinePaymentService {
       throw new BadRequestException('At least one monthly fine is required');
     }
 
+    const monthlyFines = await this.prisma.employeeMonthlyFine.findMany({ where: { id: { in: monthlyFineIds } } });
+
     const payment = await this.prisma.$transaction(async (tx) => {
       /*
        * ----------------------------------------------------------
@@ -285,6 +287,13 @@ export class FinePaymentService {
       const externalPayment = await this.paymentService.generateQr({
         amount: payment.amount,
         content: payment.id,
+        additionalInfo: {
+          qrContent:
+            payment.employeeName?.toUpperCase() +
+            ' di tre T' +
+            monthlyFines.map((monthlyFine) => dayjs(monthlyFine.month).format('M')).join(','),
+          // NGUYEN VAN A di tre T01,02,03
+        },
       });
 
       if (externalPayment) {
@@ -305,7 +314,6 @@ export class FinePaymentService {
     }
 
     const latestPayment = await this.prisma.finePayment.findUnique({ where: { id: payment.id } });
-    const monthlyFines = await this.prisma.employeeMonthlyFine.findMany({ where: { id: { in: monthlyFineIds } } });
 
     return {
       ...latestPayment,

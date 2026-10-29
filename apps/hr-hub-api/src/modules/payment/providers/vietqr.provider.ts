@@ -50,7 +50,7 @@ export class VietQrProvider extends BaseHTTPService implements IntegratedPayment
       accountName: this.config.getOrThrow<string>('VIETQR_ACCOUNT_NAME'),
       acqId: this.config.getOrThrow<number>('VIETQR_ACQ_ID'),
       amount: request.amount,
-      addInfo: "",
+      addInfo: request.additionalInfo?.['qrContent'] ?? '',
       format: 'text',
       template: 'compact',
     };
